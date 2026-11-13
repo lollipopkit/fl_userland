@@ -192,6 +192,11 @@ fn signal_pending(lock: &ffi::lock_t) -> bool {
 /// `PTRACE_INTERRUPT`, or a seized task's first stop, ends a wait as a signal
 /// does (Linux's `signal_wake_up` from `ptrace_trap_notify`); the syscall is
 /// then restarted after the stop, since no handler ran.
+/// Whether `PTRACE_INTERRUPT` has asked the calling thread for a trap.
+pub fn current_ptrace_trap_pending() -> bool {
+    ptrace_trap_pending()
+}
+
 fn ptrace_trap_pending() -> bool {
     with_current_ptrace(|p| p.trap_pending()).unwrap_or(false)
 }

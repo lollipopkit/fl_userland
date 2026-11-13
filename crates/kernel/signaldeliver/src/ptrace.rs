@@ -236,6 +236,86 @@ pub(super) fn trap_stop() -> bool {
     .unwrap_or(false)
 }
 
+/// What a traced thread in a stopped group does next, from
+/// [`ptrace_group_stop`].
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum GroupStopStep {
+    /// Not traced, or the group is not stopped: the ordinary group-stop
+    /// sleep, if any.
+    Untraced,
+    /// The tracer continued an attached tracee out of this group stop, and
+    /// it runs on while the group stays stopped.
+    Released,
+    /// A seized tracee was continued while the group is still stopped: it
+    /// takes the stop again, as Linux's `JOBCTL_STOP_PENDING` makes it.
+    Again,
+    /// `PTRACE_LISTEN`: sleep in the group stop, and trap when it ends.
+    Listening,
+}
+
+/// Linux's `do_signal_stop` for a ptraced thread: the group stop is a ptrace
+/// stop, which the tracer ends. An attached tracee reports the stop signal
+/// and has no `siginfo_` (`PTRACE_GETSIGINFO` is `EINVAL`); a seized one
+/// reports it with `PTRACE_EVENT_STOP`, and `PTRACE_LISTEN` can leave it in
+/// the group stop. Measured by `ptrace_attach_probe`'s group-stop cases.
+pub fn ptrace_group_stop() -> GroupStopStep {
+    let Some((sig, generation)) = taskview::with_current_group(|g| g.stop.current()).flatten() else {
+        return GroupStopStep::Untraced;
+    };
+    taskview::with_current_ptrace(|p| {
+        if !p.owes_group_stop(generation) {
+            return if p.is_traced() { GroupStopStep::Released } else { GroupStopStep::Untraced };
+        }
+        let seized = p.lock().seized;
+        let sig = sig as c_int;
+        if seized {
+            // This is the trap a pending `PTRACE_INTERRUPT` asked for:
+            // Linux's `do_jobctl_trap` takes both as one, so the request is
+            // spent here and a `PTRACE_LISTEN` that follows does not trap at
+            // once (`strace -p` on a stopped process reported it twice).
+            let _ = p.take_trap();
+            let status = sig | (PTRACE_EVENT_STOP << 8);
+            let mut info = event_info(PTRACE_EVENT_STOP);
+            info.sig = sig;
+            info.code = status;
+            p.enter_group_stop(status, Some(&info));
+        } else {
+            p.enter_group_stop(sig, None);
+        }
+        notify_of_stop(ffi::CLD_STOPPED_ as c_int, sig, true);
+        p.leave_syscall_pairing();
+        if p.wait_while_stopped(sigkill_is_pending) {
+            strace!("{} received a SIGKILL in a group stop", taskview::current_pid());
+            crate::do_exit_group(ffi::SIGKILL_ as c_int);
+        }
+        // A group stop has no signal to deliver as it ends.
+        let _ = p.take_resume_signal();
+        if p.is_listening() {
+            GroupStopStep::Listening
+        } else if seized {
+            GroupStopStep::Again
+        } else {
+            p.release_from(generation);
+            GroupStopStep::Released
+        }
+    })
+    .unwrap_or(GroupStopStep::Untraced)
+}
+
+/// A listening tracee's group stop ended (`SIGCONT`): the trap Linux takes
+/// then, `SIGTRAP | PTRACE_EVENT_STOP << 8`.
+pub fn ptrace_listen_ended() -> bool {
+    taskview::with_current_ptrace(|p| p.request_trap());
+    trap_stop()
+}
+
+/// Whether the calling thread, asleep in group stop `generation`, is to
+/// leave it for a ptrace stop: a tracer attached, or `PTRACE_INTERRUPT`.
+/// Atomics only: asked under the group stop's lock.
+pub fn ptrace_leaves_group_stop(generation: u64) -> bool {
+    taskview::with_current_ptrace(|p| p.owes_group_stop(generation) || p.trap_pending()).unwrap_or(false)
+}
+
 /// Tell the tracer that this task has stopped: Linux's
 /// `do_notify_parent_cldstop(tsk, true, CLD_TRAPPED)`, to `tsk->parent`,
 /// which is the tracer. It went to the real parent until 2026-11-13, which

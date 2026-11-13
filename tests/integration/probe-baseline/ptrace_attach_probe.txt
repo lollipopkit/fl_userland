@@ -69,4 +69,44 @@ TRACEEXIT: the stop                                      -> stopped 5 event 6
   GETEVENTMSG                                            -> 0x300
   GETSIGINFO                                             -> signo 5 code 0x605 pid is the tracee true
   then                                                   -> exited 3
+attached: SIGSTOP, the tracer sees                       -> stopped 19
+attached:   CONT with SIGSTOP                            -> ok
+attached:   then the tracer sees                         -> stopped 19
+attached:   GETSIGINFO in that stop                      -> EINVAL
+attached:   its state                                    -> t
+attached:   LISTEN, not seized                           -> EIO
+attached:   CONT                                         -> ok
+attached:   its state after CONT                         -> S
+attached:   then                                         -> nothing
+seized: SIGSTOP, the tracer sees                         -> stopped 19
+seized:   CONT with SIGSTOP                              -> ok
+seized:   then the tracer sees                           -> stopped 19 event 128
+seized:   GETSIGINFO in that stop                        -> signo 19 code 0x8013
+seized:   its state                                      -> t
+seized:   LISTEN                                         -> ok
+seized:   wait, WNOHANG, listening                       -> nothing
+seized:   its state, listening                           -> t
+seized:   CONT while listening                           -> ESRCH
+seized:   SIGCONT, the tracer sees                       -> stopped 5 event 128
+seized:   GETSIGINFO in that stop                        -> signo 5 code 0x8005
+seized:   CONT                                           -> ok
+seized:   then                                           -> stopped 18
+ATTACH a stopped child: the parent saw                   -> stopped 19
+ATTACH a stopped child                                   -> ok
+ATTACH a stopped child: then                             -> stopped 19
+ATTACH a stopped child: CONT                             -> ok
+ATTACH a stopped child: its state after CONT             -> t
+ATTACH a stopped child: then                             -> stopped 19
+SEIZE a stopped child: the parent saw                    -> stopped 19
+SEIZE a stopped child                                    -> ok
+SEIZE a stopped child: then                              -> stopped 19 event 128
+SEIZE a stopped child: INTERRUPT                         -> ok
+SEIZE a stopped child: then                              -> nothing
+SEIZE a stopped child: LISTEN                            -> ok
+SEIZE a stopped child: then, listening                   -> nothing
+SEIZE a stopped child: SIGCONT, then                     -> stopped 5 event 128
+SEIZE a stopped child: CONT, SIGSTOP, then               -> stopped 19
+SEIZE a stopped child: CONT                              -> ok
+SEIZE a stopped child: its state after CONT              -> S
+SEIZE a stopped child: then                              -> nothing
 SETOPTIONS(EXITKILL)                                     -> ok

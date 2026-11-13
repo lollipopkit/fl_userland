@@ -211,14 +211,43 @@ unsafe fn after_interrupt(cpu: *mut ffi::cpu_state) {
     // The claim happens whether or not the sleep did, which is the case where
     // the SIGCONT overtook the stop. See crates/kernel/groupstop.
     // The calling task's group, which it was dereferencing with no null test.
-    let Some(stop_wait) = taskview::with_current_group(|g| g.stop.wait_while_stopped_noting(note)) else {
-        return;
+    // A traced thread's group stop is a ptrace stop, which its tracer ends --
+    // and may end by letting it run while the group stays stopped, by
+    // `PTRACE_LISTEN`, or (seized) not at all until the group continues. A
+    // thread asleep in the stop leaves it when a tracer attaches, to take
+    // the ptrace stop instead. See `signaldeliver::receive::ptrace_group_stop`.
+    use signaldeliver::receive::{GroupStopStep, ptrace_group_stop, ptrace_leaves_group_stop, ptrace_listen_ended};
+    let mut traced_stop = traced_stop;
+    let mut slept = false;
+    let stop_wait = loop {
+        let step = ptrace_group_stop();
+        traced_stop |= step != GroupStopStep::Untraced;
+        let leave: fn(u64) -> bool = match step {
+            GroupStopStep::Again => continue,
+            GroupStopStep::Released => |_| true,
+            GroupStopStep::Listening => |_| taskview::current_ptrace_trap_pending(),
+            GroupStopStep::Untraced => ptrace_leaves_group_stop,
+        };
+        let Some(wait) = taskview::with_current_group(|g| g.stop.wait_while_stopped_until(&note, leave)) else {
+            return;
+        };
+        slept |= wait.was_stopped;
+        if step == GroupStopStep::Listening {
+            // The group continued, or the tracer interrupted: the trap.
+            ptrace_listen_ended();
+            continue;
+        }
+        if step == GroupStopStep::Untraced && taskview::with_current_group(|g| g.stop.is_stopped()) == Some(true) {
+            // Left early for a tracer that attached.
+            continue;
+        }
+        break wait;
     };
     // A ptrace stop is the same case: the tracer suppressed the signal, or
     // the stop was a trap with no signal at all, and no handler ran. A
     // handler that did run moved the pc, and the rewind below then finds
     // nothing at the svc to rewind (`take_rewind` is given the pc).
-    let was_stopped = stop_wait.was_stopped || traced_stop;
+    let was_stopped = slept || stop_wait.was_stopped || traced_stop;
 
     // The stop is over and no handler ran for it -- a stop is not a handler.
     // Linux restarts the syscall the stop interrupted, so `^Z` then `fg` on a

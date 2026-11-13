@@ -49,8 +49,16 @@
 //!   stops at first; the trap ends a blocked wait as a signal would and the
 //!   syscall is restarted after it.
 //!
-//! `ptrace_attach_probe` is the measurement. `PTRACE_LISTEN`, and a group
-//! stop counting as a ptrace stop for an attached tracee, are not done.
+//! - **a group stop** is a ptrace stop for a traced thread (Linux's
+//!   `do_signal_stop` for a ptraced task): an attached tracee reports the
+//!   stop signal with no `siginfo_` and runs on once continued, the group
+//!   still stopped; a seized one reports `PTRACE_EVENT_STOP`, stops again if
+//!   continued while the group is stopped, and `PTRACE_LISTEN` leaves it in
+//!   the group stop to trap when that ends. A tracer that attaches to a
+//!   stopped thread wakes it into the ptrace stop.
+//!
+//! `ptrace_attach_probe` is the measurement. `PTRACE_O_TRACESECCOMP` is not
+//! done: `crates/kernel/seccomp` answers `SECCOMP_RET_TRACE` with `ENOSYS`.
 //!
 //! A tracer that exits **does** detach its tracees, since 2026-09-08 --
 //! `exitcalls`' `exit_ptrace`, which kills those that asked for

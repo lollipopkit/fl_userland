@@ -185,9 +185,17 @@ pub(crate) fn general_of(found: &Found) -> General<'_> {
 /// The state character. No sleep state is visible to this kernel, so anything
 /// that is neither a zombie nor stopped reports `R`.
 fn state_of(found: &Found) -> u8 {
+    let ptrace = found.task().ptrace();
     if found.task().is_zombie() {
         b'Z'
-    } else if found.group().stop().is_stopped() {
+    } else if ptrace.is_some_and(|p| { let s = p.lock(); s.stopped || s.listening }) {
+        // `t`, tracing stop: a ptrace stop, or a seized tracee listening in
+        // its group stop.
+        b't'
+    } else if let Some((_, generation)) = found.group().stop().current()
+        && !ptrace.is_some_and(|p| p.is_traced() && !p.owes_group_stop(generation))
+    {
+        // Stopped, unless its tracer let it run out of this stop.
         b'T'
     } else if found.task().is_blocked() {
         // Every live task was `R` until 2026-10-18, so `ps` showed a shell

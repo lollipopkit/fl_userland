@@ -96,6 +96,8 @@ pub(super) fn options_valid(data: u64) -> bool {
 
 const PTRACE_GETEVENTMSG: u32 = 0x4201;
 const PTRACE_INTERRUPT: u32 = 0x4207;
+const PTRACE_LISTEN: u32 = 0x4208;
+const PTRACE_EVENT_STOP: c_int = 128;
 
 pub fn sys_ptrace(request: u32, pid: c_int, addr: u64, data: u64) -> Result<(), Errno> {
     strace!("ptrace({request}, {pid}, {addr:#x}, {data:#x})");
@@ -157,6 +159,30 @@ pub fn sys_ptrace(request: u32, pid: c_int, addr: u64, data: u64) -> Result<(), 
             }
             ptrace.request_trap();
             wake(task);
+            Ok(())
+        }
+
+        // Linux's `ptrace_listen`: a seized tracee in a `PTRACE_EVENT_STOP`
+        // stop leaves it for the group stop, without running, to trap again
+        // when that ends. EIO otherwise.
+        PTRACE_LISTEN => {
+            let pids = PidsGuard::take();
+            let Some(mut found) = find_stopped_child(&pids, pid) else {
+                return Err(Errno::ESRCH);
+            };
+            // `last_siginfo->si_code >> 8`: the status `wait` took is gone.
+            let event_stop = found.guard.has_info && found.guard.info.code >> 8 == PTRACE_EVENT_STOP;
+            if !found.guard.seized || !event_stop {
+                return Err(Errno::EIO);
+            }
+            // A `PTRACE_INTERRUPT` made while it was stopped asked for the
+            // trap it is already in; Linux's listening tracee is woken only
+            // by `JOBCTL_TRAP_NOTIFY` -- an interrupt after this, or the group
+            // continuing -- so the request is spent here.
+            let _ = found.ptrace.take_trap();
+            found.guard.listening = true;
+            found.guard.stopped = false;
+            found.guard.owner().notify(CONT);
             Ok(())
         }
 
@@ -277,6 +303,10 @@ pub fn sys_ptrace(request: u32, pid: c_int, addr: u64, data: u64) -> Result<(), 
             let Some(found) = find_stopped_child(&pids, pid) else {
                 return Err(Errno::ESRCH);
             };
+            // An attached tracee's group stop has nothing to read.
+            if !found.guard.has_info {
+                return Err(Errno::EINVAL);
+            }
             if data == 0 {
                 return Ok(());
             }
@@ -329,6 +359,13 @@ fn attach(seize: bool, pid: c_int, addr: u64, data: u64) -> Result<(), Errno> {
     ptrace.attach(seize, if seize { data as u32 } else { 0 });
     if !seize {
         signal(target, ffi::SIGSTOP_ as c_int);
+    }
+    // Already in a group stop: Linux's `ptrace_attach` makes it trap into a
+    // ptrace stop at once (`JOBCTL_TRAP_STOP`), so the tracer's `wait`
+    // reports it. The thread is asleep in the group stop, which wakes it to
+    // look.
+    if let Some(g) = target.group() {
+        g.stop().kick();
     }
     Ok(())
 }

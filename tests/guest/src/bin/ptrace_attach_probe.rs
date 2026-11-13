@@ -502,6 +502,113 @@ fn exit_event() {
     line("  then", wait_once(c, 0));
 }
 
+const LISTEN: i32 = 0x4208;
+
+/// Every report the tracer gets for `pid` until none comes for half a
+/// second, continuing nothing.
+fn drain(pid: i32) -> String {
+    let mut seen = Vec::new();
+    for _ in 0..4 {
+        let mut got = None;
+        for _ in 0..500 {
+            let mut st = 0;
+            let r = unsafe { libc::waitpid(pid, &mut st, libc::WNOHANG | WALL) };
+            if r != 0 {
+                got = Some(status(r, if r < 0 { -errno() } else { st }));
+                break;
+            }
+            unsafe { libc::usleep(1000) };
+        }
+        match got {
+            Some(s) => seen.push(s),
+            None => break,
+        }
+    }
+    if seen.is_empty() { "nothing".into() } else { seen.join(", ") }
+}
+
+/// A group stop of a tracee: Linux's `do_signal_stop` for a ptraced task
+/// takes a ptrace stop, which the tracer must end, and a seized one can be
+/// left listening for the SIGCONT.
+fn group_stops() {
+    for seize in [false, true] {
+        let name = if seize { "seized" } else { "attached" };
+        let (pid, w) = blocked_child(0);
+        unsafe { libc::usleep(20_000) };
+        if seize {
+            ptrace(SEIZE, pid, 0, 0);
+        } else {
+            ptrace(ATTACH, pid, 0, 0);
+            wait_bounded(pid, 0);
+            ptrace(CONT, pid, 0, 0);
+        }
+        unsafe { libc::kill(pid, libc::SIGSTOP) };
+        line(&format!("{name}: SIGSTOP, the tracer sees"), wait_once(pid, 0));
+        line(&format!("{name}:   CONT with SIGSTOP"), rc(ptrace(CONT, pid, 0, libc::SIGSTOP as u64)));
+        line(&format!("{name}:   then the tracer sees"), wait_once(pid, 0));
+        line(&format!("{name}:   GETSIGINFO in that stop"), sigstop_info(pid));
+        line(&format!("{name}:   its state"), proc_state(pid));
+        if seize {
+            line(&format!("{name}:   LISTEN"), rc(ptrace(LISTEN, pid, 0, 0)));
+            line(&format!("{name}:   wait, WNOHANG, listening"), wait_once_nohang(pid));
+            line(&format!("{name}:   its state, listening"), proc_state(pid));
+            line(&format!("{name}:   CONT while listening"), rc(ptrace(CONT, pid, 0, 0)));
+            unsafe { libc::kill(pid, libc::SIGCONT) };
+            line(&format!("{name}:   SIGCONT, the tracer sees"), wait_once(pid, 0));
+            line(&format!("{name}:   GETSIGINFO in that stop"), sigstop_info(pid));
+            line(&format!("{name}:   CONT"), rc(ptrace(CONT, pid, 0, 0)));
+            line(&format!("{name}:   then"), drain(pid));
+        } else {
+            line(&format!("{name}:   LISTEN, not seized"), rc(ptrace(LISTEN, pid, 0, 0)));
+            line(&format!("{name}:   CONT"), rc(ptrace(CONT, pid, 0, 0)));
+            line(&format!("{name}:   its state after CONT"), proc_state(pid));
+            line(&format!("{name}:   then"), drain(pid));
+        }
+        unsafe { libc::close(w) };
+        kill_and_reap(pid);
+    }
+}
+
+/// Attaching to a process its parent already stopped.
+fn attach_stopped() {
+    for seize in [false, true] {
+        let name = if seize { "SEIZE a stopped child" } else { "ATTACH a stopped child" };
+        let (pid, w) = blocked_child(0);
+        unsafe { libc::usleep(20_000) };
+        unsafe { libc::kill(pid, libc::SIGSTOP) };
+        let (r, st) = wait_bounded(pid, libc::WUNTRACED);
+        line(&format!("{name}: the parent saw"), status(r, st));
+        line(name, rc(ptrace(if seize { SEIZE } else { ATTACH }, pid, 0, 0)));
+        line(&format!("{name}: then"), drain(pid));
+        if seize {
+            line(&format!("{name}: INTERRUPT"), rc(ptrace(INTERRUPT, pid, 0, 0)));
+            line(&format!("{name}: then"), drain(pid));
+            // strace -p's sequence: the interrupt is spent by the group stop
+            // it found, so listening does not trap again at once.
+            line(&format!("{name}: LISTEN"), rc(ptrace(LISTEN, pid, 0, 0)));
+            line(&format!("{name}: then, listening"), drain(pid));
+            unsafe { libc::kill(pid, libc::SIGCONT) };
+            line(&format!("{name}: SIGCONT, then"), drain(pid));
+            unsafe { libc::kill(pid, libc::SIGSTOP) };
+            line(&format!("{name}: CONT, SIGSTOP, then"), {
+                ptrace(CONT, pid, 0, 0);
+                drain(pid)
+            });
+        }
+        line(&format!("{name}: CONT"), rc(ptrace(CONT, pid, 0, 0)));
+        line(&format!("{name}: its state after CONT"), proc_state(pid));
+        line(&format!("{name}: then"), drain(pid));
+        unsafe { libc::close(w) };
+        kill_and_reap(pid);
+    }
+}
+
+fn proc_state(pid: i32) -> String {
+    unsafe { libc::usleep(20_000) };
+    let s = std::fs::read_to_string(format!("/proc/{pid}/stat")).unwrap_or_default();
+    s.rsplit_once(") ").and_then(|(_, r)| r.chars().next()).map_or("?".into(), |c| c.to_string())
+}
+
 fn exitkill() {
     let Some(c) = traced_child(|| unsafe {
         libc::pause();
@@ -524,5 +631,7 @@ fn main() {
     seized_fork();
     exitkill_on_exit();
     exit_event();
+    group_stops();
+    attach_stopped();
     exitkill();
 }

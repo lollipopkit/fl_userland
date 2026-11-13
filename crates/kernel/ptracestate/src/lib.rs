@@ -32,7 +32,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 use std::ffi::c_int;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use util_guestlock::{GuestGuard, GuestLock};
 
@@ -84,6 +84,12 @@ pub struct State {
     /// Attached by `PTRACE_SEIZE`, which changes what a new tracee's first
     /// stop is and is what `PTRACE_INTERRUPT` and `PTRACE_LISTEN` require.
     pub seized: bool,
+    /// Whether this stop has a `siginfo_` for `PTRACE_GETSIGINFO`. An
+    /// attached tracee's group stop has none, and Linux answers `EINVAL`.
+    pub has_info: bool,
+    /// `PTRACE_LISTEN`: the tracer let a seized tracee out of its ptrace
+    /// stop into the group stop, to trap again when that ends.
+    pub listening: bool,
 }
 
 /// A task's tracing state.
@@ -113,6 +119,10 @@ pub struct Ptrace {
     /// a blocked wait asks it, from `crates/kernel/taskview`'s
     /// signal-pending hook, holding whatever lock it waits on.
     trap: AtomicBool,
+    /// The group stop, by generation, an attached tracee's tracer continued
+    /// it out of; 0 for none. Read without the lock, under the group stop's
+    /// own, which is innermost (`crates/kernel/groupstop`).
+    released: AtomicU64,
     state: GuestLock<State>,
 }
 
@@ -128,6 +138,7 @@ impl Ptrace {
             traced: AtomicBool::new(false),
             at_syscalls: AtomicBool::new(false),
             trap: AtomicBool::new(false),
+            released: AtomicU64::new(0),
             state: GuestLock::new(State::default(), 1),
         }
     }
@@ -149,10 +160,44 @@ impl Ptrace {
             s.event_msg = 0;
             s.pending_event = 0;
             s.in_syscall = false;
+            s.listening = false;
         }
+        self.released.store(0, Ordering::Release);
         self.set_stops_at_syscalls(false);
         self.trap.store(false, Ordering::Release);
         self.traced.store(true, Ordering::Release);
+    }
+
+    /// A ptrace stop for the group stop this traced thread is in: Linux's
+    /// `do_signal_stop` for a ptraced task. `status` is the stop signal, with
+    /// `PTRACE_EVENT_STOP` in the second byte for a seized tracee, which alone
+    /// has a `siginfo_` to read.
+    pub fn enter_group_stop(&self, status: c_int, info: Option<&ffi::siginfo_>) {
+        let mut s = self.state.lock();
+        s.stopped = true;
+        s.signal = status;
+        s.has_info = info.is_some();
+        s.info = info.copied().unwrap_or_default();
+        s.listening = false;
+    }
+
+    /// The tracer ended the stop with `PTRACE_LISTEN`. Kept until the next
+    /// stop starts, for `/proc`'s `t` while the tracee sleeps in the group stop.
+    pub fn is_listening(&self) -> bool {
+        self.state.lock().listening
+    }
+
+    /// The tracer continued an attached tracee out of group stop `generation`,
+    /// which then runs on until the next one.
+    pub fn release_from(&self, generation: u64) {
+        self.released.store(generation, Ordering::Release);
+    }
+
+    /// Whether this thread is to take a ptrace stop for group stop
+    /// `generation`: traced, and not let out of that one already. No lock;
+    /// see [`Ptrace::released`].
+    pub fn owes_group_stop(&self, generation: u64) -> bool {
+        self.traced.load(Ordering::Acquire) && self.released.load(Ordering::Acquire) != generation
     }
 
     /// Ask for a `PTRACE_EVENT_STOP` at the next return to the guest. The
@@ -234,6 +279,7 @@ impl Ptrace {
         s.stopped = true;
         s.signal = sig;
         s.info = ffi::siginfo_::default();
+        s.has_info = true;
         entering
     }
 
@@ -262,6 +308,8 @@ impl Ptrace {
             sig
         };
         s.info = *info;
+        s.has_info = true;
+        s.listening = false;
     }
 
     /// Arm a `PTRACE_EVENT_*` for the `SIGTRAP` stop that is about to happen,

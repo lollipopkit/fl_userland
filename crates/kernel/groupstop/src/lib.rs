@@ -63,6 +63,11 @@ struct State {
     /// its `si_status`. Kept apart from `stop_status`, which a `wait` consumes
     /// and which the notification may be sent after.
     stop_signal: u32,
+    /// Which stop this is, counted from 1: a traced thread that its tracer
+    /// let run out of a group stop (Linux clears that task's
+    /// `JOBCTL_STOP_PENDING`) is not stopped by the same one again, and is by
+    /// the next.
+    generation: u64,
 }
 
 /// What a thread learns from leaving a stop.
@@ -106,10 +111,27 @@ impl GroupStop {
     /// A stop signal took effect: the group is stopped and reports `status`.
     pub fn stop(&self, status: u32) {
         let mut s = self.state.lock();
+        if !s.stopped {
+            s.generation += 1;
+        }
         s.stopped = true;
         s.stop_status = status;
         // `(sig << 8) | 0x7f`, which is how a wait reports a stop.
         s.stop_signal = status >> 8;
+    }
+
+    /// The stop in effect, as its signal and its generation, or `None` for a
+    /// group that is running.
+    pub fn current(&self) -> Option<(u32, u64)> {
+        let s = self.state.lock();
+        s.stopped.then_some((s.stop_signal, s.generation))
+    }
+
+    /// Wake every thread sleeping in the stop to look again at whatever
+    /// [`GroupStop::wait_while_stopped_until`] was told to watch: a tracer
+    /// attached to one.
+    pub fn kick(&self) {
+        self.state.notify(CONT);
     }
 
     /// The signal that stopped the group, while it is stopped.
@@ -166,10 +188,19 @@ impl GroupStop {
     /// first sleep and `false` after the last, and nothing when it does not
     /// sleep: what `/proc/<pid>/syscall` reports of a stopped task is
     /// published there and costs nothing on the way past.
-    pub fn wait_while_stopped_noting(&self, mut note: impl FnMut(bool)) -> StopWait {
+    pub fn wait_while_stopped_noting(&self, note: impl FnMut(bool)) -> StopWait {
+        self.wait_while_stopped_until(note, |_| false)
+    }
+
+    /// [`GroupStop::wait_while_stopped_noting`], leaving early once `done`
+    /// says so for the stop's generation, which it is asked after every wake:
+    /// a sleeping thread a tracer attached to, which takes a ptrace stop
+    /// instead (`kick` wakes it). **Asked under this lock**, which is
+    /// innermost, so `done` takes no lock: it reads atomics.
+    pub fn wait_while_stopped_until(&self, mut note: impl FnMut(bool), mut done: impl FnMut(u64) -> bool) -> StopWait {
         let mut slept = false;
         let mut s = self.state.lock();
-        while s.stopped {
+        while s.stopped && !done(s.generation) {
             if !slept {
                 note(true);
             }
