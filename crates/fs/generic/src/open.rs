@@ -102,7 +102,7 @@ fn open_inner(
             if err < 0 {
                 return Err(Errno::from_negative_or_eio(err));
             }
-            if buf[0] != b'/' {
+            if buf[0] != b'/' || fd.unnamed.is_some() {
                 return reopen(fd, flags);
             }
         }
@@ -175,20 +175,17 @@ fn open_inner(
         }
     }
 
-    // O_TMPFILE, which this kernel does not implement.
-    //
-    // Its encoding is O_DIRECTORY plus a bit, so an implementation that does not
-    // know it opens the *directory* -- which is what happened, and a caller that
-    // asked for an unnamed temporary file got a descriptor onto the directory it
-    // named. Linux's rules are checked first so the answers are the ones a
-    // caller distinguishes: an access mode that is not write or read-write is
-    // EINVAL, and a filesystem that cannot make one is EOPNOTSUPP -- which is
-    // what sends a caller to mkstemp.
+    // O_TMPFILE: an unnamed regular file in the directory named. Its encoding
+    // is O_DIRECTORY plus a bit, so an implementation that does not know it
+    // opens the *directory*, which is what this did once. An access mode that
+    // is not write or read-write is EINVAL (O_CREAT with it was refused
+    // above); a filesystem that cannot make one is EOPNOTSUPP, which sends a
+    // caller to mkstemp.
     if flags & ffi::O_TMPFILE_ as c_int == ffi::O_TMPFILE_ as c_int {
         if flags & (ffi::O_WRONLY_ | ffi::O_RDWR_) as c_int == 0 {
             return Err(Errno::EINVAL);
         }
-        return Err(Errno::EOPNOTSUPP);
+        return tmpfile(path, flags, mode);
     }
 
     // O_PATH asks for a *reference* to the object and not for access to it. So
@@ -380,6 +377,74 @@ fn open_inner(
         }
     }
     Ok(fd)
+}
+
+/// `O_TMPFILE` in the directory `dir`, which the walk resolved: Linux's
+/// `vfs_tmpfile`. The directory has to exist, be one, and let the caller
+/// create in it (`may_create`: write and search); the umask is the caller's.
+fn tmpfile(dir: PathBuf, flags: c_int, mode: c_int) -> Result<fs_fdobj::Owned, Errno> {
+    let full = dir.clone_buf();
+    let mut path = dir;
+    let mount = Mount::of(&mut path);
+    let dir_stat = mount.stat(&path).map_err(Errno::from_negative_or_eio)?;
+    if !is(dir_stat.mode & S_IFMT, S_IFDIR) {
+        return Err(Errno::ENOTDIR);
+    }
+    const AC_W: c_int = 2;
+    const AC_X: c_int = 1;
+    path::access(full.as_cstr().to_bytes(), &dir_stat, AC_W | AC_X).map_err(Errno::from_negative_or_eio)?;
+    let open_flags = flags & !(ffi::O_TMPFILE_ | ffi::O_EXCL_) as c_int;
+    let fd = mount.fs().tmpfile(mount.get(), path.as_cstr(), open_flags, mode)?;
+    let mut fd = fs_fdobj::NewFd::from(fd);
+    let unnamed = fd.unnamed.get_or_insert_default();
+    unnamed.dir = full.as_cstr().to_owned();
+    unnamed.linkable = flags & ffi::O_EXCL_ as c_int == 0;
+    fd.set_mount(mount.into_ref());
+    let mut stat = ffi::statbuf::default();
+    let err = fs_inode::generic_attach_inode(&mut fd, &mut stat);
+    if err < 0 {
+        return Err(Errno::from_negative_or_eio(err));
+    }
+    fd.type_ = (stat.mode & S_IFMT) as u16;
+    fd.set_flags(fs_fdobj::status::at_open(open_flags as u32));
+    fd.created = true;
+    let err = fd.inode().map_or(0, fs_inode::inode_get_write_access);
+    if err < 0 {
+        return Err(Errno::from_negative_or_eio(err));
+    }
+    fd.holds_write_access = true;
+    Ok(fd.into_owned())
+}
+
+/// `linkat` of an `O_TMPFILE` file -- by `AT_EMPTY_PATH`, or through
+/// `/proc/self/fd/<n>` with `AT_SYMLINK_FOLLOW` -- to `dst_name`: Linux's
+/// `vfs_link` of an inode with `I_LINKABLE`. `ENOENT` for one opened
+/// `O_EXCL`, `EXDEV` across mounts.
+pub fn generic_link_unnamed(fd: &ffi::fd, dst_at: ffi::At<'_>, dst_name: &CStr) -> c_int {
+    let Some(unnamed) = &fd.unnamed else {
+        return errno::ENOENT;
+    };
+    if !unnamed.linkable {
+        return errno::ENOENT;
+    }
+    let mut dst = match super::normalize(
+        dst_at,
+        dst_name,
+        (ffi::N_SYMLINK_NOFOLLOW | ffi::N_PARENT_DIR_WRITE_CREATE) as c_int,
+    ) {
+        Ok(p) => p,
+        Err(e) => return e,
+    };
+    let full = dst.clone_buf();
+    let dst_mount = Mount::of(&mut dst);
+    if fd.mount().map(std::ptr::from_ref) != Some(std::ptr::from_ref(dst_mount.get())) {
+        return errno::EXDEV;
+    }
+    let err = dst_mount.fs().link_unnamed(fd, dst_mount.get(), dst.as_cstr());
+    if err >= 0 {
+        notify(&full, inotify::IN_CREATE, 0);
+    }
+    err
 }
 
 /// # Safety

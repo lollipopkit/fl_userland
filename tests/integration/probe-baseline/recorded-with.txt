@@ -1,5 +1,5 @@
 recorded: 2026-11-13
 image:    alpine:latest
 kernel:   7.2.12-orbstack-00394-gbecdd6130068
-probes:   91
+probes:   92
 by:       tests/integration/probe_diff.sh --record

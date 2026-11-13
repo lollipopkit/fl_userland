@@ -44,6 +44,47 @@ pub(crate) fn tmpfs_open(mount: &ffi::mount,
     Ok(fd)
 }
 
+/// `O_TMPFILE`: an inode in no directory, which `tmpfs_link_unnamed` may
+/// name later. The directory has been checked by the generic layer; it is
+/// looked up here only to be sure it is this mount's.
+pub(crate) fn tmpfs_tmpfile(mount: &ffi::mount,
+    dir: &CStr,
+    _flags: c_int,
+    mode: c_int,
+) -> std::result::Result<Box<ffi::fd>, guest_errno::Errno> {
+    let Some(root) = mount_root(mount) else {
+        return Err(guest_errno::Errno::EINVAL);
+    };
+    let parent = lookup(root, dir.to_bytes()).map_err(guest_errno::Errno::from_negative_or_eio)?;
+    if !parent.is_dir() {
+        return Err(guest_errno::Errno::ENOTDIR);
+    }
+    let (uid, gid) = current_ids();
+    let dirent = Dirent::detached(Inode::new(S_IFREG | (mode as u32 & 0o7777), uid, gid, 0));
+    let mut fd = Box::new(ffi::fd::with_ops(Some(&TMPFS_FDOPS)));
+    fd.set_fs_data(FdState {
+        dirent,
+        dir_pos: Mutex::new(DirPos::Dot),
+    });
+    fd.unnamed = Some(Box::default());
+    Ok(fd)
+}
+
+/// `linkat` naming an `O_TMPFILE` file: its inode, linked at `dst`.
+pub(crate) fn tmpfs_link_unnamed(fd: &ffi::fd, mount: &ffi::mount, dst: &CStr) -> c_int {
+    let (Some(root), Some(state)) = (mount_root(mount), fd_state(fd)) else {
+        return guest_errno::c_int_::EINVAL;
+    };
+    let (parent, name) = match lookup_parent(root, dst.to_bytes()) {
+        Ok(p) => p,
+        Err(e) => return e,
+    };
+    match link_into(&parent, name, Arc::clone(&state.dirent.inode)) {
+        Ok(_) => 0,
+        Err(e) => e,
+    }
+}
+
 /// `open(O_CREAT)`: return the existing entry, or make a regular file.
 fn create(root: &Arc<Dirent>, path: &[u8], mode: u32, excl: bool) -> Result<Arc<Dirent>> {
     let (parent, name) = lookup_parent(root, path)?;

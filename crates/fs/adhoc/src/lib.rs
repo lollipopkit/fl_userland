@@ -490,15 +490,16 @@ mod layout {
         // until `dir` became a `OnceLock<Box<HostDir>>`, the `Once`'s state
         // word beside the pointer. 424 until `union fd_state` became
         // `driver_state`, an `Option<Box<dyn Any>>`: a fat pointer where the
-        // union was one thin one.
-        assert_eq!(std::mem::size_of::<ffi::fd>(), 432);
+        // union was one thin one. The size itself is asserted once, by
+        // `crates/fs/fdobj`'s `the_allocation_is_the_size_the_c_measures`.
         assert_eq!(std::mem::size_of::<ffi::statbuf>(), 120);
         // The union is ahead of `stat`, so it moved with the growth: 152
         // until 2026-09-04, 160 until `f_owner` landed later that day, 168
         // until the socket member shrank, 120 until `ops` became fat, 128
         // until `change_path` did, 136 until `inotify_path` did, 144 until
-        // `fs_data` did, 160 until `dir` did, 168 until `driver_state` did.
-        assert_eq!(std::mem::offset_of!(ffi::fd, stat), 176);
+        // `fs_data` did, 160 until `dir` did, 168 until `driver_state` did,
+        // 176 until `unnamed` did.
+        assert_eq!(std::mem::offset_of!(ffi::fd, stat), 184);
         // Before `ops`, so this one did not move.
         assert_eq!(std::mem::offset_of!(ffi::fd, type_), 12);
         // Also after the union: 104 until 2026-09-04, 112 until 2026-09-05,

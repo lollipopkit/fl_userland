@@ -359,6 +359,21 @@ pub trait FsOps: Send + Sync + 'static {
         EPERM
     }
 
+    /// `O_TMPFILE`: an unnamed regular file in directory `dir`, opened with
+    /// `flags` (the access mode and the status flags; the `O_TMPFILE` bits
+    /// are gone) and created with `mode`, the umask applied. The default is
+    /// `EOPNOTSUPP`, Linux's answer for a filesystem that cannot, which sends
+    /// a caller to `mkstemp`.
+    fn tmpfile(&self, _mount: &mount, _dir: &CStr, _flags: c_int, _mode: c_int) -> Result<Box<fd>, Errno> {
+        Err(Errno::EOPNOTSUPP)
+    }
+
+    /// `linkat` naming an `O_TMPFILE` file: give the file `fd` is open on
+    /// the name `dst` on this mount.
+    fn link_unnamed(&self, _fd: &fd, _mount: &mount, _dst: &CStr) -> c_int {
+        EOPNOTSUPP
+    }
+
     fn unlink(&self, _mount: &mount, _path: &CStr) -> c_int {
         EPERM
     }

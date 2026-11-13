@@ -147,6 +147,22 @@ impl FdId {
     }
 }
 
+/// What an `O_TMPFILE` description knows about its file, which no path names.
+#[derive(Default, Debug)]
+pub struct Unnamed {
+    /// The guest directory it was made in, absolute: `/proc/<pid>/fd` reads
+    /// `<dir>/#<inode> (deleted)`, as Linux's dentry for one does.
+    pub dir: std::ffi::CString,
+    /// Not `O_EXCL`: `linkat` may name it.
+    pub linkable: bool,
+    /// fakefs: the file's host name, relative to the mount's root directory,
+    /// which keeps it linkable on a host that cannot link a descriptor.
+    pub host: Option<std::ffi::CString>,
+    /// realfs: a host descriptor that can read the file, for a description
+    /// that cannot -- `O_TMPFILE|O_WRONLY` -- which naming it has to copy.
+    pub source: Option<std::os::fd::OwnedFd>,
+}
+
 /// An open file description: what `f_get` answers and what a descriptor number
 /// in the table points at.
 #[repr(C)]
@@ -305,6 +321,9 @@ pub struct fd {
     pub inode: Option<std::sync::Arc<inode_data>>,
     /// The fakefs inode number, which is `meta.db`'s and not the host's.
     pub fake_inode: ino_t,
+    /// An `O_TMPFILE` file: one with no name, which `linkat` may give it.
+    /// Written before the description is published.
+    pub unnamed: Option<Box<Unnamed>>,
     /// The cached stat a fakefs descriptor answers `fstat` from.
     pub stat: statbuf,
     /// The three attributes a driver may change **after the descriptor is

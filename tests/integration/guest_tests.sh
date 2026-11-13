@@ -574,6 +574,11 @@ run "capabilities and set-id files: fakefs" "$IUL" -f "$FAKEFS" /tmp/caps_setid
 # fakefs: realfs cannot give a file to another user, and the host clears
 # set-id bits on its own writes.
 run "a write removes privileges: fakefs" "$IUL" -f "$FAKEFS" /tmp/killpriv
+# O_TMPFILE and linkat naming it, on each mount type. realfs names it by a
+# copy, so the inode is not asserted there.
+run "O_TMPFILE: realfs" "$IUL" -r "$ROOTFS" /tmp/tmpfile /tmp/tmpfile-real realfs
+run "O_TMPFILE: fakefs" "$IUL" -f "$FAKEFS" /tmp/tmpfile /tmp/tmpfile-fake
+run "O_TMPFILE: tmpfs" "$IUL" -f "$FAKEFS" /tmp/tmpfile tmpfs
 
 # Which id a newly created object is stamped with. Linux uses the fsuid, which
 # tracks the effective uid; a pipe used the real one.

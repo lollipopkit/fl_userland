@@ -61,6 +61,7 @@ mod bind_mount;
 pub use bind_mount::{fakefs_bind_mount, fakefs_bind_unmount};
 
 mod setattr;
+mod unnamed;
 use setattr::{fakefs_rs_fsetattr, fakefs_rs_setattr};
 
 // `fakefs_path_generation_get` and `fakefs_fdops_get` were declared here
@@ -539,7 +540,14 @@ impl ffi::FsOps for Fakefs {
     }
 
     fn close(&self, fd: &mut ffi::fd) -> c_int {
+        unnamed::fakefs_close_unnamed(fd);
         realfs::realfs_close(fd)
+    }
+    fn tmpfile(&self, mount: &ffi::mount, dir: &CStr, flags: c_int, mode: c_int) -> Result<Box<ffi::fd>, guest_errno::Errno> {
+        unnamed::fakefs_tmpfile(mount, dir, flags, mode)
+    }
+    fn link_unnamed(&self, fd: &ffi::fd, mount: &ffi::mount, dst: &CStr) -> c_int {
+        unnamed::fakefs_link_unnamed(fd, mount, dst)
     }
 
     fn stat(

@@ -21,7 +21,9 @@ pub fn sys_openat(
     if path.0[0] == 0 && flags & fs_generic::O_EMPTYPATH as c_uint == 0 {
         return Err(Errno::ENOENT);
     }
-    let mode = if flags & ffi::O_CREAT_ != 0 {
+    // `O_TMPFILE` creates as `O_CREAT` does, and the umask applies to it --
+    // as `openat2` already said, and this did not.
+    let mode = if flags & ffi::O_CREAT_ != 0 || flags & ffi::O_TMPFILE_ == ffi::O_TMPFILE_ {
         apply_umask(mode)
     } else {
         mode
@@ -232,8 +234,26 @@ pub fn sys_linkat(
     // why this is not `EPERM`. That fallback works here, because
     // `/proc/<pid>/fd/<n>` is a symlink to the path.
     //
-    // What it is really for is naming an `O_TMPFILE` file, and this kernel
-    // has no `O_TMPFILE`. TODO: both, together.
+    // What it is really for is naming an `O_TMPFILE` file, which has no path
+    // to be wrong about, and that it does: Linux's `flink` rule since 6.10,
+    // `CAP_DAC_READ_SEARCH` or the file's own opener -- here, its owner.
+    if flags & ffi::AT_EMPTY_PATH_ as c_int != 0 {
+        let src = Path::read(src_addr)?;
+        if src.0[0] == 0 {
+            let fd = fs_fdobj::f_get(src_at_f).ok_or(Errno::EBADF)?;
+            if fd.unnamed.is_none() {
+                return Err(Errno::ENOENT);
+            }
+            let owner = fs_fdobj::fd_fstat(&fd).map_or(u32::MAX, |st| st.uid);
+            let may = taskview::with_current_creds(|c| c.capable(kernel_creds::caps::CAP_DAC_READ_SEARCH) || c.fsuid() == owner);
+            if may != Some(true) {
+                return Err(Errno::ENOENT);
+            }
+            let dst = Path::read(dst_addr)?;
+            let dst_at = at_of(dst_at_f, &dst)?;
+            return done(fs_generic::generic_link_unnamed(&fd, dst_at.at(), dst.as_cstr()));
+        }
+    }
     let (src, src_at, dst, dst_at) = two_paths(src_at_f, src_addr, dst_at_f, dst_addr)?;
     strace!(
         "linkat({src_at_f}, {:?}, {dst_at_f}, {:?}, {flags})",

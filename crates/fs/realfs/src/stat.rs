@@ -18,12 +18,48 @@
 use crate::dev;
 use crate::ffi;
 
+/// Host files carrying a link the guest cannot see: an `O_TMPFILE` file's
+/// hidden name (`crates/fs/fake`'s `unnamed/`), by host device and inode,
+/// with how many. Their guest link count leaves those out -- 0 for a file no
+/// guest path names, as Linux reports one.
+static HIDDEN: std::sync::Mutex<Vec<(u64, u64)>> = std::sync::Mutex::new(Vec::new());
+/// Whether `HIDDEN` has anything in it: every `stat` asks, so the common
+/// answer costs one load and no lock.
+static ANY_HIDDEN: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// `host` has one more link than the guest is to see.
+pub fn hide_link(host: &libc::stat) {
+    let mut v = HIDDEN.lock().unwrap_or_else(|e| e.into_inner());
+    v.push((host.st_dev as u64, host.st_ino));
+    ANY_HIDDEN.store(v.len(), std::sync::atomic::Ordering::Release);
+}
+
+/// The link [`hide_link`] recorded is gone.
+pub fn unhide_link(dev: u64, ino: u64) {
+    let mut v = HIDDEN.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(i) = v.iter().position(|&k| k == (dev, ino)) {
+        v.swap_remove(i);
+    }
+    ANY_HIDDEN.store(v.len(), std::sync::atomic::Ordering::Release);
+}
+
+/// The link count the guest sees for `host`.
+pub fn guest_nlink(host: &libc::stat) -> u32 {
+    let n = host.st_nlink as u32;
+    if ANY_HIDDEN.load(std::sync::atomic::Ordering::Acquire) == 0 {
+        return n;
+    }
+    let key = (host.st_dev as u64, host.st_ino);
+    let hidden = HIDDEN.lock().unwrap_or_else(|e| e.into_inner()).iter().filter(|&&k| k == key).count() as u32;
+    n.saturating_sub(hidden)
+}
+
 pub fn convert(host: &libc::stat) -> ffi::statbuf {
     ffi::statbuf {
         dev: dev::fake_from_real(host.st_dev as libc::dev_t) as u64,
         inode: host.st_ino,
         mode: host.st_mode as u32,
-        nlink: host.st_nlink as u32,
+        nlink: guest_nlink(host),
         uid: host.st_uid,
         gid: host.st_gid,
         rdev: dev::fake_from_real(host.st_rdev as libc::dev_t) as u64,

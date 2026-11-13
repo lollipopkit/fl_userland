@@ -44,6 +44,18 @@ pub fn generic_linkat(
     } else {
         ffi::N_SYMLINK_NOFOLLOW as c_int
     };
+    // `/proc/self/fd/<n>` onto an `O_TMPFILE` file, followed: the way every
+    // caller without `CAP_DAC_READ_SEARCH` names one.
+    if follow_src {
+        match crate::normalize::resolve(src_at, src_name.to_bytes(), src_flags) {
+            Ok(r) if r.magic.as_ref().is_some_and(|f| f.unnamed.is_some()) => {
+                let file = r.magic.expect("checked");
+                return crate::open::generic_link_unnamed(&file, dst_at, dst_name);
+            }
+            Ok(_) => {}
+            Err(e) => return e,
+        }
+    }
     let mut src = match normalize(src_at, src_name, src_flags) {
         Ok(p) => p,
         Err(e) => return e,

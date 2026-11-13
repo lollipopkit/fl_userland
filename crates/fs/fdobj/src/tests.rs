@@ -34,8 +34,11 @@ fn the_allocation_is_the_size_the_c_measures() {
     // bytes where the `char *` was eight; 392 until `inotify_path` did too,
     // 400 until `fs_data` became an owned `OnceLock<Box<dyn Any>>`, 416
     // until `dir` became a `OnceLock<Box<HostDir>>`, 424 until the union of
-    // driver states became one owned `Option<Box<dyn Any>>`.
-    assert_eq!(size_of::<ffi::fd>(), 432);
+    // driver states became one owned `Option<Box<dyn Any>>`, 432 until
+    // 2026-11-13, when `unnamed` (`O_TMPFILE`'s `Option<Box<Unnamed>>`) took
+    // eight. The one assertion of the size: `crates/fs/adhoc` asserts the
+    // offsets it reads and no longer a second copy of this number.
+    assert_eq!(size_of::<ffi::fd>(), 440);
 }
 
 use status::{Kind, SETFL_MASK, at_open, setfl};

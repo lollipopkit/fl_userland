@@ -303,6 +303,20 @@ impl Dirent {
     }
 
     /// The root of a mount: no parent, no meaningful index.
+    /// An entry in no directory: an `O_TMPFILE` file's, which `link_into`
+    /// may name later. Its link count is 0, as a file no name reaches.
+    pub fn detached(inode: Arc<Inode>) -> Arc<Dirent> {
+        Arc::new(Dirent {
+            inode,
+            place: Mutex::new(Place {
+                name: Vec::new(),
+                index: 0,
+                parent: Weak::new(),
+            }),
+            children: Mutex::new(Children::default()),
+        })
+    }
+
     pub fn new_root(inode: Arc<Inode>) -> Arc<Dirent> {
         inode.lock().nlink = 1;
         Arc::new(Dirent {

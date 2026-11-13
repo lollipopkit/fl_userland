@@ -1,0 +1,42 @@
+tmp: O_TMPFILE|O_RDWR                                -> ok
+tmp:   mode, nlink, size                             -> 100640 0 0
+tmp:   the directory lists it                        -> false
+tmp:   /proc/self/fd names it                        -> /tmp/tmpfileprobe/#<ino> (deleted)
+tmp:   write then pread                              -> 5 5 "hello"
+tmp:   linkat(fd, "", AT_EMPTY_PATH)                 -> ok
+tmp:   then its nlink                                -> 1
+tmp:   the name reads                                -> hello
+tmp:   /proc/self/fd after                           -> <dir>/#<ino> (deleted)
+tmp:   a second link                                 -> ok
+tmp:   after close, entries added                    -> 2
+tmp: linkat(/proc/self/fd/N, AT_SYMLINK_FOLLOW)      -> ok
+tmp:   the name exists                               -> true
+tmp: O_TMPFILE|O_EXCL, then linkat                   -> ENOENT
+tmp: closed unnamed, entries added                   -> 0
+tmp: mode 0666 under umask 027                       -> 640
+tmp: ftruncate to 4096                               -> ok 4096
+tmp: O_TMPFILE|O_RDONLY                              -> EINVAL
+tmp: O_TMPFILE on a file                             -> ENOTDIR
+tmp: O_TMPFILE on a missing path                     -> ENOENT
+tmp: O_TMPFILE|O_CREAT                               -> EINVAL
+shm: O_TMPFILE|O_RDWR                                -> ok
+shm:   mode, nlink, size                             -> 100640 0 0
+shm:   the directory lists it                        -> false
+shm:   /proc/self/fd names it                        -> /dev/shm/tmpfileprobe/#<ino> (deleted)
+shm:   write then pread                              -> 5 5 "hello"
+shm:   linkat(fd, "", AT_EMPTY_PATH)                 -> ok
+shm:   then its nlink                                -> 1
+shm:   the name reads                                -> hello
+shm:   /proc/self/fd after                           -> <dir>/#<ino> (deleted)
+shm:   a second link                                 -> ok
+shm:   after close, entries added                    -> 2
+shm: linkat(/proc/self/fd/N, AT_SYMLINK_FOLLOW)      -> ok
+shm:   the name exists                               -> true
+shm: O_TMPFILE|O_EXCL, then linkat                   -> ENOENT
+shm: closed unnamed, entries added                   -> 0
+shm: mode 0666 under umask 027                       -> 640
+shm: ftruncate to 4096                               -> ok 4096
+shm: O_TMPFILE|O_RDONLY                              -> EINVAL
+shm: O_TMPFILE on a file                             -> ENOTDIR
+shm: O_TMPFILE on a missing path                     -> ENOENT
+shm: O_TMPFILE|O_CREAT                               -> EINVAL

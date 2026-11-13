@@ -191,6 +191,7 @@ pub fn fakefs_rs_mount(mount: &mut ffi::mount) -> c_int {
         Ok(db) => db,
         Err(e) => return e,
     };
+    crate::unnamed::clear_unnamed(root, &db);
     // The mount owns it from here; every other use of the database in this
     // tree is a borrow. It was parked as a raw pointer in a union until
     // 2026-09-29 and reconstituted by `fakefs_rs_umount`.

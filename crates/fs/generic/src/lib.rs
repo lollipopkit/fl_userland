@@ -18,7 +18,7 @@ pub mod normalize;
 mod open;
 
 // The shared Rust types and constants are re-exported by kernel-taskview.
-pub use open::{O_EMPTYPATH, O_PATH_FLAGS, OpenHow, generic_open, generic_openat, generic_openat2};
+pub use open::{O_EMPTYPATH, O_PATH_FLAGS, OpenHow, generic_link_unnamed, generic_open, generic_openat, generic_openat2};
 mod lookup;
 pub use lookup::{
     generic_accessat, generic_fd_is_mount_root, generic_linkat, generic_statat, generic_statat_root,
@@ -51,7 +51,7 @@ pub use taskview::ffi;
 
 mod errno {
     pub use guest_errno::c_int_::{
-        EBADF, EBUSY, EINVAL, EISDIR, ELOOP, ENAMETOOLONG, ENOTDIR, ENXIO, EPERM, ETXTBSY,
+        EBADF, EBUSY, EINVAL, EISDIR, ELOOP, ENAMETOOLONG, ENOENT, ENOTDIR, ENXIO, EPERM, ETXTBSY,
         EXDEV,
     };
 }
@@ -294,6 +294,18 @@ pub fn generic_getpath(fd: &ffi::fd, buf: &mut [u8]) -> c_int {
     let Some(mount) = fd.mount() else {
         return errno::EPERM;
     };
+    // An `O_TMPFILE` file's name is its directory and its inode, marked
+    // deleted -- Linux's dentry for one, which `linkat` naming the file does
+    // not change.
+    if let Some(unnamed) = &fd.unnamed {
+        let ino = fs_fdobj::fd_fstat(fd).map_or(0, |st| st.inode);
+        let mut out = unnamed.dir.to_bytes().to_vec();
+        if out.last() != Some(&b'/') {
+            out.push(b'/');
+        }
+        out.extend_from_slice(format!("#{ino} (deleted)").as_bytes());
+        return ffi::fill_path(buf, &out);
+    }
     let err = match mount.fs {
         Some(fs) => fs.getpath(fd, buf),
         None => return errno::EPERM,

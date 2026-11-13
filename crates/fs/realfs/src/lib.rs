@@ -32,7 +32,7 @@ use std::os::raw::{c_char, c_int, c_uint, c_ulong, c_void};
 mod dev;
 pub mod dir;
 mod errno;
-mod flags;
+pub mod flags;
 mod io;
 pub mod ioctl;
 pub mod map;
@@ -44,7 +44,9 @@ pub use ops::{
     realfs_symlink, realfs_unlink, realfs_utime,
 };
 mod mountpath;
-mod stat;
+pub mod stat;
+mod unnamed;
+pub use unnamed::{realfs_link_unnamed, realfs_tmpfile};
 pub mod xattr;
 
 use errno::{Result, ck};
@@ -94,7 +96,7 @@ pub use taskview::ffi;
 ///
 /// A `&CStr` since 2026-09-29, a suffix of the one it was given: the calls
 /// that take it are `rustix`'s, which take the string rather than a pointer.
-pub(crate) fn at_path(path: &CStr) -> &CStr {
+pub fn at_path(path: &CStr) -> &CStr {
     match path.to_bytes_with_nul() {
         [0] => c".",
         [b'/', rest @ ..] => CStr::from_bytes_with_nul(rest).unwrap_or(c"."),
@@ -294,6 +296,12 @@ impl ffi::FsOps for Realfs {
         dst: &CStr,
     ) -> c_int {
         realfs_link(mount, src, dst)
+    }
+    fn tmpfile(&self, mount: &ffi::mount, dir: &CStr, flags: c_int, mode: c_int) -> std::result::Result<Box<ffi::fd>, guest_errno::Errno> {
+        realfs_tmpfile(mount, dir, flags, mode)
+    }
+    fn link_unnamed(&self, fd: &ffi::fd, mount: &ffi::mount, dst: &CStr) -> c_int {
+        realfs_link_unnamed(fd, mount, dst)
     }
     fn unlink(&self, mount: &ffi::mount, path: &CStr) -> c_int {
         realfs_unlink(mount, path)

@@ -241,6 +241,12 @@ fn fd_magic(entry: &mut ffi::proc_entry) -> Result<Option<fs_fdobj::Owned>, c_in
     let Some(fd) = take_files(entry).and_then(|files| files.lookup_retain(entry.fd)) else {
         return Ok(None);
     };
+    // An `O_TMPFILE` file's link reads like a path and names none: it is
+    // followed to the file too, which is how `linkat` with
+    // `AT_SYMLINK_FOLLOW` names one.
+    if fd.unnamed.is_some() {
+        return Ok(Some(fd));
+    }
     let mut buf = vec![0u8; ffi::MAX_PATH as usize];
     Ok((fs_generic::generic_getpath(&fd, &mut buf) >= 0 && buf[0] != b'/').then_some(fd))
 }

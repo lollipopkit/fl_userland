@@ -22,7 +22,7 @@ mod attrs;
 mod contents;
 mod errno;
 mod names;
-use names::{
+use names::{tmpfs_link_unnamed, tmpfs_tmpfile, 
     tmpfs_link, tmpfs_mkdir, tmpfs_mknod, tmpfs_open, tmpfs_readlink, tmpfs_rename, tmpfs_rmdir,
     tmpfs_symlink, tmpfs_unlink,
 };
@@ -254,6 +254,12 @@ impl ffi::FsOps for Tmpfs {
         dst: &CStr,
     ) -> c_int {
         tmpfs_link(mount, src, dst)
+    }
+    fn tmpfile(&self, mount: &ffi::mount, dir: &CStr, flags: c_int, mode: c_int) -> std::result::Result<Box<ffi::fd>, guest_errno::Errno> {
+        tmpfs_tmpfile(mount, dir, flags, mode)
+    }
+    fn link_unnamed(&self, fd: &ffi::fd, mount: &ffi::mount, dst: &CStr) -> c_int {
+        tmpfs_link_unnamed(fd, mount, dst)
     }
     fn unlink(&self, mount: &ffi::mount, path: &CStr) -> c_int {
         tmpfs_unlink(mount, path)

@@ -507,6 +507,20 @@ impl Tx<'_> {
         inode
     }
 
+    /// An inode with no path: an `O_TMPFILE` file's, which `link_inode` may
+    /// name and `Db::inode_orphaned` removes if nothing does.
+    pub fn inode_create(&mut self, stat: &IulStat) -> InodeT {
+        if !self.run(sql::CREATE_STAT, params![stat.encode().as_slice()]) {
+            return 0;
+        }
+        self.conn.last_insert_rowid() as InodeT
+    }
+
+    /// Make `path` name `inode`.
+    pub fn link_inode(&mut self, path: &[u8], inode: InodeT) -> bool {
+        self.run(sql::SET_PATH, params![path, inode as i64])
+    }
+
     /// The stat for `inode`.
     pub fn inode_stat(&self, inode: InodeT) -> Option<IulStat> {
         read_inode_stat(&self.conn, inode)
