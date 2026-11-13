@@ -267,13 +267,16 @@ unsafe fn receive_signal<'a>(task: *mut ffi::task, mut guard: QueueGuard<'a>, in
     let asked = flags & ffi::SA_RESTART_ != 0
         || taskview::with_current_restart(|r| r.restarts_regardless()) == Some(true);
     if asked
-        && let Some((pc, arg0)) =
+        && let Some(rewind) =
             taskview::with_current_restart(|r| r.take_rewind(unsafe { (*cpu).pc }, true)).flatten()
     {
+        // Never a `restart_syscall` one: a block is not restarted after a
+        // handler.
+        debug_assert!(!rewind.restart_syscall);
         // SAFETY: this thread's own CPU state; the JIT is not running.
         unsafe {
-            (*cpu).pc = pc;
-            (*cpu).regs[0] = arg0;
+            (*cpu).pc = rewind.pc;
+            (*cpu).regs[0] = rewind.arg0;
         }
     }
 

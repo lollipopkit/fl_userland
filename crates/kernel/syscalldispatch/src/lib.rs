@@ -238,10 +238,16 @@ unsafe fn after_interrupt(cpu: *mut ffi::cpu_state) {
         // SAFETY: this thread's registers, between guest instructions.
         let pc = unsafe { (*cpu).pc };
         let rewind = taskview::with_current_restart(|r| r.take_rewind(pc, false)).flatten();
-        if let Some((pc, arg0)) = rewind {
+        if let Some(rewind) = rewind {
             unsafe {
-                (*cpu).pc = pc;
-                (*cpu).regs[0] = arg0;
+                (*cpu).pc = rewind.pc;
+                (*cpu).regs[0] = rewind.arg0;
+                // A relative deadline resumes for what is left: the `svc`
+                // runs `restart_syscall`, which takes the block the syscall
+                // left (Linux's `ERESTART_RESTARTBLOCK`).
+                if rewind.restart_syscall {
+                    (*cpu).regs[8] = kernel_syscallrestart::nr::NR_RESTART_SYSCALL;
+                }
             }
         }
     }

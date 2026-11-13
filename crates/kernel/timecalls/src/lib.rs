@@ -357,19 +357,45 @@ pub fn sys_clock_nanosleep(
     // one carry is enough only while both nanosecond fields are below a billion.
     let (sec, nsec) = timeabi::absolute_deadline(now_sec, now_nsec, req_sec, req_nsec);
 
+    sleep_to_deadline(clock, sec, nsec, rem_addr)
+}
+
+/// The rest of a relative sleep, to the absolute deadline it was turned
+/// into: where `clock_nanosleep` goes on, and where `restart_syscall` picks
+/// it up.
+///
+/// Interrupted, it reports what is left, which is what a caller whose handler
+/// ran resumes with -- recomputed from the deadline rather than taken from
+/// the host's `rem`, because the loop may have slept more than once -- and
+/// leaves the deadline behind as a restart block: with no handler, Linux's
+/// `ERESTART_RESTARTBLOCK` sleeps on for what is left, so `^Z`, `fg` or a
+/// debugger attaching does not cut the sleep short (`stoprestart_probe`).
+fn sleep_to_deadline(clock: c_uint, sec: i64, nsec: i64, rem_addr: u64) -> Result<(), Errno> {
+    let real = source_of(clock)?;
     let slept = sleep_until(real, sec, nsec);
-    // An interrupted *relative* sleep reports what is left, which is what the
-    // caller resumes with. Recomputed from the deadline rather than taken from
-    // the host's `rem`, because the loop above may have slept more than once.
-    if slept == Err(Errno::EINTR)
-        && rem_addr != 0
-        && let Ok((after_sec, after_nsec)) = now_of(real)
-    {
-        let left = timeabi::remaining_until(sec, nsec, after_sec, after_nsec).unwrap_or(0);
-        let (rem_sec, rem_nsec) = timeabi::nsec_to_timespec(left);
-        put_timespec(rem_addr, rem_sec, rem_nsec)?;
+    if slept == Err(Errno::EINTR) {
+        if rem_addr != 0
+            && let Ok((after_sec, after_nsec)) = now_of(real)
+        {
+            let left = timeabi::remaining_until(sec, nsec, after_sec, after_nsec).unwrap_or(0);
+            let (rem_sec, rem_nsec) = timeabi::nsec_to_timespec(left);
+            put_timespec(rem_addr, rem_sec, rem_nsec)?;
+        }
+        let block = kernel_syscallrestart::Block {
+            run: restart_sleep,
+            data: [clock as u64, sec as u64, nsec as u64, rem_addr],
+        };
+        taskview::with_current_restart(|r| r.set_block(block));
     }
     slept
+}
+
+/// `restart_syscall` for an interrupted relative sleep.
+fn restart_sleep(data: &[u64; 4]) -> i64 {
+    match sleep_to_deadline(data[0] as c_uint, data[1] as i64, data[2] as i64, data[3]) {
+        Ok(()) => 0,
+        Err(e) => e.as_i64(),
+    }
 }
 
 /// `nanosleep`.

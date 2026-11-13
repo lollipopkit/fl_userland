@@ -100,6 +100,31 @@ pub enum Restart {
     /// answers `EINTR`, and its deadline is absolute, so the restart waits for
     /// exactly what is left.
     Always = 3,
+    /// Linux's `ERESTART_RESTARTBLOCK`: a relative deadline. Restarted only
+    /// when no handler ran, and then not from the top -- the number becomes
+    /// `restart_syscall`, which runs the [`Block`] the syscall left, for the
+    /// time that is left. Set by the syscall itself ([`SyscallRestart::set_block`]),
+    /// never by [`classify`].
+    Block = 4,
+}
+
+/// What `restart_syscall` runs: Linux's `restart_block`. `run` is the
+/// interrupted syscall's own continuation, given back the `data` it left,
+/// and answers as a syscall does.
+#[derive(Clone, Copy, Debug)]
+pub struct Block {
+    pub run: fn(&[u64; 4]) -> i64,
+    pub data: [u64; 4],
+}
+
+/// Where to resume a syscall that is to run again.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Rewind {
+    pub pc: u64,
+    pub arg0: u64,
+    /// Run `restart_syscall` instead of the syscall itself: its number goes
+    /// in `x8`.
+    pub restart_syscall: bool,
 }
 
 /// Which class a syscall's `EINTR` is in, given the arguments it was called
@@ -142,7 +167,14 @@ pub fn classify(num: u64, args: &[u64; 6]) -> Restart {
         NR_FUTEX => {
             if args[3] == 0 {
                 Restart::IfHandlerAsks
+            } else if args[1] as u32 & !(128 | 256) == 9 {
+                // `FUTEX_WAIT_BITSET`'s deadline is absolute: from the top
+                // waits until the same instant. Linux answers
+                // `ERESTART_RESTARTBLOCK` for any timed wait, which is never
+                // restarted after a handler, so this is the same answer.
+                Restart::OnlyWithoutHandler
             } else {
+                // A relative `FUTEX_WAIT` leaves a [`Block`].
                 Restart::Never
             }
         }
@@ -150,20 +182,18 @@ pub fn classify(num: u64, args: &[u64; 6]) -> Restart {
         // `pselect(nfds, r, w, e, timeout, sigmask)`. Both replace the mask for
         // the duration, which is why they are the middle row rather than the
         // first.
-        NR_PPOLL => {
-            if args[2] == 0 {
-                Restart::OnlyWithoutHandler
-            } else {
-                Restart::Never
-            }
-        }
-        NR_PSELECT => {
-            if args[4] == 0 {
-                Restart::OnlyWithoutHandler
-            } else {
-                Restart::Never
-            }
-        }
+        //
+        // With a timeout too: Linux writes what is left of it back into the
+        // caller's timespec (`poll_select_finish`) before answering
+        // `ERESTARTNOHAND`, so the restart waits for the rest. This kernel
+        // writes it back as well (`crates/kernel/pollcalls`); they were
+        // `Never` until 2026-11-13, so `^Z`, `fg` ended a timed `poll` early
+        // with `EINTR` (`stoprestart_probe`).
+        NR_PPOLL | NR_PSELECT => Restart::OnlyWithoutHandler,
+        // An absolute sleep runs again to the same instant: Linux's
+        // `ERESTARTNOHAND` for `TIMER_ABSTIME`. A relative one leaves a
+        // [`Block`].
+        NR_CLOCK_NANOSLEEP if args[1] & 1 != 0 => Restart::OnlyWithoutHandler,
         NR_RT_SIGSUSPEND => Restart::OnlyWithoutHandler,
         // futex2's two waits take an **absolute** deadline, so re-running one
         // waits until the same instant rather than the full duration again --
@@ -174,7 +204,7 @@ pub fn classify(num: u64, args: &[u64; 6]) -> Restart {
 }
 
 /// What an interrupted syscall needs to be run again.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default)]
 #[repr(C)]
 pub struct SyscallRestart {
     /// `cpu.pc` at syscall entry, which the `svc` gadget has already advanced
@@ -188,6 +218,9 @@ pub struct SyscallRestart {
     class: Restart,
     /// Whether the syscall that `pc` describes did in fact answer `EINTR`.
     armed: bool,
+    /// What `restart_syscall` runs, left by a syscall whose deadline is
+    /// relative.
+    block: Option<Block>,
 }
 
 impl SyscallRestart {
@@ -198,6 +231,22 @@ impl SyscallRestart {
         self.arg0 = args[0];
         self.class = classify(num, args);
         self.armed = false;
+        // `restart_syscall` itself is what takes the block.
+        if num != nr::NR_RESTART_SYSCALL {
+            self.block = None;
+        }
+    }
+
+    /// The syscall answering `EINTR` is to be continued by `block` if no
+    /// handler runs: [`Restart::Block`].
+    pub fn set_block(&mut self, block: Block) {
+        self.block = Some(block);
+        self.class = Restart::Block;
+    }
+
+    /// `restart_syscall`: the block the interrupted syscall left, once.
+    pub fn take_block(&mut self) -> Option<Block> {
+        self.block.take()
     }
 
     /// The syscall answered `EINTR`.
@@ -232,20 +281,24 @@ impl SyscallRestart {
     /// decides is [`Restart::OnlyWithoutHandler`], which refuses.
     ///
     /// Consumes the arming, because a rewind happens once.
-    pub fn take_rewind(&mut self, at_pc: u64, handler_ran: bool) -> Option<(u64, u64)> {
+    pub fn take_rewind(&mut self, at_pc: u64, handler_ran: bool) -> Option<Rewind> {
         if !self.armed || at_pc != self.pc {
             return None;
         }
         let due = match self.class {
             Restart::Never => false,
             Restart::IfHandlerAsks | Restart::Always => true,
-            Restart::OnlyWithoutHandler => !handler_ran,
+            Restart::OnlyWithoutHandler | Restart::Block => !handler_ran,
         };
         if !due {
             return None;
         }
         self.armed = false;
-        Some((self.pc - SVC_LEN, self.arg0))
+        Some(Rewind {
+            pc: self.pc - SVC_LEN,
+            arg0: self.arg0,
+            restart_syscall: self.class == Restart::Block,
+        })
     }
 
     /// For diagnostics only. Deciding anything from this is the mistake the
@@ -271,6 +324,10 @@ impl SyscallRestart {
 mod tests {
     use super::*;
 
+    fn at(pc: u64, arg0: u64) -> Option<Rewind> {
+        Some(Rewind { pc, arg0, restart_syscall: false })
+    }
+
     /// `entered` for a syscall whose arguments do not matter.
     fn enter(r: &mut SyscallRestart, pc: u64, num: u64, arg0: u64) {
         let mut args = [0u64; 6];
@@ -292,7 +349,7 @@ mod tests {
         let mut r = SyscallRestart::default();
         enter(&mut r, 0x1004, nr::NR_READ, 0xdead);
         r.interrupted();
-        assert_eq!(r.take_rewind(0x1004, true), Some((0x1000, 0xdead)));
+        assert_eq!(r.take_rewind(0x1004, true), at(0x1000, 0xdead));
     }
 
     #[test]
@@ -313,7 +370,7 @@ mod tests {
         assert_eq!(r.take_rewind(0x1008, true), None);
         // And it is still armed, because none of those consumed it: the real
         // signal for this syscall can still arrive.
-        assert_eq!(r.take_rewind(0x1004, true), Some((0x1000, 0xdead)));
+        assert_eq!(r.take_rewind(0x1004, true), at(0x1000, 0xdead));
     }
 
     #[test]
@@ -347,7 +404,7 @@ mod tests {
         r.interrupted();
         assert_eq!(
             r.take_rewind(0x1004, true),
-            Some((0x1000, 2)),
+            at(0x1000, 2),
             "and it carries the new argument"
         );
     }
@@ -386,7 +443,7 @@ mod tests {
         let mut r = SyscallRestart::default();
         r.entered(0x1004, nr::NR_FUTEX, &wait);
         r.interrupted();
-        assert_eq!(r.take_rewind(0x1004, true), Some((0x1000, 0x1000)));
+        assert_eq!(r.take_rewind(0x1004, true), at(0x1000, 0x1000));
 
         let timed = [0x1000u64, 0, 0, 0x7fff_0000, 0, 0];
         let mut r = SyscallRestart::default();
@@ -408,36 +465,64 @@ mod tests {
         assert_eq!(r.take_rewind(0x1004, true), None, "a handler ran");
         assert_eq!(
             r.take_rewind(0x1004, false),
-            Some((0x1000, 0)),
+            at(0x1000, 0),
             "the group was stopped and continued"
         );
     }
 
+    /// A timed `ppoll` restarts when no handler ran, as Linux's does: the
+    /// timespec holds what is left by then (`stoprestart_probe`).
     #[test]
-    fn a_ppoll_with_a_timeout_does_not_restart_at_all() {
+    fn a_ppoll_with_a_timeout_restarts_only_without_a_handler() {
         let args = [0, 0, 0xbeef_0000, 0, 0, 0];
         let mut r = SyscallRestart::default();
         r.entered(0x1004, nr::NR_PPOLL, &args);
         r.interrupted();
-        assert_eq!(r.take_rewind(0x1004, false), None);
+        assert_eq!(r.take_rewind(0x1004, true), None, "a handler ran");
+        assert_eq!(r.take_rewind(0x1004, false), at(0x1000, 0));
     }
 
     #[test]
-    fn pselect_reads_its_timeout_from_the_fifth_argument() {
-        // ppoll's is the third and pselect's is the fifth. Reading the wrong
-        // one classifies a timed wait as restartable, which is the failure this
-        // crate documents twice over.
-        let none = [3, 0, 0, 0, 0, 0];
-        let mut r = SyscallRestart::default();
-        r.entered(0x1004, nr::NR_PSELECT, &none);
-        r.interrupted();
-        assert_eq!(r.take_rewind(0x1004, false), Some((0x1000, 3)));
+    fn pselect_restarts_only_without_a_handler_timed_or_not() {
+        for args in [[3, 0, 0, 0, 0, 0], [3, 0, 0, 0, 0xbeef_0000, 0]] {
+            let mut r = SyscallRestart::default();
+            r.entered(0x1004, nr::NR_PSELECT, &args);
+            r.interrupted();
+            assert_eq!(r.take_rewind(0x1004, true), None, "a handler ran");
+            assert_eq!(r.take_rewind(0x1004, false), at(0x1000, 3));
+        }
+    }
 
-        let timed = [3, 0, 0, 0, 0xbeef_0000, 0];
+    /// A relative sleep leaves a block: restarted without a handler as
+    /// `restart_syscall`, which takes the block once; never after a handler.
+    #[test]
+    fn a_block_restarts_as_restart_syscall() {
+        fn run(_: &[u64; 4]) -> i64 {
+            0
+        }
+        let block = Block { run, data: [1, 2, 3, 4] };
         let mut r = SyscallRestart::default();
-        r.entered(0x1004, nr::NR_PSELECT, &timed);
+        r.entered(0x1004, nr::NR_NANOSLEEP, &[0; 6]);
+        r.set_block(block);
         r.interrupted();
-        assert_eq!(r.take_rewind(0x1004, false), None);
+        assert_eq!(r.take_rewind(0x1004, true), None, "a handler ran");
+        assert_eq!(r.take_rewind(0x1004, false), Some(Rewind { pc: 0x1000, arg0: 0, restart_syscall: true }));
+        r.entered(0x1004, nr::NR_RESTART_SYSCALL, &[0; 6]);
+        assert_eq!(r.take_block().map(|b| b.data), Some(block.data), "restart_syscall keeps it to take");
+        assert!(r.take_block().is_none());
+        r.set_block(block);
+        r.entered(0x1004, nr::NR_GETPID, &[0; 6]);
+        assert!(r.take_block().is_none(), "any other syscall drops it");
+    }
+
+    /// An absolute sleep and an absolute futex deadline run again from the
+    /// top; a relative futex wait does not (it leaves a block).
+    #[test]
+    fn absolute_deadlines_restart_from_the_top() {
+        assert_eq!(classify(nr::NR_CLOCK_NANOSLEEP, &[1, 1, 0, 0, 0, 0]), Restart::OnlyWithoutHandler);
+        assert_eq!(classify(nr::NR_CLOCK_NANOSLEEP, &[1, 0, 0, 0, 0, 0]), Restart::Never);
+        assert_eq!(classify(nr::NR_FUTEX, &[0, 9 | 128, 0, 0xbeef, 0, 0]), Restart::OnlyWithoutHandler);
+        assert_eq!(classify(nr::NR_FUTEX, &[0, 128, 0, 0xbeef, 0, 0]), Restart::Never, "FUTEX_WAIT | PRIVATE");
     }
 
     #[test]
@@ -450,7 +535,7 @@ mod tests {
             r.entered(0x1004, nr::NR_FUTEX, &args);
             assert!(r.restarts_regardless(), "op {op:#x}");
             r.interrupted();
-            assert_eq!(r.take_rewind(0x1004, true), Some((0x1000, 0x1000)), "op {op:#x}");
+            assert_eq!(r.take_rewind(0x1004, true), at(0x1000, 0x1000), "op {op:#x}");
         }
         // FUTEX_WAIT is not one of them.
         let args = [0x1000, 128, 0, 0, 0, 0];
@@ -468,7 +553,7 @@ mod tests {
             let mut r = SyscallRestart::default();
             r.entered(0x1004, n, &args);
             r.interrupted();
-            assert_eq!(r.take_rewind(0x1004, true), Some((0x1000, 0x1000)));
+            assert_eq!(r.take_rewind(0x1004, true), at(0x1000, 0x1000));
             assert!(!r.restarts_regardless());
         }
     }
@@ -491,7 +576,7 @@ mod tests {
         let mut r = SyscallRestart::default();
         enter(&mut r, 0x1004, nr::NR_READ, 0);
         r.interrupted();
-        assert_eq!(r.take_rewind(0x1004, true), Some((0x1000, 0)));
+        assert_eq!(r.take_rewind(0x1004, true), at(0x1000, 0));
     }
 
     #[test]
@@ -513,7 +598,8 @@ mod tests {
     /// with it.
     #[test]
     fn the_size_and_alignment_are_recorded() {
-        assert_eq!(std::mem::size_of::<SyscallRestart>(), 24);
+        // 24 until 2026-11-13, when it gained the restart block.
+        assert_eq!(std::mem::size_of::<SyscallRestart>(), 64);
         assert_eq!(std::mem::align_of::<SyscallRestart>(), 8);
     }
 }

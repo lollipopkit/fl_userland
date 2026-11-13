@@ -94,7 +94,13 @@ pub fn sys_futex(
         cmd::WAIT => {
             strace!("futex(FUTEX_WAIT, {uaddr:#x}, {val})");
             // FUTEX_WAIT is FUTEX_WAIT_BITSET with every bit set.
-            futex_wait(w, val, BITSET_MATCH_ANY, deadline)
+            let r = futex_wait(w, val, BITSET_MATCH_ANY, deadline);
+            if r == Errno::EINTR.as_i64()
+                && let Some(deadline) = deadline
+            {
+                leave_wait_block(w, val, deadline);
+            }
+            r
         }
         cmd::WAIT_BITSET => {
             // The mask is honoured. It used to be dropped, so a
@@ -171,4 +177,32 @@ pub fn sys_futex(
         // Every other number was refused above.
         _ => ENOSYS,
     })
+}
+
+/// A `FUTEX_WAIT` with a relative timeout that a signal interrupted leaves the
+/// deadline it became, for `restart_syscall` to wait out: Linux's
+/// `futex_wait_restart`. A `FUTEX_WAIT_BITSET` deadline is absolute already
+/// and restarts from the top (`kernel_syscallrestart::classify`).
+fn leave_wait_block(w: Word, val: u32, deadline: std::time::Instant) {
+    let left = deadline.saturating_duration_since(std::time::Instant::now());
+    let at = util_timeabi::monotonic_ns().saturating_add(left.as_nanos() as u64);
+    let block = kernel_syscallrestart::Block {
+        run: restart_wait,
+        data: [w.addr, w.private as u64, val as u64, at],
+    };
+    taskview::with_current_restart(|r| r.set_block(block));
+}
+
+/// `restart_syscall` for an interrupted timed `FUTEX_WAIT`: the same wait, to
+/// the same instant, which re-reads the word first as any wait does.
+fn restart_wait(data: &[u64; 4]) -> i64 {
+    let w = Word { addr: data[0], private: data[1] != 0 };
+    let val = data[2] as u32;
+    let left = std::time::Duration::from_nanos(data[3].saturating_sub(util_timeabi::monotonic_ns()));
+    let deadline = std::time::Instant::now() + left;
+    let r = futex_wait(w, val, BITSET_MATCH_ANY, Some(deadline));
+    if r == Errno::EINTR.as_i64() {
+        leave_wait_block(w, val, deadline);
+    }
+    r
 }

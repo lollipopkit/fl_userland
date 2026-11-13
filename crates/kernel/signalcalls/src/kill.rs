@@ -184,7 +184,14 @@ pub fn sys_tkill(tid: c_int, sig: c_uint) -> Result<(), Errno> {
 /// `EINTR`. It was a stub, so it answered `ENOSYS`, and a caller that reached it
 /// by any route saw a different error from the one that would have come out of
 /// the syscall it replaced.
-pub fn sys_restart_syscall() -> Result<(), Errno> {
+/// Linux's `restart_syscall`: run the continuation a syscall with a relative
+/// deadline left when a stop interrupted it (`kernel_syscallrestart::Block`),
+/// for the time that is left. With none -- a guest calling it itself --
+/// `EINTR`, which is Linux's `do_no_restart_syscall`.
+pub fn sys_restart_syscall() -> Result<i64, Errno> {
     strace!("restart_syscall()");
-    Err(Errno::EINTR)
+    match taskview::with_current_restart(|r| r.take_block()).flatten() {
+        Some(block) => Errno::split((block.run)(&block.data)),
+        None => Err(Errno::EINTR),
+    }
 }

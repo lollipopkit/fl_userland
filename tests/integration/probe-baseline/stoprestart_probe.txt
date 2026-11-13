@@ -1,0 +1,8 @@
+nanosleep                                    -> 0, slept the whole time true
+clock_nanosleep MONOTONIC, relative          -> 0, slept the whole time true
+clock_nanosleep MONOTONIC, TIMER_ABSTIME     -> 0, slept the whole time true
+futex WAIT, 400 ms timeout                   -> ETIMEDOUT, slept the whole time true
+poll, no fds, 400 ms                         -> 0, slept the whole time true
+ppoll, no fds, 400 ms                        -> 0, slept the whole time true
+select, no fds, 400 ms                       -> 0, slept the whole time true
+epoll_wait, empty set, 400 ms                -> EINTR, slept the whole time false

@@ -21,6 +21,8 @@ kernel-proctree = { path = "../../kernel/proctree" }
 # The IUL_* settings as a safe read; see crates/util/iulenv.
 util-iulenv = { path = "../../util/iulenv" }
 kernel-taskview = { path = "../../kernel/taskview" }
+# The restart block an interrupted timed wait leaves.
+kernel-syscallrestart = { path = "../../kernel/syscallrestart" }
 asbestos-diag = { path = "../../asbestos/diag" }
 libc.workspace = true
 kernel-robustlist = { path = "../robustlist" }

@@ -24,6 +24,8 @@ kernel-pids = { path = "../pids" }
 # The POSIX timer table, called as Rust.
 kernel-posixtimers = { path = "../posixtimers" }
 kernel-taskview = { path = "../../kernel/taskview" }
+# The restart block an interrupted relative sleep leaves.
+kernel-syscallrestart = { path = "../../kernel/syscallrestart" }
 libc.workspace = true
 rustix.workspace = true
 util-timeabi = { path = "../../util/timeabi" }
