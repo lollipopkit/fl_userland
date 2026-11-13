@@ -32,8 +32,8 @@ IC IVAU, the crypto/TBL group and the vector immediate shifts run through it (20
 STXR stays in assembly: through `slow_call` it cost 6.5% on `atomic_bench`.
 
 **Deliverable.** `.github/workflows/static-libs.yml` builds `libiul.a` for `iphoneos` and
-`iphonesimulator` on every push to `main` and publishes it as a `vX.Y.Z` release. An embedder
-links `libiul.a` plus `-lsqlite3` and includes `iul.h`. (`libish_emu.a` and `libfakefs.a` were
+`iphonesimulator` when a `vX.Y.Z` tag is pushed and publishes them, with `iul.h`, as that
+release (`libiul-iphoneos.a`, `libiul-iphonesimulator.a`). An embedder links `libiul.a` plus `-lsqlite3` and includes `iul.h`. (`libish_emu.a` and `libfakefs.a` were
 meson's split of the C; both became Rust inside `libiul.a` and were removed on 2026-09-30.)
 
 No submodules. `docs/` and `benchmark/` were removed on 2026-09-30; comments still cite

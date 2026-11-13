@@ -1,0 +1,32 @@
+name: static-libs
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Toolchain
+        run: |
+          rustup component add llvm-tools
+          rustup target add aarch64-apple-ios aarch64-apple-ios-sim aarch64-unknown-linux-musl
+      - name: Build
+        run: |
+          tools/build-libs.sh build-ios    --release --target aarch64-apple-ios
+          tools/build-libs.sh build-iossim --release --target aarch64-apple-ios-sim
+          tools/ios-symbol-floor.sh build-ios/libiul.a
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir dist
+          cp build-ios/libiul.a    dist/libiul-iphoneos.a
+          cp build-iossim/libiul.a dist/libiul-iphonesimulator.a
+          cp iul.h dist/
+          gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
