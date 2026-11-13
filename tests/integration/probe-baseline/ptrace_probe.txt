@@ -73,3 +73,6 @@ CONT from a syscall stop                           -> ok
 the first syscall stop                             -> 133
 SYSCALL with data=SIGUSR1                          -> ok
   what the tracer sees next                        -> stopped 133, stopped 10, killed by 10
+## a signal passed through to sigsuspend
+the stops the tracer saw                           -> 19, 17
+  and then                                         -> exited 0

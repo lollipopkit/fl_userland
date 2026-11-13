@@ -510,7 +510,7 @@ unsafe fn deliver_pending(task: *mut ffi::task, queue: kernel_sighand::Queue<'_>
             // Notifies the tracer, sleeps, and waits to be continued. Signals
             // that arrive meanwhile stay on the queue, except SIGKILL, which
             // ends the process from inside.
-            guard = unsafe { signal_delivery_stop(task, queue, guard, info.sig, &info) };
+            guard = unsafe { signal_delivery_stop(task, queue, guard, info.sig, &info, allowed) };
             ptrace_stopped = true;
         } else {
             guard = unsafe { receive_signal(task, guard, &info) };

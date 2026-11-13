@@ -250,6 +250,9 @@ fn notify_tracer_of_stop(sig: c_int) {
 /// reads the tracee's state under the ptrace lock, and the tracee must not hold
 /// sighand's across a wait the tracer ends.
 ///
+/// `allowed` is the set this delivery took `sig` under, which is what the
+/// signal the tracer passes back is judged blocked against.
+///
 /// # Safety
 /// Called on the guest thread `task` is.
 pub(super) unsafe fn signal_delivery_stop<'a>(
@@ -258,6 +261,7 @@ pub(super) unsafe fn signal_delivery_stop<'a>(
     guard: QueueGuard<'a>,
     sig: c_int,
     info: &SigInfo,
+    allowed: u64,
 ) -> QueueGuard<'a> {
     // SAFETY: the caller's contract -- this is `task`'s own thread. `None` is
     // a task on its way out, for which each step below is what the adapters
@@ -315,8 +319,16 @@ pub(super) unsafe fn signal_delivery_stop<'a>(
     // tracee means through another signal-delivery-stop. The first version
     // of this delivered regardless and the tracee died of a signal Linux
     // stops it for; `ptrace_probe`'s "CONT with data=SIGTERM" measured it.
+    //
+    // Blocked by the mask *this delivery* runs under, which is Linux's
+    // `current->blocked` at that point: inside `sigsuspend` it is the
+    // temporary mask, which `deliver_pending` has already swapped back out
+    // of the queue to put it in the handler's frame. Judged by the queue's
+    // mask, a `SIGCHLD` a shell's `wait` was suspended for was requeued
+    // instead of handled, the restarted `sigsuspend` took it again, and
+    // `strace -f sh -c '... & wait'` printed that `SIGCHLD` for ever.
     let mut guard = guard;
-    let blocked = guard.queue().blocked() & mask_of(resume) != 0;
+    let blocked = allowed & mask_of(resume) == 0;
     if blocked {
         let blockable = resume != ffi::SIGKILL_ as c_int && resume != ffi::SIGSTOP_ as c_int;
         guard.queue_mut().arrive(resume, delivered, blockable);

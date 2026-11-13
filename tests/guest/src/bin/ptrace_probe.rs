@@ -694,6 +694,65 @@ fn main() {
 
     syscall_stops();
     syscall_stop_signal();
+    sigsuspend_passthrough();
+}
+
+static GOT_CHLD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+extern "C" fn on_chld(_sig: i32) {
+    GOT_CHLD.store(true, std::sync::atomic::Ordering::SeqCst);
+}
+
+/// A tracee blocks `SIGCHLD` and waits for it in `sigsuspend`, and the
+/// tracer passes it through: the handler runs once, under `sigsuspend`'s
+/// mask, and `sigsuspend` returns. What a shell's `wait` does under `strace -f`.
+fn sigsuspend_passthrough() {
+    println!("## a signal passed through to sigsuspend");
+    let _ = std::io::Write::flush(&mut std::io::stdout());
+    let pid = unsafe { libc::fork() };
+    if pid == 0 {
+        unsafe {
+            let mut act: libc::sigaction = std::mem::zeroed();
+            act.sa_sigaction = on_chld as *const () as usize;
+            libc::sigaction(libc::SIGCHLD, &act, std::ptr::null_mut());
+            let mut set: libc::sigset_t = std::mem::zeroed();
+            libc::sigemptyset(&mut set);
+            libc::sigaddset(&mut set, libc::SIGCHLD);
+            libc::sigprocmask(libc::SIG_BLOCK, &set, std::ptr::null_mut());
+            libc::ptrace(TRACEME, 0, std::ptr::null_mut::<c_void>(), std::ptr::null_mut::<c_void>());
+            libc::raise(libc::SIGSTOP);
+            if libc::fork() == 0 {
+                libc::_exit(0);
+            }
+            let mut empty: libc::sigset_t = std::mem::zeroed();
+            libc::sigemptyset(&mut empty);
+            let r = libc::sigsuspend(&empty);
+            let e = *libc::__errno_location();
+            libc::_exit(if r == -1 && e == libc::EINTR && GOT_CHLD.load(std::sync::atomic::Ordering::SeqCst) { 0 } else { 1 });
+        }
+    }
+    let mut stops = Vec::new();
+    let mut end = "nothing".to_string();
+    for _ in 0..10 {
+        let (got, st) = wait_bounded(pid, 0);
+        if got != pid {
+            break;
+        }
+        if libc::WIFSTOPPED(st) {
+            let sig = libc::WSTOPSIG(st);
+            stops.push(sig.to_string());
+            // Passed through, as strace does; the initial SIGSTOP is not.
+            ptrace(CONT, pid, 0, if sig == libc::SIGSTOP { 0 } else { sig as u64 });
+        } else {
+            end = if libc::WIFEXITED(st) { format!("exited {}", libc::WEXITSTATUS(st)) } else { format!("killed by {}", libc::WTERMSIG(st)) };
+            break;
+        }
+    }
+    line("the stops the tracer saw", stops.join(", "));
+    line("  and then", &end);
+    if end == "nothing" {
+        teardown(pid);
+    }
 }
 
 /// `PTRACE_SYSCALL` from a syscall stop with a signal in `data`: Linux's
