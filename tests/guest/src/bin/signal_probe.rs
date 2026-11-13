@@ -557,4 +557,36 @@ fn main() {
             if r < 0 { named(errno()) } else { "ok" },
         );
     }
+
+    println!("## a stop signal and SIGCONT cancel each other's pending");
+    // Linux's `prepare_signal`: a stop signal discards a pending SIGCONT,
+    // and SIGCONT discards every pending stop signal, before either is
+    // queued -- here with both blocked, so nothing is delivered.
+    for (first, second) in [(libc::SIGTSTP, libc::SIGCONT), (libc::SIGCONT, libc::SIGTSTP), (libc::SIGTTIN, libc::SIGCONT)] {
+        let _ = std::io::Write::flush(&mut std::io::stdout());
+        let pid = unsafe { libc::fork() };
+        if pid == 0 {
+            unsafe {
+                let mut set: libc::sigset_t = std::mem::zeroed();
+                libc::sigemptyset(&mut set);
+                for s in [libc::SIGTSTP, libc::SIGTTIN, libc::SIGCONT] {
+                    libc::sigaddset(&mut set, s);
+                }
+                libc::sigprocmask(libc::SIG_BLOCK, &set, std::ptr::null_mut());
+                libc::kill(libc::getpid(), first);
+                libc::kill(libc::getpid(), second);
+                let mut pend: libc::sigset_t = std::mem::zeroed();
+                libc::sigpending(&mut pend);
+                let names: Vec<&str> = [(libc::SIGTSTP, "TSTP"), (libc::SIGTTIN, "TTIN"), (libc::SIGCONT, "CONT")]
+                    .iter()
+                    .filter(|(s, _)| libc::sigismember(&pend, *s) == 1)
+                    .map(|(_, n)| *n)
+                    .collect();
+                println!("{:<48} -> {}", format!("sent {first} then {second}, pending"), names.join(" "));
+                let _ = std::io::Write::flush(&mut std::io::stdout());
+                libc::_exit(0);
+            }
+        }
+        unsafe { libc::waitpid(pid, std::ptr::null_mut(), 0) };
+    }
 }

@@ -65,3 +65,7 @@ kill(self, 0)                                        -> ok
 kill(self, 65)                                       -> EINVAL
 kill(a pid nothing has, 0)                           -> ESRCH
 sigtimedwait with a negative tv_nsec                 -> EINVAL
+## a stop signal and SIGCONT cancel each other's pending
+sent 20 then 18, pending                         -> CONT
+sent 18 then 20, pending                         -> TSTP
+sent 21 then 18, pending                         -> CONT

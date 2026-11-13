@@ -440,6 +440,49 @@ pub fn send_signal(to: Target<'_>, sig: c_int, info: SigInfo) {
     after_queueing(to, sig);
 }
 
+/// The stop signals: `SIGSTOP`, `SIGTSTP`, `SIGTTIN`, `SIGTTOU`.
+const STOP_SIGNALS: u64 = (1 << (19 - 1)) | (1 << (20 - 1)) | (1 << (21 - 1)) | (1 << (22 - 1));
+
+/// The rest of Linux's `prepare_signal`: a stop signal discards every pending
+/// `SIGCONT` of the process, and `SIGCONT` every pending stop signal -- shared
+/// and every thread's own -- before either is queued, whatever happens to it
+/// then. Nothing did, so a `SIGTSTP` blocked and pending survived the
+/// `SIGCONT` meant to cancel it (`signal_probe`), and a `SIGCONT` the tracer
+/// had not yet seen was delivered after a later `SIGSTOP`
+/// (`ptrace_attach_probe`).
+///
+/// A [`Target::Me`] sender may hold locks that rule out `pids_lock`, so its
+/// other threads' own queues are left; a thread-directed stop or continue
+/// pending on a sibling is the only thing that misses.
+fn cancel_opposite(to: Target<'_>, sig: c_int) {
+    use kernel_sigqueue::mask_of;
+    let drop = if STOP_SIGNALS & mask_of(sig) != 0 {
+        mask_of(ffi::SIGCONT_ as c_int)
+    } else if sig == ffi::SIGCONT_ as c_int {
+        STOP_SIGNALS
+    } else {
+        return;
+    };
+    let flush = |queue: kernel_sighand::Queue<'_>| {
+        let mut guard = queue.lock();
+        let (own, shared) = guard.both_mut();
+        own.retain(|i| mask_of(i.sig) & drop == 0);
+        shared.retain(|i| mask_of(i.sig) & drop == 0);
+    };
+    match to {
+        Target::Me => {
+            taskview::with_current_queue(flush);
+        }
+        Target::Task(t) => {
+            for thread in t.group().into_iter().flat_map(kernel_pids::Group::threads) {
+                if let Some(queue) = thread.signal_queue() {
+                    flush(queue);
+                }
+            }
+        }
+    }
+}
+
 /// What every signal a process sends goes through before it is queued:
 /// answers false when there is nothing to queue -- signal 0, a task that is
 /// gone, or one running an offloaded host binary, which took it.
@@ -457,6 +500,7 @@ fn about_to_queue(to: Target<'_>, sig: c_int) -> bool {
     if to.with_group(|g| g.exit.pending().is_some()) == Some(true) {
         return false;
     }
+    cancel_opposite(to, sig);
     trace_fatal_signal(task, sig);
 
     // Native offload: forward the signal to the host process running natively.
