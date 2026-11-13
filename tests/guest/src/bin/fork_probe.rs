@@ -233,4 +233,26 @@ fn main() {
         unsafe { libc::close(fd) };
         let _ = std::fs::remove_file(path);
     }
+
+    println!("## a parent that is not its process's leader");
+    {
+        // The parent of a child forked by a thread is the process: getppid
+        // and /proc/<pid>/status's PPid name its tgid, not the thread.
+        let me = unsafe { libc::getpid() };
+        let t = std::thread::spawn(move || {
+            let _ = std::io::Write::flush(&mut std::io::stdout());
+            let c = unsafe { libc::fork() };
+            if c == 0 {
+                let ppid = unsafe { libc::getppid() };
+                let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+                let field = status.lines().find_map(|l| l.strip_prefix("PPid:")).map(str::trim).unwrap_or("?").to_string();
+                println!("{:<48} -> {}", "getppid() is the forking process", ppid == me);
+                println!("{:<48} -> {}", "PPid is the forking process", field == me.to_string());
+                let _ = std::io::Write::flush(&mut std::io::stdout());
+                unsafe { libc::_exit(0) };
+            }
+            unsafe { libc::waitpid(c, std::ptr::null_mut(), 0) };
+        });
+        let _ = t.join();
+    }
 }

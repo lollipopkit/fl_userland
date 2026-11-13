@@ -92,8 +92,12 @@ pub fn sys_getppid() -> i64 {
     // one hold of `pids_lock`, because a parent found through the tree can be
     // freed the moment it is dropped, and `PidsGuard` is what makes holding it
     // across both the only shape a Rust caller can write.
+    //
+    // The parent's *process*: Linux's `task_tgid_vnr(real_parent)`. The
+    // parent is the thread that forked, which is not the process's leader
+    // when a thread forks; this answered that thread's tid (`fork_probe`).
     let guard = PidsGuard::take();
-    guard.me().and_then(kernel_pids::Task::parent).map_or(0, |p| p.pid() as i64)
+    guard.me().and_then(kernel_pids::Task::parent).map_or(0, |p| p.tgid() as i64)
 }
 
 // There is no 16-bit variant here. `sys_getuid`, `sys_geteuid`, `sys_getgid`

@@ -198,8 +198,9 @@ fn state_of(found: &Found) -> u8 {
     }
 }
 
+/// The parent's process, as `getppid` answers: the forking thread's tgid.
 fn parent_pid(task: Task<'_>) -> c_int {
-    task.parent().map_or(0, |p| p.pid())
+    task.parent().map_or(0, |p| p.tgid())
 }
 
 /// The four signal masks, in **one** acquisition of `sighand`'s lock. See the

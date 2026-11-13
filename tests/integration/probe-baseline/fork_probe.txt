@@ -13,3 +13,6 @@ no_new_privs                                     -> 1
 ## record locks
 the parent takes a write lock                    -> 0
 and the child sees it as somebody else's         -> a conflicting lock
+## a parent that is not its process's leader
+getppid() is the forking process                 -> true
+PPid is the forking process                      -> true
