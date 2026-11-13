@@ -1,0 +1,14 @@
+RET_TRACE without TRACESECCOMP: the call             -> exited 238
+RET_TRACE with TRACESECCOMP: the stop                -> stopped 5 event 7
+  GETEVENTMSG                                        -> 42
+  x8 at the stop is the syscall                      -> true
+  CONT: the call                                     -> exited 0
+NT_ARM_SYSTEM_CALL at the stop                       -> 173, 4 bytes
+x8 = -1, x0 = -EACCES at the stop: the call          -> exited 0
+SYSTEM_CALL = -1, x0 = -EACCES: the call             -> exited 213
+SYSTEM_CALL = getuid at the stop: the filter again   -> exited 201
+x8 = getuid at the stop: the call                    -> exited 0
+NT_ARM_SYSTEM_CALL at the entry stop                 -> 173, 4 bytes
+x8 = getuid at the entry stop: the call              -> exited 238
+SYSTEM_CALL = getuid at the entry stop: the call     -> exited 201
+SYSTEM_CALL = -1 at the entry stop: the call         -> exited 238

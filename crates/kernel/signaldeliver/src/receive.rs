@@ -50,7 +50,8 @@ mod ptrace;
 mod regs;
 use ptrace::signal_delivery_stop;
 pub use ptrace::{
-    GroupStopStep, ptrace_group_stop, ptrace_leaves_group_stop, ptrace_listen_ended,
+    GroupStopStep, ptrace_group_stop, ptrace_killed_in_stop, ptrace_leaves_group_stop, ptrace_listen_ended,
+    ptrace_seccomp_stop,
     ForkEvent, ptrace_exec_event_stop, ptrace_exit_event_stop, ptrace_fork_event_stop, ptrace_syscall_boundary,
     ptrace_vfork_done_stop,
 };

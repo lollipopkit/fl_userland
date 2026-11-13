@@ -112,6 +112,18 @@ pub fn ptrace_exec_event_stop() -> bool {
     ptrace_event_stop(ffi::PTRACE_EVENT_EXEC_ as c_int, ffi::PTRACE_O_TRACEEXEC_, pid)
 }
 
+/// `PTRACE_EVENT_SECCOMP`: a filter answered `SECCOMP_RET_TRACE` with `data`.
+/// Answers whether it stopped, which is false when the tracer did not ask.
+pub fn ptrace_seccomp_stop(data: u16) -> bool {
+    ptrace_event_stop(7, 0x80, data as u64)
+}
+
+/// Whether a `SIGKILL` arrived while the calling thread was stopped: the
+/// seccomp stop then skips the call, as Linux's `__seccomp_filter` does.
+pub fn ptrace_killed_in_stop() -> bool {
+    sigkill_is_pending()
+}
+
 /// `PTRACE_EVENT_EXIT`, from `do_exit` and before it releases anything. The
 /// message is the exit status, as `wait` would report it.
 pub fn ptrace_exit_event_stop(status: c_int) -> bool {

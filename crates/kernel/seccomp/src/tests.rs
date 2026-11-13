@@ -69,7 +69,7 @@ fn the_strictest_action_in_the_chain_wins() {
 fn errno_data_is_clamped_to_max_errno_and_zero_is_an_answer() {
     assert_eq!(Verdict::of(ret::ERRNO | 0xffff), Verdict::Errno(4095));
     assert_eq!(Verdict::of(ret::ERRNO), Verdict::Errno(0));
-    assert_eq!(Verdict::of(ret::TRACE), Verdict::Enosys);
+    assert_eq!(Verdict::of(ret::TRACE | 42), Verdict::Trace(42));
     assert_eq!(Verdict::of(ret::USER_NOTIF), Verdict::Enosys);
     assert_eq!(Verdict::of(0x1234_0000), Verdict::KillProcess, "an unknown action kills");
 }

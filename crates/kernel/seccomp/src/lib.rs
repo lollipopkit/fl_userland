@@ -461,10 +461,12 @@ pub enum Verdict {
     Errno(u16),
     /// Skip the call and raise `SIGSYS` with this in `si_errno`.
     Trap(u16),
-    /// Skip the call and answer `-ENOSYS`: `TRACE` with no tracer asking for
-    /// seccomp stops, or `USER_NOTIF` with no listener. Neither can exist
-    /// here.
+    /// Skip the call and answer `-ENOSYS`: `USER_NOTIF`, whose listener this
+    /// kernel cannot be asked for.
     Enosys,
+    /// Hand the call to a tracer that asked for `PTRACE_O_TRACESECCOMP`, with
+    /// this as the event message; `-ENOSYS` with no such tracer.
+    Trace(u16),
     KillThread,
     KillProcess,
 }
@@ -478,7 +480,8 @@ impl Verdict {
             ret::ALLOW | ret::LOG => Verdict::Allow,
             ret::ERRNO => Verdict::Errno(data.min(4095)),
             ret::TRAP => Verdict::Trap(data),
-            ret::TRACE | ret::USER_NOTIF => Verdict::Enosys,
+            ret::TRACE => Verdict::Trace(data),
+            ret::USER_NOTIF => Verdict::Enosys,
             ret::KILL_THREAD => Verdict::KillThread,
             _ => Verdict::KillProcess,
         }

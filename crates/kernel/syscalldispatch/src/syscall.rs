@@ -23,20 +23,31 @@ pub(super) unsafe fn do_syscall(task: *mut ffi::task, cpu: *mut ffi::cpu_state) 
     // pays a not-taken branch, which is the same shape as the signpost gate
     // two lines up and was measured the same way.
     //
-    // The number is read *after* the stop, because a tracer may have changed
-    // it: writing a different value into x8 while the tracee is in
-    // syscall-entry-stop is how `strace -e inject` and gdb's `set $x8` work,
-    // and reading it first would run the call the guest asked for rather than
-    // the one the tracer left.
+    // The number a tracer may change is not x8 but arm64's `syscallno`,
+    // which `NT_ARM_SYSTEM_CALL` reads and writes: it is set from x8 before
+    // the stop and read back after, and a tracer writing x8 changes nothing.
+    // This read x8 after the stop until 2026-11-13, on the belief that
+    // `strace -e inject` and gdb's `set $x8` work that way; on arm64 they do
+    // not (`seccomptrace_probe`). -1 skips the call with `-ENOSYS`.
     // `Ptrace` is this crate's dependency rather than a C call, so the two
     // relaxed atomic loads inline: every task has a ptrace state whether or
     // not anything traces it, so a null check alone would not short-circuit
     // and a call would be on every syscall in the system.
-    let stopping = unsafe { (*task).ptrace.as_deref() }.is_some_and(|p| p.stops_at_syscalls());
-    if stopping {
+    let ptrace = unsafe { (*task).ptrace.as_deref() };
+    let stopping = ptrace.is_some_and(|p| p.stops_at_syscalls());
+    let mut num = unsafe { (*regs)[8] } as u32;
+    if stopping && let Some(p) = ptrace {
+        p.set_syscallno(num as i32);
         unsafe { signaldeliver::receive::ptrace_syscall_boundary() };
+        num = p.syscallno() as u32;
+        if num == u32::MAX {
+            unsafe { (*regs)[0] = ENOSYS as i64 as u64 };
+            exit_stop(ptrace);
+            p.set_syscallno(-1);
+            after_syscall(num);
+            return;
+        }
     }
-    let num = unsafe { (*regs)[8] } as u32;
 
     // A snapshot for a restart: x0 is about to be clobbered by the return
     // value, so save it, and classify the call from its number and arguments
@@ -101,21 +112,38 @@ pub(super) unsafe fn do_syscall(task: *mut ffi::task, cpu: *mut ffi::cpu_state) 
     }
 
     // And the stop *after* it, with the answer already in x0 -- which is what
-    // the tracer reads on the exit half. `stopping` is the entry's answer
-    // rather than a second ask: a tracer that continued with PTRACE_CONT from
-    // the entry stop has said "run free from here", and asking again would
-    // stop it at an exit it did not ask for.
-    if stopping {
-        unsafe { signaldeliver::receive::ptrace_syscall_boundary() };
-    }
+    // the tracer reads on the exit half.
+    exit_stop(ptrace);
 
     after_syscall(num);
     // `_interval` ends here, on the way out.
 }
 
+/// The syscall-exit stop, asked **now**: Linux's `syscall_exit_work` reads the
+/// tracer's last word, so a `PTRACE_CONT` from the entry stop runs free
+/// through the exit. It was the entry's answer until 2026-11-13, which
+/// stopped a tracee continued with `PTRACE_CONT` again at the exit
+/// (`seccomptrace_probe`'s entry-stop cases); a detached tracee answers no
+/// either way.
+#[inline(always)]
+fn exit_stop(ptrace: Option<&ffi::ptrace_state>) {
+    match ptrace {
+        Some(p) if p.stops_at_syscalls() => unsafe { signaldeliver::receive::ptrace_syscall_boundary() },
+        // An entry stop with no exit stop after it: the next boundary is an
+        // entry again, not this call's exit.
+        Some(p) if p.is_traced() => p.leave_syscall_pairing(),
+        _ => {}
+    }
+}
+
 /// Whether the calling task's seccomp state lets syscall `num` run. When it
 /// does not, the answer is already in `x0` -- or the task is gone, for the
 /// two kill actions and for strict mode, which do not return.
+///
+/// `num` may change: a tracer at a `SECCOMP_RET_TRACE` stop can make it
+/// another call, which the filter is asked about again (`recheck`), and a
+/// `TRACE` the second time is let through -- Linux's `__seccomp_filter`
+/// with `recheck_after_trace`.
 ///
 /// # Safety
 /// As [`do_syscall`]: on the guest thread, with `cpu` and `regs` its own.
@@ -124,14 +152,16 @@ unsafe fn seccomp_permits(
     task: *mut ffi::task,
     cpu: *mut ffi::cpu_state,
     regs: *mut [u64; 31],
-    num: u32,
+    num: &mut u32,
     mode: u8,
+    recheck: bool,
 ) -> bool {
+    let num_now = *num;
     use kernel_seccomp::{AUDIT_ARCH_AARCH64, Data, MODE_STRICT, Verdict};
     const SIGSYS: c_int = 31;
     const SYS_SECCOMP: i32 = 1;
     if mode == MODE_STRICT {
-        if kernel_seccomp::strict_allows(num) {
+        if kernel_seccomp::strict_allows(num_now) {
             return true;
         }
         // Linux's `__secure_computing_strict`: `do_exit(SIGKILL)`, this thread.
@@ -139,7 +169,7 @@ unsafe fn seccomp_permits(
     }
     let args: [u64; 6] = unsafe { std::array::from_fn(|i| (*regs)[i]) };
     let data = Data {
-        nr: num as i32,
+        nr: num_now as i32,
         arch: AUDIT_ARCH_AARCH64,
         instruction_pointer: unsafe { (*cpu).pc },
         args,
@@ -153,6 +183,30 @@ unsafe fn seccomp_permits(
         Verdict::Enosys => {
             unsafe { (*regs)[0] = ENOSYS as i64 as u64 };
             false
+        }
+        Verdict::Trace(_) if recheck => true,
+        Verdict::Trace(data) => {
+            // To the tracer, if it asked for `PTRACE_O_TRACESECCOMP`; `-ENOSYS`
+            // otherwise. It may skip the call (number -1, `x0` its answer),
+            // change it, or let it run; a `SIGKILL` meanwhile skips it.
+            let Some(p) = (unsafe { (*task).ptrace.as_deref() }).filter(|p| p.is_traced()) else {
+                unsafe { (*regs)[0] = ENOSYS as i64 as u64 };
+                return false;
+            };
+            p.set_syscallno(num_now as i32);
+            if !signaldeliver::receive::ptrace_seccomp_stop(data) {
+                unsafe { (*regs)[0] = ENOSYS as i64 as u64 };
+                return false;
+            }
+            if signaldeliver::receive::ptrace_killed_in_stop() {
+                return false;
+            }
+            let after = p.syscallno();
+            if after == -1 {
+                return false;
+            }
+            *num = after as u32;
+            unsafe { seccomp_permits(task, cpu, regs, num, mode, true) }
         }
         Verdict::Trap(why) => {
             // SIGSYS with the call in `_sigsys`: where it was made (the

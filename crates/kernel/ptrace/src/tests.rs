@@ -80,8 +80,8 @@ fn abandoning_leaves_the_stop_without_continuing_it() {
     );
 }
 
-/// Every option with a stop behind it is honoured, and the two seccomp ones
-/// are refused: an accepted option whose event never comes leaves a tracer
+/// Every option with a stop behind it is honoured, and SUSPEND_SECCOMP is
+/// refused: an accepted option whose event never comes leaves a tracer
 /// waiting for ever.
 #[test]
 fn setoptions_takes_every_option_with_a_stop_behind_it() {
@@ -91,10 +91,8 @@ fn setoptions_takes_every_option_with_a_stop_behind_it() {
     assert!(options_valid(0x5f));
     assert!(options_valid(0x20), "TRACEVFORKDONE");
     assert!(options_valid(0x10_0000), "EXITKILL");
-    for bit in [0x80u64, 0x0020_0000] {
-        assert!(!options_valid(bit), "{bit:#x}: TRACESECCOMP, SUSPEND_SECCOMP");
-        assert!(!options_valid(bit | ffi::PTRACE_O_TRACESYSGOOD_ as u64), "{bit:#x}");
-    }
+    assert!(options_valid(0x80), "TRACESECCOMP");
+    assert!(!options_valid(0x0020_0000), "SUSPEND_SECCOMP");
     assert!(!options_valid(u64::MAX));
 }
 

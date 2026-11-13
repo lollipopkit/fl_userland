@@ -32,7 +32,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 use std::ffi::c_int;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering};
 
 use util_guestlock::{GuestGuard, GuestLock};
 
@@ -123,6 +123,14 @@ pub struct Ptrace {
     /// it out of; 0 for none. Read without the lock, under the group stop's
     /// own, which is innermost (`crates/kernel/groupstop`).
     released: AtomicU64,
+    /// arm64's `regs->syscallno`: the syscall a tracee stopped at its entry
+    /// or at a seccomp stop is about to make, -1 for none. What
+    /// `NT_ARM_SYSTEM_CALL` reads and writes, and what the call then is --
+    /// `x8` is only where the guest put the number, and a tracer changing it
+    /// changes nothing (`seccomptrace_probe`). Written only on a traced
+    /// task's syscall path, by the tracee or by its tracer while it is
+    /// stopped.
+    syscallno: AtomicI32,
     state: GuestLock<State>,
 }
 
@@ -139,6 +147,7 @@ impl Ptrace {
             at_syscalls: AtomicBool::new(false),
             trap: AtomicBool::new(false),
             released: AtomicU64::new(0),
+            syscallno: AtomicI32::new(-1),
             state: GuestLock::new(State::default(), 1),
         }
     }
@@ -198,6 +207,17 @@ impl Ptrace {
     /// see [`Ptrace::released`].
     pub fn owes_group_stop(&self, generation: u64) -> bool {
         self.traced.load(Ordering::Acquire) && self.released.load(Ordering::Acquire) != generation
+    }
+
+    /// The syscall about to run, as `NT_ARM_SYSTEM_CALL` reports it.
+    pub fn syscallno(&self) -> i32 {
+        self.syscallno.load(Ordering::Acquire)
+    }
+
+    /// Set it: the tracee at its syscall's entry, or the tracer changing the
+    /// call it is stopped at.
+    pub fn set_syscallno(&self, nr: i32) {
+        self.syscallno.store(nr, Ordering::Release);
     }
 
     /// Ask for a `PTRACE_EVENT_STOP` at the next return to the guest. The

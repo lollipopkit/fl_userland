@@ -61,10 +61,9 @@ const MAX_SIG: c_int = 64;
 /// where the event happens (`crates/kernel/signaldeliver`'s
 /// `ptrace_event_stop`); `EXITKILL` is read when the tracer exits.
 ///
-/// `TRACESECCOMP` is the one left, and is refused rather than accepted:
-/// `crates/kernel/seccomp` answers `SECCOMP_RET_TRACE` with `ENOSYS`, which
-/// is Linux's answer when no tracer asked for the event, and accepting the
-/// option would put a tracer into a wait for a stop that never comes.
+/// `TRACESECCOMP` stops at a filter's `SECCOMP_RET_TRACE` (the dispatcher).
+/// `SUSPEND_SECCOMP`, which needs `CAP_SYS_ADMIN` and lifts the filters for
+/// a checkpoint, is refused.
 ///
 /// **Refusing one is not free either.** Measured, strace sets TRACESYSGOOD
 /// and TRACEEXEC in one call, prints `PTRACE_SETOPTIONS: Invalid argument`
@@ -77,6 +76,7 @@ pub(super) const OPTIONS_HONOURED: u64 = ffi::PTRACE_O_TRACESYSGOOD_ as u64
     | O_TRACEVFORK
     | O_TRACECLONE
     | O_TRACEVFORKDONE
+    | O_TRACESECCOMP
     | O_EXITKILL;
 
 pub(super) const O_TRACEFORK: u64 = 0x2;
@@ -84,6 +84,7 @@ pub(super) const O_TRACEVFORK: u64 = 0x4;
 pub(super) const O_TRACECLONE: u64 = 0x8;
 pub(super) const O_TRACEVFORKDONE: u64 = 0x20;
 pub(super) const O_EXITKILL: u64 = 0x10_0000;
+pub(super) const O_TRACESECCOMP: u64 = 0x80;
 
 /// Linux's `PTRACE_O_MASK`: every option it defines, honoured here or not.
 /// `PTRACE_SEIZE` answers `EIO` for a bit outside it, where `SETOPTIONS`

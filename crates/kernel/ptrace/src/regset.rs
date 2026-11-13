@@ -32,7 +32,12 @@ use std::ffi::c_int;
 pub enum RegSet {
     General(ffi::user_regs_struct_),
     Fpsimd(ffi::user_fpsimd_state_),
+    /// `NT_ARM_SYSTEM_CALL`: the syscall number in flight, an `int`.
+    SystemCall(i32),
 }
+
+/// arm64's `NT_ARM_SYSTEM_CALL`.
+const NT_ARM_SYSTEM_CALL: u32 = 0x404;
 
 impl RegSet {
     /// The set as the guest reads it; also what a short `iovec` is clamped
@@ -41,6 +46,7 @@ impl RegSet {
         match self {
             RegSet::General(r) => plain::bytes_of_mut(r),
             RegSet::Fpsimd(v) => plain::bytes_of_mut(v),
+            RegSet::SystemCall(n) => plain::bytes_of_mut(n),
         }
     }
 }
@@ -72,6 +78,7 @@ pub unsafe fn get(task: *mut ffi::task, note: c_int) -> Option<RegSet> {
                 fpcr: (*cpu).fpcr,
                 __reserved: [0; 2],
             })),
+            NT_ARM_SYSTEM_CALL => Some(RegSet::SystemCall((*task).ptrace.as_deref().map_or(-1, |p| p.syscallno()))),
             _ => None,
         }
     }
@@ -102,6 +109,11 @@ pub unsafe fn set(task: *mut ffi::task, set: &RegSet) {
                 }
                 (*cpu).fpsr = v.fpsr;
                 (*cpu).fpcr = v.fpcr;
+            }
+            RegSet::SystemCall(n) => {
+                if let Some(p) = (*task).ptrace.as_deref() {
+                    p.set_syscallno(*n);
+                }
             }
         }
     }
