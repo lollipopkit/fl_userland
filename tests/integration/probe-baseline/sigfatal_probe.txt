@@ -17,6 +17,10 @@ both threads in nanosleep, sent 15                               -> killed by 15
 both threads in epoll_wait, sent 15                              -> killed by 15
 both threads spinning, sent 15                                   -> killed by 15
 the spinning leader blocks SIGTERM, a parked thread does not     -> killed by 15
+tgkill SIGKILL to a child blocked in read                        -> killed by 9
+tgkill SIGTERM, SIG_DFL to a child blocked in read               -> killed by 15
+tgkill SIGKILL to a thread blocked in read                       -> killed by 9
+tgkill SIGTERM, SIG_DFL to a thread blocked in read              -> killed by 15
 ########## stopped groups ##########
 a two-thread child, SIGSTOP                                      -> stopped by 19
   then SIGKILL                                                   -> killed by 9

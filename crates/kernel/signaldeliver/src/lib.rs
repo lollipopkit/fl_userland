@@ -411,6 +411,13 @@ pub fn send_signal(to: Target<'_>, sig: c_int, info: SigInfo) {
     }
     if arrival.ends_group {
         end_group(to);
+        // The named thread too, which `end_group`'s `SIGKILL` may not wake:
+        // a thread-directed `SIGKILL` is already on its queue, so the second
+        // one is no new arrival and asks for no wake. A `tgkill(SIGKILL)` to
+        // a thread blocked in `read` started the group exit and left the
+        // thread asleep, and every later signal was refused as the process
+        // was dying (`sigfatal_probe`'s thread-directed cases).
+        to.wake();
     } else if arrival.wake {
         to.wake();
     }

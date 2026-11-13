@@ -631,6 +631,45 @@ fn threads_of_1() -> Vec<i32> {
         .unwrap_or_default()
 }
 
+/// A fatal signal sent to one *thread* of a process blocked in a syscall:
+/// `tgkill`, which is also how a tracer's `PTRACE_O_EXITKILL` and
+/// `PTRACE_KILL` arrive. The thread has to be woken out of the wait.
+fn thread_directed_cases() {
+    for (name, sig) in [("SIGKILL", KILL), ("SIGTERM, SIG_DFL", TERM)] {
+        let (r, w) = pipe();
+        let p = fork(|| {
+            let _ = get(r);
+            unsafe { libc::_exit(1) };
+        });
+        std::thread::sleep(Duration::from_millis(50));
+        tgkill(p, p, sig);
+        unsafe { libc::close(w) };
+        line(&format!("tgkill {name} to a child blocked in read"), reap(p, Duration::from_secs(5)));
+        unsafe { libc::close(r) };
+    }
+    // A non-leader thread blocked in read: the whole process goes.
+    for (name, sig) in [("SIGKILL", KILL), ("SIGTERM, SIG_DFL", TERM)] {
+        let (r, w) = pipe();
+        let (tr, tw) = pipe();
+        let p = fork(|| {
+            let t = std::thread::spawn(move || {
+                put(tw, gettid());
+                let _ = get(r);
+            });
+            let _ = t.join();
+            unsafe { libc::_exit(1) };
+        });
+        let tid = get(tr);
+        std::thread::sleep(Duration::from_millis(50));
+        tgkill(p, tid, sig);
+        unsafe { libc::close(w) };
+        line(&format!("tgkill {name} to a thread blocked in read"), reap(p, Duration::from_secs(5)));
+        unsafe { libc::close(r) };
+        unsafe { libc::close(tr) };
+        unsafe { libc::close(tw) };
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).map(String::as_str) == Some("sleeper") {
@@ -639,6 +678,7 @@ fn main() {
     let me = CString::new(args[0].clone()).unwrap();
     status_cases();
     blocked_cases();
+    thread_directed_cases();
     stopped_cases();
     exec_cases(&me);
     aftermath_cases();
