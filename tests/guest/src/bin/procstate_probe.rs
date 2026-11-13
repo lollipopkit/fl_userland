@@ -290,9 +290,24 @@ fn syscall() {
     line("  a zombie", shown(read_once(&format!("/proc/{paused}/syscall"))));
     unsafe { libc::waitpid(paused, std::ptr::null_mut(), 0) };
 
-    let busy = spawn(|| loop {
-        std::hint::spin_loop();
-    });
+    // The child says when it is in the loop: 'R' alone is also true while it
+    // is still in the syscalls after `fork` (`set_tid_address`), which a slow
+    // host reads as that syscall.
+    let mut ready = [0i32; 2];
+    unsafe { libc::pipe(ready.as_mut_ptr()) };
+    let busy = unsafe { libc::fork() };
+    if busy == 0 {
+        unsafe { libc::write(ready[1], b"x".as_ptr().cast(), 1) };
+        loop {
+            std::hint::spin_loop();
+        }
+    }
+    let mut b = [0u8; 1];
+    unsafe {
+        libc::read(ready[0], b.as_mut_ptr().cast(), 1);
+        libc::close(ready[0]);
+        libc::close(ready[1]);
+    }
     wait_state(busy, 'R');
     line("a child in a loop", syscall_shape(&read_once(&format!("/proc/{busy}/syscall")).unwrap_or_default()));
     unsafe {
