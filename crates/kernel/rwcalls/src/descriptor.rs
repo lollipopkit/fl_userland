@@ -60,6 +60,9 @@ pub(crate) fn no_method(fd: &Fd, writing: bool) -> i64 {
 
 pub(crate) fn fd_write(fd: &Fd, buf: &[u8]) -> i64 {
     let (ops, caps) = (fd.driver(), fd.caps());
+    if let Err(e) = remove_privs(fd, buf) {
+        return e;
+    }
     let res = if caps.write {
         ops.write(fd, buf) as i64
     } else if caps.write_at {
@@ -84,6 +87,19 @@ pub(crate) fn fd_write(fd: &Fd, buf: &[u8]) -> i64 {
         inotify::notify_path(path.to_bytes(), inotify::IN_MODIFY, 0);
     }
     res
+}
+
+/// Linux's `file_remove_privs`, which a write of nothing does not reach: its
+/// `generic_write_checks` returns first. See `crates/fs/generic`'s
+/// `killpriv`.
+pub(crate) fn remove_privs(fd: &ffi::fd, buf: &[u8]) -> Result<(), i64> {
+    match buf.is_empty() {
+        true => Ok(()),
+        false => match fs_generic::remove_privs(fd) {
+            0 => Ok(()),
+            e => Err(e as i64),
+        },
+    }
 }
 
 /// Positional I/O on a descriptor whose filesystem may not implement it.
@@ -151,6 +167,9 @@ pub fn fd_pwrite(fd: &ffi::fd, buf: &[u8], off: i64) -> isize {
 pub(crate) fn fd_pwrite_slice(fd: &ffi::fd, buf: &[u8], off: i64) -> i64 {
     let ops = crate::driver(fd);
     let caps = ops.caps();
+    if let Err(e) = remove_privs(fd, buf) {
+        return e;
+    }
     if caps.write_at {
         return ops.pwrite(fd, buf, off) as i64;
     }

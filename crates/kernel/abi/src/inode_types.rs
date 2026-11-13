@@ -63,6 +63,12 @@ pub struct inode_data {
     /// `u8` that `crates/fs/inode` reached through `AtomicU8::from_ptr`, the
     /// one field here whose atomicity was a promise its only accessor kept.
     pub write_hint: std::sync::atomic::AtomicU8,
+    /// Linux's `S_NOSEC`: bit 0 says a write has nothing to remove -- no
+    /// set-id bit, no `security.capability` -- so it skips the `fstat` and the
+    /// xattr call. The rest is a generation, bumped by every change that could
+    /// add one, so a check that raced such a change cannot set the bit from
+    /// what it read before. `crates/fs/inode` owns the transitions.
+    pub nosec: std::sync::atomic::AtomicU32,
     /// A `GuestLock` and not a `std::sync::Mutex`: a blocking `fcntl` or
     /// `flock` waits on [`INODE_LOCK_RELEASED`] through `wait_for`, the only
     /// wait a signal can interrupt.
@@ -72,7 +78,7 @@ pub struct inode_data {
 // SAFETY: an inode is shared across threads by construction -- every
 // filesystem's inodes go through `crates/fs/inode`'s one table, and two
 // threads opening the same file get the same object. `number` and `mount` are
-// written once, at construction; `writers` and `write_hint` are atomics;
+// written once, at construction; `writers`, `write_hint` and `nosec` are atomics;
 // `state` is a lock. The one field that is not `Send + Sync` on its own is
 // `mount`, a raw pointer with a reference held, which is only read.
 unsafe impl Send for inode_data {}
@@ -111,6 +117,7 @@ impl inode_data {
             mount,
             writers: Default::default(),
             write_hint: Default::default(),
+            nosec: Default::default(),
             state: GuestLock::new(InodeState::default(), 1),
         }
     }

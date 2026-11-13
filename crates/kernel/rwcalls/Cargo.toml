@@ -15,6 +15,8 @@ util-errno = { path = "../../util/errno" }
 # The descriptor object, called as Rust. `fs/fd.h` is still the C
 # declaration; nothing here goes through it.
 fs-fdobj = { path = "../../fs/fdobj" }
+# `remove_privs`, which every write to a regular file asks first.
+fs-generic = { path = "../../fs/generic" }
 # The shared Rust types are re-exported by kernel-taskview.
 kernel-taskview = { path = "../../kernel/taskview" }
 kernel-v8mute = { path = "../v8mute" }

@@ -44,10 +44,21 @@ pub fn generic_xattr(
         Err(e) => return e as isize,
     };
     let mount = Mount::of(&mut path);
-    mount
-            .fs()
-            .xattr(
-mount.get(), path.as_cstr(), call, follow_links)
+    let changes = changes(&call);
+    let r = mount.fs().xattr(mount.get(), path.as_cstr(), call, follow_links);
+    if changes
+        && r >= 0
+        && let Ok(st) = mount.stat(&path)
+    {
+        fs_inode::privs_changed_at(mount.get(), st.inode);
+    }
+    r
+}
+
+/// A set or a removal may add or take away a `security.capability`, which
+/// [`super::killpriv`]'s mark has to hear about.
+fn changes(call: &ffi::XattrCall) -> bool {
+    matches!(call, ffi::XattrCall::Set { .. } | ffi::XattrCall::Remove { .. })
 }
 
 /// The same on an open descriptor. As [`generic_xattr`].
@@ -60,5 +71,10 @@ pub fn generic_fxattr(fd: &ffi::fd, call: ffi::XattrCall) -> isize {
     let Some(fs) = fd.mount().and_then(|mount| mount.fs) else {
         return EOPNOTSUPP as isize;
     };
-    fs.fxattr(fd, call)
+    let changes = changes(&call);
+    let r = fs.fxattr(fd, call);
+    if changes && r >= 0 {
+        super::killpriv::privs_changed(fd);
+    }
+    r
 }

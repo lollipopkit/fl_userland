@@ -103,7 +103,15 @@ fn set_attr(fd: &Fd, a: ffi::Attr) -> Result<(), Errno> {
         Some(st) => fs_perm::setattr_check(&st, a).map_err(Errno::from_negative_or_eio)?,
         None => a,
     };
+    if matches!(a, ffi::Attr::Size(_)) {
+        // `do_truncate`'s `ATTR_KILL_PRIV`, whatever the size; see
+        // `crates/fs/generic`'s `killpriv`.
+        done(fs_generic::remove_privs(fd))?;
+    }
     done(fs.fsetattr(fd, a))?;
+    if !matches!(a, ffi::Attr::Size(_)) {
+        fs_generic::privs_changed(fd);
+    }
     if let Some(st) = stat
         && matches!(a, ffi::Attr::Uid(_) | ffi::Attr::Gid(_))
     {
@@ -254,6 +262,9 @@ pub fn sys_fallocate(num: c_int, mode: c_uint, offset: i64, len: i64) -> Result<
     let Some(end) = offset.checked_add(len) else {
         return Err(Errno::EFBIG);
     };
+    // Every mode, before any work: a filesystem's `fallocate` starts with
+    // `file_modified`.
+    done(fs_generic::remove_privs(&fd))?;
     let size = st.size as i64;
 
     if mode & FALLOC_FL_PUNCH_HOLE != 0 {

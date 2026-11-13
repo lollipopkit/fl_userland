@@ -570,6 +570,10 @@ run "capget across processes" "$IUL" -r "$ROOTFS" /tmp/cap_cross
 run "capabilities: realfs" "$IUL" -r "$ROOTFS" /tmp/caps_rules
 run "capabilities: fakefs" "$IUL" -f "$FAKEFS" /tmp/caps_rules
 run "capabilities and set-id files: fakefs" "$IUL" -f "$FAKEFS" /tmp/caps_setid
+# A write removes set-id bits and the file capability (file_remove_privs).
+# fakefs: realfs cannot give a file to another user, and the host clears
+# set-id bits on its own writes.
+run "a write removes privileges: fakefs" "$IUL" -f "$FAKEFS" /tmp/killpriv
 
 # Which id a newly created object is stamped with. Linux uses the fsuid, which
 # tracks the effective uid; a pipe used the real one.

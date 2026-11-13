@@ -51,7 +51,7 @@ mod groups;
 pub use access::{AC_R, AC_W, AC_X, access, may_link};
 use access::in_group;
 pub use attribute::{
-    Change, mode_after_chown, setattr,
+    Change, mode_after_chown, mode_after_write, setattr,
 };
 pub use crosstask::PtraceMode;
 pub use exec::{Exec, ExecFile};

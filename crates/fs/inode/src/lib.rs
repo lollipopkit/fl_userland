@@ -335,6 +335,37 @@ pub fn set_write_hint(inode: &ffi::inode_data, value: u8) {
     inode.write_hint.store(value, Ordering::Relaxed);
 }
 
+/// What a write has to look at before it may skip removing privileges:
+/// `None` when this inode is known to have none, else the generation to hand
+/// back to [`mark_nosec`]. See [`ffi::inode_data::nosec`].
+pub fn privs_generation(inode: &ffi::inode_data) -> Option<u32> {
+    let v = inode.nosec.load(Ordering::Acquire);
+    (v & 1 == 0).then_some(v)
+}
+
+/// A check that started at `generation` found nothing to remove. A change
+/// since then has moved the generation, and the bit stays clear.
+pub fn mark_nosec(inode: &ffi::inode_data, generation: u32) {
+    let _ = inode.nosec.compare_exchange(generation, generation | 1, Ordering::AcqRel, Ordering::Relaxed);
+}
+
+/// The mode, the owner or an xattr changed: the next write looks again.
+/// Called **after** the change, so a check that reads the old state cannot
+/// mark the inode with the new generation.
+pub fn privs_changed(inode: &ffi::inode_data) {
+    let _ = inode.nosec.fetch_update(Ordering::AcqRel, Ordering::Relaxed, |v| Some((v | 1).wrapping_add(1)));
+}
+
+/// [`privs_changed`] for a path operation, which has the number and not the
+/// inode. Nothing open on it means no inode to tell: the next open makes a
+/// fresh one, which starts unmarked.
+pub fn privs_changed_at(mount: &ffi::mount, ino: u64) {
+    let found = with(|t| t.0.get(&key(mount, ino)).and_then(Weak::upgrade));
+    if let Some(inode) = found {
+        privs_changed(&inode);
+    }
+}
+
 /// The count for `(mount, ino)`, or 0 when no descriptor holds the file at
 /// all: a lookup that creates nothing, for a path operation with no
 /// descriptor of its own. `truncate(2)` asks it, because Linux's

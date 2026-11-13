@@ -84,6 +84,13 @@ pub fn link_check(stat: &ffi::statbuf) -> Result<(), c_int> {
     with_creds(-1, |c| c.may_link(stat.uid, stat.gid, stat.mode)) // EPERM
 }
 
+/// The mode a write or a truncation by this caller leaves `stat` with, or
+/// `None` if it keeps its set-id bits: `kernel_creds::mode_after_write`. A
+/// thread with no task is the embedder, which holds every capability.
+pub fn mode_after_write(stat: &ffi::statbuf) -> Option<u32> {
+    with_current_creds(|c| c.mode_after_write(stat.gid, stat.mode)).flatten()
+}
+
 /// May this caller make this change to this node?
 ///
 /// There was no check of any kind, which with set-id exec working was a local

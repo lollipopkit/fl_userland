@@ -369,7 +369,10 @@ fn open_inner(
     if truncating && writing && is(ty, S_IFREG) {
         let size = ffi::Attr::Size(0);
         let err = match fd.mount().and_then(|m| m.fs) {
-            Some(fs) => fs.fsetattr(&fd, size),
+            Some(fs) => match super::killpriv::remove_privs(&fd) {
+                0 => fs.fsetattr(&fd, size),
+                e => e,
+            },
             None => errno::EPERM,
         };
         if err < 0 {

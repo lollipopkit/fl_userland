@@ -7,6 +7,7 @@ use usercopy::GuestMem;
 
 use guest_errno::Errno;
 
+use crate::descriptor::remove_privs;
 use crate::{Fd, ffi, pread_at, pwrite_at};
 use kernel_copyloop as copyloop;
 
@@ -154,7 +155,9 @@ fn copy_between(in_fd: &Fd, in_off: &mut i64, out_fd: &Fd, out_off: &mut i64, le
                 Some(to) => pwrite_at(out_fd, &buf[..n], to),
                 None => {
                     let ops = out_fd.driver();
-                    if out_fd.caps().write {
+                    if let Err(e) = remove_privs(out_fd, &buf[..n]) {
+                        e
+                    } else if out_fd.caps().write {
                         ops.write(out_fd, &buf[..n]) as i64
                     } else {
                         debug_assert!(out_fd.caps().write_at, "checked by copy_ends");

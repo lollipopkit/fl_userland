@@ -379,12 +379,18 @@ known_ok() {
         "exec uid 1000, setuid-root"*) echo caps-realfs-owner-is-the-hosts ;;
         "exec uid 1000 groups [0], setgid-0"*) echo caps-realfs-group-is-the-hosts ;;
         "uid 1000: chmod g+s own file of group 0"*) echo caps-realfs-chmod-owner-is-the-hosts ;;
-        # caps: a write takes `security.capability` off the file on Linux
-        # (`file_remove_privs`), as it takes the set-id bits from a writer
-        # without CAP_FSETID. Neither is done here on write: it needs a per-inode
-        # "nothing to remove" cache, as Linux's IS_NOSEC, to stay off the write
-        # path. A chown takes both, and agrees.
-        "file caps after a write"*) echo caps-write-keeps-file-caps ;;
+        # killpriv: the host clears set-id bits on a data write by a process
+        # that is not root -- and this one is the user running the build --
+        # whoever the guest caller is, through a shared mapping as well. A
+        # truncation leaves them, so those cases agree. fakefs keeps the mode
+        # in meta.db, and `killpriv` asserts every case there.
+        "root "[26]"7"[45]"7 write  "*|"root "[26]"7"[45]"7 pwrite"*|"root "[26]"7"[45]"7 copy_file_range"*|"root "[26]"7"[45]"7 sendfile"*|*"7"[45]"7 mmap store"*)
+            echo killpriv-realfs-host-clears-on-write ;;
+        # killpriv: realfs reports the host's group for every file, so a guest
+        # caller is never in it and a set-group-ID file without group execute
+        # loses the bit, where Linux keeps it for a caller in the group. As
+        # `caps-realfs-group-is-the-hosts`; asserted on fakefs by `killpriv`.
+        "root-fsetid 2747 "*|"owner-ingrp 2747 "*) echo killpriv-realfs-group-is-the-hosts ;;
         # poll: a select() bit above the *descriptor table's* size. Linux clamps
         # nfds to `files_fdtable(current->files)->max_fds` -- the allocated
         # table, not RLIMIT_NOFILE -- so a bit past it is never looked at and
@@ -893,7 +899,7 @@ known_ok() {
 # allowlist nobody checks is how a check becomes vacuous. That has happened here
 # before: a rule written as "every line longer than 73 characters has a space at
 # 72" ran over an empty set and passed with the column deliberately wrong.
-ALL_KNOWN="kcmp-no-epoll-tfd seccomp-root-has-cap-sys-admin unshare-namespaces-not-configured setns-namespaces-not-configured setns-no-nsfs listns-not-configured landlock-not-configured bpf-not-configured perf-not-configured userfaultfd-not-configured keys-not-configured ngroups-max-is-32 procsys-only-what-this-kernel-decides memfd-secret-not-configured pidfd-info-no-cgroups pidfd-no-namespaces xattr-trusted-needs-cap-sys-admin xattr-security-needs-cap-sys-admin xattr-trusted-not-set-in-the-container xattr-name-limit-is-the-hosts xattr-value-limit-is-the-filesystems prio-lowering-needs-cap-sys-nice prio-no-realtime-policy prio-rr-interval-is-machine-state prio-rt-class-needs-cap-sys-admin statx-subvol statx-no-attributes linkat-empty-path ctr-no-mte-granule dczid-zva-prohibited mmap-placement mmap-overcommit o-tmpfile msg-oob msg-oob-in-every-bit rwf-nowait-is-a-mount-property ftruncate-max-file-size pipe-page-granularity auxv-no-rseq auxv-no-rseq-keys tiocgptpeer ptrace-setoptions membarrier-no-rseq membarrier-no-rseq-register membarrier-no-registrations mknod-block-needs-host-root select-nfds-clamped-to-table decode-no-fhm decode-no-fhm2 decode-by-element-extensions table-needs-cap-sys-admin table-vhangup-needs-cap-sys-tty-config table-syslog-epperm-in-a-container table-getgroups-counts-the-processs-own table-personality-no-randomize uring-not-implemented rseq-not-implemented rlimit-raise-needs-cap-sys-resource faultread-kept-where-linux-drops faultread-blocking-answers-at-once decode-no-pauth decode-no-cssc decode-no-mte openat2-o-tmpfile open-accmode-3 statmount-container-root-is-pivoted clock-settime-is-seccomp-in-the-container clock-res-is-the-hosts timer-create-no-cpu-clocks epoll-exclusive-wakes-every-set mqueue-not-mountable aio-rwf-nowait-is-a-mount-property aio-ioprio-rt-needs-cap-sys-nice aio-poll-result-is-not-the-wake-key acct-not-configured modules-not-configured pivot-root-not-implemented procpid-stack-pagemap-not-here caps-mknod-needs-host-root caps-realfs-owner-is-the-hosts caps-realfs-group-is-the-hosts caps-realfs-chmod-owner-is-the-hosts caps-write-keeps-file-caps"
+ALL_KNOWN="kcmp-no-epoll-tfd seccomp-root-has-cap-sys-admin unshare-namespaces-not-configured setns-namespaces-not-configured setns-no-nsfs listns-not-configured landlock-not-configured bpf-not-configured perf-not-configured userfaultfd-not-configured keys-not-configured ngroups-max-is-32 procsys-only-what-this-kernel-decides memfd-secret-not-configured pidfd-info-no-cgroups pidfd-no-namespaces xattr-trusted-needs-cap-sys-admin xattr-security-needs-cap-sys-admin xattr-trusted-not-set-in-the-container xattr-name-limit-is-the-hosts xattr-value-limit-is-the-filesystems prio-lowering-needs-cap-sys-nice prio-no-realtime-policy prio-rr-interval-is-machine-state prio-rt-class-needs-cap-sys-admin statx-subvol statx-no-attributes linkat-empty-path ctr-no-mte-granule dczid-zva-prohibited mmap-placement mmap-overcommit o-tmpfile msg-oob msg-oob-in-every-bit rwf-nowait-is-a-mount-property ftruncate-max-file-size pipe-page-granularity auxv-no-rseq auxv-no-rseq-keys tiocgptpeer ptrace-setoptions membarrier-no-rseq membarrier-no-rseq-register membarrier-no-registrations mknod-block-needs-host-root select-nfds-clamped-to-table decode-no-fhm decode-no-fhm2 decode-by-element-extensions table-needs-cap-sys-admin table-vhangup-needs-cap-sys-tty-config table-syslog-epperm-in-a-container table-getgroups-counts-the-processs-own table-personality-no-randomize uring-not-implemented rseq-not-implemented rlimit-raise-needs-cap-sys-resource faultread-kept-where-linux-drops faultread-blocking-answers-at-once decode-no-pauth decode-no-cssc decode-no-mte openat2-o-tmpfile open-accmode-3 statmount-container-root-is-pivoted clock-settime-is-seccomp-in-the-container clock-res-is-the-hosts timer-create-no-cpu-clocks epoll-exclusive-wakes-every-set mqueue-not-mountable aio-rwf-nowait-is-a-mount-property aio-ioprio-rt-needs-cap-sys-nice aio-poll-result-is-not-the-wake-key acct-not-configured modules-not-configured pivot-root-not-implemented procpid-stack-pagemap-not-here caps-mknod-needs-host-root caps-realfs-owner-is-the-hosts caps-realfs-group-is-the-hosts caps-realfs-chmod-owner-is-the-hosts killpriv-realfs-host-clears-on-write killpriv-realfs-group-is-the-hosts"
 
 # A KNOWN entry whose case has stopped happening and whose cause is **not
 # established**. `tag|since|what is unexplained`.

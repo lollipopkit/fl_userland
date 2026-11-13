@@ -258,6 +258,15 @@ pub fn generic_setattrat(
     // The checks above still run: whether the caller may truncate at all, and
     // whether the file is being executed, are questions with the same answer
     // either way, and Linux asks them before it compares the sizes.
+    // The set-id bits and the file capability go first, even for a size the
+    // file already has: `do_truncate` asks `notify_change` for
+    // `ATTR_KILL_PRIV` whatever the size, and `killpriv_probe` measured it.
+    if matches!(attr, ffi::Attr::Size(_)) {
+        let err = super::killpriv::remove_privs_at(&mount, &path, stat, follow_links);
+        if err < 0 {
+            return err;
+        }
+    }
     if let ffi::Attr::Size(size) = attr
         && is(stat.mode & S_IFMT, S_IFREG)
         && u64::try_from(size) == Ok(stat.size)
@@ -282,6 +291,9 @@ mount.get(), path.as_cstr(), attr);
             let mode_attr = ffi::Attr::Mode(reduced as ffi::mode_t_);
             mount.fs().setattr(mount.get(), path.as_cstr(), mode_attr);
         }
+    }
+    if err >= 0 && !matches!(attr, ffi::Attr::Size(_)) {
+        fs_inode::privs_changed_at(mount.get(), stat.inode);
     }
     err
 }

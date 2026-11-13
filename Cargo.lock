@@ -1828,6 +1828,7 @@ name = "kernel-rwcalls"
 version = "0.1.0"
 dependencies = [
  "fs-fdobj",
+ "fs-generic",
  "fs-pipecalls",
  "fs-poll",
  "inotify",

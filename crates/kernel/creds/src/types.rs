@@ -478,6 +478,11 @@ impl Creds {
         }
     }
 
+    /// [`crate::mode_after_write`] for this caller.
+    pub fn mode_after_write(&self, node_gid: u32, mode: u32) -> Option<u32> {
+        crate::mode_after_write(mode, self.capable(caps::CAP_FSETID), self.in_group(node_gid))
+    }
+
     /// `utimensat`'s rule (`setattr_prepare` and `notify_change`): explicit
     /// times need the owner or `CAP_FOWNER` (`EPERM`); "now" also lets a
     /// caller who may write the file (`EACCES`).

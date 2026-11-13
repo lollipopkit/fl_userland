@@ -28,6 +28,8 @@ pub use lookup::{
 #[path = "xattr.rs"]
 mod xattr;
 pub use xattr::{generic_fxattr, generic_xattr};
+mod killpriv;
+pub use killpriv::{privs_changed, remove_privs};
 
 #[path = "ops.rs"]
 mod ops;

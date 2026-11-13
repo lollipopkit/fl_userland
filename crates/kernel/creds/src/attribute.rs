@@ -29,6 +29,7 @@ const S_ISGID: u32 = 0o2000;
 const S_IXGRP: u32 = 0o0010;
 const S_IFMT: u32 = 0o170000;
 const S_IFDIR: u32 = 0o040000;
+const S_IFREG: u32 = 0o100000;
 
 /// May this caller make this change to this node?
 ///
@@ -91,6 +92,26 @@ pub fn mode_after_chown(mode: u32) -> Option<u32> {
     }
     if out == mode { None } else { Some(out) }
 }
+/// The mode a regular file must be reduced to before a write or a
+/// truncation by this caller, or `None` if nothing has to change: Linux's
+/// `setattr_should_drop_suidgid`, which `file_remove_privs` asks.
+///
+/// Set-user-ID goes, and set-group-ID with group execute; set-group-ID
+/// without it goes only for a caller outside the file's group. `CAP_FSETID`
+/// keeps all of them. Measured by `killpriv_probe`: root without
+/// `CAP_FSETID` writing a `2747` file of its own group leaves it alone, the
+/// owner outside group 2000 writing the same file gets `0747`.
+pub fn mode_after_write(mode: u32, fsetid: bool, in_group: bool) -> Option<u32> {
+    if mode & S_IFMT != S_IFREG || fsetid {
+        return None;
+    }
+    let mut kill = mode & S_ISUID;
+    if mode & S_ISGID != 0 && (mode & S_IXGRP != 0 || !in_group) {
+        kill |= S_ISGID;
+    }
+    (kill != 0).then_some(mode & !kill)
+}
+
 /* `creds_mode_after_chown` was here: `mode_after_chown` with its `Option`
  * flattened onto `-1`, which both callers tested with `if reduced >= 0` and
  * then cast back. A sentinel for an answer the type already has. Removed
@@ -99,6 +120,25 @@ pub fn mode_after_chown(mode: u32) -> Option<u32> {
 #[cfg(test)]
 mod setattr_tests {
     use super::*;
+
+    #[test]
+    fn a_write_drops_what_killpriv_probe_saw_linux_drop() {
+        let reg = |m: u32| S_IFREG | m;
+        // (mode, CAP_FSETID, in the file's group) -> what is left
+        for (mode, fsetid, in_group, left) in [
+            (0o6757, true, true, None),
+            (0o6757, false, true, Some(0o0757)),
+            (0o6757, false, false, Some(0o0757)),
+            (0o2747, false, true, None),
+            (0o2747, false, false, Some(0o0747)),
+            (0o2747, true, false, None),
+            (0o0757, false, false, None),
+        ] {
+            assert_eq!(mode_after_write(reg(mode), fsetid, in_group), left.map(reg), "{mode:o} {fsetid} {in_group}");
+        }
+        // Only a regular file.
+        assert_eq!(mode_after_write(S_IFDIR | 0o6755, false, false), None);
+    }
 
     const OURS: (u32, u32) = (1000, 1000);
 
