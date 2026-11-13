@@ -61,20 +61,31 @@ pub(super) unsafe fn do_syscall(task: *mut ffi::task, cpu: *mut ffi::cpu_state) 
     // Linux's order. One acquire load and a not-taken branch for a task with
     // no filter -- the ptrace gate's shape above.
     let mode = unsafe { (*task).seccomp.mode() };
-    if mode != kernel_seccomp::MODE_DISABLED && !unsafe { seccomp_permits(task, cpu, regs, num, mode) } {
+    let asked = num;
+    if mode != kernel_seccomp::MODE_DISABLED && !unsafe { seccomp_permits(task, cpu, regs, &mut num, mode, false) } {
         // The filter answered for the call: x0 holds what it said, or what
         // the guest passed in for a trap. The exit stop and the bookkeeping
         // still happen, as they do on Linux for a skipped call.
-        if stopping {
-            unsafe { signaldeliver::receive::ptrace_syscall_boundary() };
-        }
+        exit_stop(ptrace);
         after_syscall(num);
         return;
     }
 
+    // A tracer at a seccomp stop made it another call: classified afresh.
+    if num != asked {
+        unsafe {
+            let args = std::array::from_fn(|i| (*regs)[i]);
+            (*(*task).restart.get()).entered((*cpu).pc, num as u64, &args);
+        }
+    }
+
     match syscall_at(num as usize) {
         None => {
-            if report_once(num) {
+            // Reported only inside the table: a number past every one Linux
+            // assigns is `ENOSYS` there too and says nothing. strace skips an
+            // injected call by making it 65535 (`(uint16_t)-1` through
+            // `NT_ARM_SYSTEM_CALL`), and the line landed in its output.
+            if (num as usize) < syscalltable::SYSCALL_TABLE_SIZE && report_once(num) {
                 printk(&format!("{} missing syscall {num}", pid_and_comm()));
             }
             unsafe { (*regs)[0] = ENOSYS as i64 as u64 };
