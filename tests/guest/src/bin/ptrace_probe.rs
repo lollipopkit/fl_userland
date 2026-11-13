@@ -693,6 +693,44 @@ fn main() {
     }
 
     syscall_stops();
+    syscall_stop_signal();
+}
+
+/// `PTRACE_SYSCALL` from a syscall stop with a signal in `data`: Linux's
+/// `ptrace_report_syscall` sends it to the tracee once the stop ends, so
+/// the tracer sees it next, in a signal-delivery-stop after the syscall's
+/// exit stop.
+fn syscall_stop_signal() {
+    println!("## a signal passed at a syscall stop");
+    let Some(pid) = stopped_child_calling_getpid() else {
+        line("a child that stops and then calls getpid", "never stopped");
+        return;
+    };
+    ptrace(SETOPTIONS, pid, 0, PTRACE_O_TRACESYSGOOD as u64);
+    ptrace(SYSCALL, pid, 0, 0);
+    let (got, st) = wait_bounded(pid, 0);
+    line("the first syscall stop", if got == pid && libc::WIFSTOPPED(st) { libc::WSTOPSIG(st) } else { -1 });
+    line("SYSCALL with data=SIGUSR1", outcome(ptrace(SYSCALL, pid, 0, libc::SIGUSR1 as u64)));
+    let mut seen = Vec::new();
+    for _ in 0..3 {
+        let (got, st) = wait_bounded(pid, 0);
+        if got != pid {
+            seen.push("nothing".to_string());
+            break;
+        }
+        if libc::WIFSTOPPED(st) {
+            seen.push(format!("stopped {}", libc::WSTOPSIG(st)));
+            ptrace(SYSCALL, pid, 0, if libc::WSTOPSIG(st) == libc::SIGUSR1 { libc::SIGUSR1 as u64 } else { 0 });
+        } else if libc::WIFSIGNALED(st) {
+            seen.push(format!("killed by {}", libc::WTERMSIG(st)));
+            break;
+        } else {
+            seen.push(format!("exited {}", libc::WEXITSTATUS(st)));
+            break;
+        }
+    }
+    line("  what the tracer sees next", seen.join(", "));
+    teardown(pid);
 }
 
 /// `PTRACE_SYSCALL`: stop at every syscall boundary.

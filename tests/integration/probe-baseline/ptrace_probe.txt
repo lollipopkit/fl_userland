@@ -69,3 +69,7 @@ SETOPTIONS(TRACESYSGOOD)                           -> ok
   whose answer is the child's pid                  -> 1
 CONT from a syscall stop                           -> ok
   the child then runs to its exit                  -> 1
+## a signal passed at a syscall stop
+the first syscall stop                             -> 133
+SYSCALL with data=SIGUSR1                          -> ok
+  what the tracer sees next                        -> stopped 133, stopped 10, killed by 10

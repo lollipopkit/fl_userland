@@ -61,11 +61,19 @@ fn syscall_stop(p: &ffi::ptrace_state) {
         strace!("{} received a SIGKILL in syscall stop", taskview::current_pid());
         crate::do_exit_group(ffi::SIGKILL_ as c_int);
     }
-    // A syscall-stop carries no signal to deliver: `PTRACE_SYSCALL`'s `data`
-    // is one the tracer wants *injected*, and injecting from here would mean
-    // running a handler between the two halves of a syscall. Consumed so it
-    // does not leak into the next signal-delivery-stop.
-    let _ = p.take_resume_signal();
+    // `PTRACE_SYSCALL`'s `data` at a syscall stop is a signal the tracer
+    // wants sent: Linux's `ptrace_report_syscall` does `send_sig(exit_code,
+    // current, 1)` once the stop ends, so it is taken at the next return to
+    // the guest like any other -- after the syscall, and through a
+    // signal-delivery-stop for this tracee. It was consumed and dropped until
+    // 2026-11-13, on the reasoning that injecting would run a handler between
+    // the halves of a syscall; queueing is what Linux does, and the handler
+    // runs after the exit stop (`ptrace_probe`'s "a signal passed at a
+    // syscall stop").
+    let sig = p.take_resume_signal();
+    if sig != 0 {
+        crate::send_signal(Target::Me, sig, SigInfo { sig, ..kernel_info() });
+    }
 }
 
 /// A `PTRACE_EVENT_*` stop: the tracee parks where the event happened and the
