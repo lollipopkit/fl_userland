@@ -187,8 +187,25 @@ pub fn realfs_xattr(mount: &ffi::mount,
             // Darwin's `O_SYMLINK`, which `rustix` does not name.
             open_flags |= OFlags::from_bits_retain(libc::O_SYMLINK as _);
         }
-        let opened = root(mount)
-            .and_then(|root| rx(host_fs::openat(root, at_path(path), open_flags, Mode::empty())));
+        let open = |flags: OFlags| {
+            root(mount).and_then(|root| rx(host_fs::openat(root, at_path(path), flags, Mode::empty())))
+        };
+        let mut opened = open(open_flags);
+        // A set or a removal asks for write permission on Linux, not read,
+        // and the host lets one through a write-only descriptor: a file the
+        // guest may write and not read answered EACCES here, which is also
+        // what made `truncate(2)` of one fail once it started removing the
+        // file capability (`crates/fs/generic`'s `killpriv`). Only on
+        // EACCES, and that errno if the retry fails too: a directory opened
+        // for writing is EISDIR, which would be the wrong answer.
+        if opened.as_ref().is_err_and(|&e| e == guest_errno::c_int_::EACCES)
+            && matches!(call, ffi::XattrCall::Set { .. } | ffi::XattrCall::Remove { .. })
+        {
+            let write_only = (open_flags & !OFlags::RDONLY) | OFlags::WRONLY;
+            if let Ok(fd) = open(write_only) {
+                opened = Ok(fd);
+            }
+        }
         match opened {
             Ok(fd) => on_fd(fd.as_fd(), call),
             Err(e) => e as isize,

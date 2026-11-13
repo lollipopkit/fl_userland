@@ -251,6 +251,13 @@ fn t_truncate_write_only(h: &mut Harness, d: &Dir) {
         sys::stat(&path).map(|st| st.st_size) == Some(4),
         "size after truncating a write-only file"
     );
+    // An xattr set or removal asks for write permission, not read. realfs
+    // opened the file read-only for both, so it answered EACCES here.
+    let p = guest_tests::cpath(&path);
+    let set = unsafe { libc::setxattr(p.as_ptr(), c"user.wo".as_ptr(), b"v".as_ptr().cast(), 1, 0) };
+    check!(h, set == 0, "setxattr on a write-only file: {set} {}", std::io::Error::last_os_error());
+    let removed = unsafe { libc::removexattr(p.as_ptr(), c"user.wo".as_ptr()) };
+    check!(h, removed == 0, "removexattr on a write-only file: {removed} {}", std::io::Error::last_os_error());
     // No matching check for a *read-only* file: the guest runs as root, and
     // root truncates one on Linux. realfs refuses only because the host
     // process is not root, which a passthrough mount cannot do anything
