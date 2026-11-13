@@ -197,7 +197,7 @@ pub unsafe fn handle_interrupt(interrupt: c_int) {
 /// and sit out a group stop.
 #[inline(always)]
 unsafe fn after_interrupt(cpu: *mut ffi::cpu_state) {
-    signaldeliver::receive::receive_signals();
+    let traced_stop = signaldeliver::receive::receive_signals();
 
     // What `/proc/<pid>/syscall` reports while this thread sits out a stop:
     // `-1`, with where it stopped.
@@ -214,6 +214,11 @@ unsafe fn after_interrupt(cpu: *mut ffi::cpu_state) {
     let Some(stop_wait) = taskview::with_current_group(|g| g.stop.wait_while_stopped_noting(note)) else {
         return;
     };
+    // A ptrace stop is the same case: the tracer suppressed the signal, or
+    // the stop was a trap with no signal at all, and no handler ran. A
+    // handler that did run moved the pc, and the rewind below then finds
+    // nothing at the svc to rewind (`take_rewind` is given the pc).
+    let was_stopped = stop_wait.was_stopped || traced_stop;
 
     // The stop is over and no handler ran for it -- a stop is not a handler.
     // Linux restarts the syscall the stop interrupted, so `^Z` then `fg` on a
@@ -229,7 +234,7 @@ unsafe fn after_interrupt(cpu: *mut ffi::cpu_state) {
     // spurious EINTR is a better failure than a livelock. The stop is the case
     // that has been measured -- tests/guest/src/bin/wait_probe.rs -- and after
     // one the signals that caused it have been consumed.
-    if stop_wait.was_stopped {
+    if was_stopped {
         // SAFETY: this thread's registers, between guest instructions.
         let pc = unsafe { (*cpu).pc };
         let rewind = taskview::with_current_restart(|r| r.take_rewind(pc, false)).flatten();

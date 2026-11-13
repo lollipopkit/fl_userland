@@ -35,6 +35,8 @@ fn becoming_the_first_process_installs_the_hooks_no_cargo_edge_can_carry() {
         "do_exit and handle_interrupt"
     );
     assert!(signaldeliver::exit_group_hook_installed(), "do_exit_group");
+    assert!(kernel_ptrace::signal_hook_installed(), "PTRACE_KILL and PTRACE_ATTACH");
+    assert!(kernel_ptrace::wake_hook_installed(), "PTRACE_INTERRUPT");
     assert!(
         asbestos_dispatch::interrupt_hook_installed(),
         "prebuilt re-entry"

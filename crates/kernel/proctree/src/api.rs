@@ -47,6 +47,65 @@ pub fn parent(task: Task) -> Task {
     with(|t| t.parent(task)).map_or(std::ptr::null_mut(), TaskId::as_ptr)
 }
 
+/// `task` is traced by `tracer` from now on; see [`Tree::attach`].
+pub fn attach(task: Task, tracer: Task) -> bool {
+    let (Some(task), Some(tracer)) = (TaskId::from_ptr(task), TaskId::from_ptr(tracer)) else {
+        return false;
+    };
+    with(|t| t.attach(task, tracer))
+}
+
+/// `task` is no longer traced. Answers who traced it, or null.
+pub fn detach(task: Task) -> Task {
+    let Some(task) = TaskId::from_ptr(task) else {
+        return std::ptr::null_mut();
+    };
+    with(|t| t.detach(task)).map_or(std::ptr::null_mut(), TaskId::as_ptr)
+}
+
+/// The task tracing `task`, or null.
+pub fn tracer(task: Task) -> Task {
+    let Some(task) = TaskId::from_ptr(task) else {
+        return std::ptr::null_mut();
+    };
+    with(|t| t.tracer(task)).map_or(std::ptr::null_mut(), TaskId::as_ptr)
+}
+
+/// The `i`th task `task` traces, or null past the end.
+pub fn tracee_at(task: Task, i: c_uint) -> Task {
+    let Some(task) = TaskId::from_ptr(task) else {
+        return std::ptr::null_mut();
+    };
+    with(|t| t.tracee_at(task, i as usize)).map_or(std::ptr::null_mut(), TaskId::as_ptr)
+}
+
+/// Keep a traced thread's exit for `tracer`'s `wait`.
+pub fn push_report(tracer: Task, report: ExitReport) -> bool {
+    let Some(tracer) = TaskId::from_ptr(tracer) else {
+        return false;
+    };
+    with(|t| t.push_report(tracer, report))
+}
+
+/// See [`Tree::take_report`].
+pub fn take_report(tracer: Task, want: impl Fn(&ExitReport) -> bool, keep: bool) -> Option<ExitReport> {
+    let tracer = TaskId::from_ptr(tracer)?;
+    with(|t| t.take_report(tracer, want, keep))
+}
+
+/// See [`Tree::drain_reports`].
+pub fn drain_reports(tracer: Task) -> Vec<ExitReport> {
+    let Some(tracer) = TaskId::from_ptr(tracer) else {
+        return Vec::new();
+    };
+    with(|t| t.drain_reports(tracer))
+}
+
+/// See [`Tree::has_reports`].
+pub fn has_reports(tracer: Task) -> bool {
+    TaskId::from_ptr(tracer).is_some_and(|tracer| with(|t| t.has_reports(tracer)))
+}
+
 /// Move a task to a new parent. A null parent detaches it, which is what a
 /// task whose parent is gone and which has no init to fall back on gets.
 ///

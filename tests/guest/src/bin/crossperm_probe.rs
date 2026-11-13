@@ -24,7 +24,8 @@
 //! permitted capabilities be a subset of the caller's, which is what the
 //! target with a saved uid of 0 is for.
 //!
-//! `ptrace(PTRACE_SEIZE)` is not asked: attaching is not implemented here.
+//! `ptrace(PTRACE_SEIZE)` is not asked here; `ptrace_attach_probe` attaches
+//! with the ids equal.
 //! `move_pages` and `migrate_pages` are not configured.
 
 use std::ffi::CString;

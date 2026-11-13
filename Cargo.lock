@@ -1047,6 +1047,7 @@ dependencies = [
  "kernel-pids",
  "kernel-procattr",
  "kernel-proctree",
+ "kernel-ptrace",
  "kernel-rlimit",
  "kernel-sighand",
  "kernel-signaldeliver",
@@ -1296,6 +1297,7 @@ dependencies = [
  "kernel-pids",
  "kernel-proctree",
  "kernel-sighand",
+ "kernel-signaldeliver",
  "kernel-sigqueue",
  "kernel-sysvsem",
  "kernel-taskcalls",
@@ -1751,6 +1753,7 @@ dependencies = [
 name = "kernel-ptrace"
 version = "0.1.0"
 dependencies = [
+ "kernel-creds",
  "kernel-mmapcalls",
  "kernel-pids",
  "kernel-proctree",

@@ -214,6 +214,7 @@ fn reap_if_needed(
     pids: &PidsHeld,
     deferred: &exitcalls::Deferred,
     task: Task<'_>,
+    mine: Group<'_>,
     out: &mut Out,
     options: c_int,
 ) -> bool {
@@ -221,19 +222,29 @@ fn reap_if_needed(
     let Some(group) = task.group() else {
         return false;
     };
+    // Traced by another process: its ptrace stops are the tracer's to
+    // report, and so is its exit until the tracer has waited for it
+    // (`exitcalls::ptrace_release_zombie`) -- Linux's `wait_consider_task`
+    // for a real parent that is not the tracer. A group stop is still the
+    // parent's to see.
+    let traced_elsewhere = task.tracer().is_some_and(|t| !in_group(t, mine));
     if (options & opt::UNTRACED != 0 && notify_if_stopped(group, out, options))
         || (options & opt::CONTINUED != 0 && notify_if_continued(group, out, options))
-        || (options & opt::EXITED != 0 && reap_if_zombie(pids, deferred, task, out, options))
+        || (!traced_elsewhere && options & opt::EXITED != 0 && reap_if_zombie(pids, deferred, task, out, options))
     {
         out.set_child(offset::SIG, SIGCHLD);
         return true;
     }
+    !traced_elsewhere && report_ptrace_stop(task, out, options)
+}
+
+/// A ptrace stop of `task`, for its tracer.
+fn report_ptrace_stop(task: Task<'_>, out: &mut Out, options: c_int) -> bool {
     // `WUNTRACED` gates an *ordinary* group stop. A ptrace stop is reported to
     // the tracer whether or not it asked -- Linux's `wait_task_stopped`
-    // consults the flag only when the waiter is not the tracer, and a traced
-    // task here is always traced by its parent, which is who is waiting.
-    // Requiring the flag made `waitpid(pid, &st, 0)` on a stopped tracee block
-    // for ever, which is the call gdb and strace make.
+    // consults the flag only when the waiter is not the tracer. Requiring the
+    // flag made `waitpid(pid, &st, 0)` on a stopped tracee block for ever,
+    // which is the call gdb and strace make.
     //
     // The read, the test and the take are one operation under the ptrace lock.
     // 0 means nothing to report.
@@ -247,6 +258,67 @@ fn reap_if_needed(
     // differently -- CLD_TRAPPED against CLD_STOPPED -- so say so here, while
     // the tracee is still around to ask. `wait4` ignores si_code.
     out.set_child(offset::CODE, CLD_TRAPPED);
+    true
+}
+
+/// Whether `task` is a thread of `group`.
+fn in_group(task: Task<'_>, group: Group<'_>) -> bool {
+    task.group().is_some_and(|g| g.id() == group.id())
+}
+
+/// What a task this process traces and did not fork has to report: a ptrace
+/// stop, or -- a leader whose whole group has exited -- its exit, after
+/// which it is its real parent's (`exitcalls::ptrace_release_zombie`).
+/// Linux's `wait_consider_task(ptrace = 1)`: no `__WCLONE` or `__WALL`
+/// question is asked of a tracee, and a thread is one.
+fn report_tracee(
+    pids: &PidsHeld,
+    deferred: &exitcalls::Deferred,
+    task: Task<'_>,
+    out: &mut Out,
+    options: c_int,
+) -> bool {
+    if !task.is_zombie() {
+        return report_ptrace_stop(task, out, options);
+    }
+    if options & opt::EXITED == 0 {
+        return false;
+    }
+    let Some(group) = task.group() else {
+        return false;
+    };
+    out.set_child(offset::CHILD_STATUS, group.exit_pending().unwrap_or(task.exit_code()) as i32);
+    out.set_child(offset::SIG, SIGCHLD);
+    if options & opt::NOWAIT == 0 {
+        proctree::detach(task.raw());
+        exitcalls::ptrace_release_zombie(pids, deferred, task);
+    }
+    true
+}
+
+/// A traced thread's exit that `tracer` holds (`proctree::push_report`), if
+/// `want` accepts one. Taking it gives the tid back to the allocator.
+fn report_thread_exit(
+    pids: &PidsHeld,
+    tracer: Task<'_>,
+    want: impl Fn(&proctree::ExitReport) -> bool,
+    out: &mut Out,
+    options: c_int,
+) -> bool {
+    if options & opt::EXITED == 0 {
+        return false;
+    }
+    let nowait = options & opt::NOWAIT != 0;
+    let Some(report) = proctree::take_report(tracer.raw(), want, nowait) else {
+        return false;
+    };
+    out.set_child(offset::CHILD_PID, report.tid);
+    out.set_child(offset::CHILD_UID, report.uid as i32);
+    out.set_child(offset::CHILD_STATUS, report.status as i32);
+    out.set_child(offset::SIG, SIGCHLD);
+    if !nowait {
+        kernel_pids::set_task(pids, report.tid, std::ptr::null_mut());
+    }
     true
 }
 
@@ -334,7 +406,32 @@ pub fn do_wait(
                     // which memsets the task.
                     out.set_child(offset::CHILD_PID, child.pid());
                     out.set_child(offset::CHILD_UID, child.uid() as i32);
-                    if reap_if_needed(pids.held(), &deferred, child, &mut out, options) {
+                    if reap_if_needed(pids.held(), &deferred, child, mine, &mut out, options) {
+                        return 0;
+                    }
+                }
+                // Linux's second walk, over `ptraced`. A tracee this process
+                // forked was asked about above.
+                let want_pgid = (idtype == P_PGID).then(|| if id == 0 { mine.pgid() } else { id });
+                for tracee in parent.tracees() {
+                    let is_child = tracee.parent().is_some_and(|p| in_group(p, mine));
+                    if is_child && eligible(tracee, mine, idtype, id, options) {
+                        continue;
+                    }
+                    if want_pgid.is_some_and(|pgid| tracee.group().is_none_or(|g| g.pgid() != pgid)) {
+                        continue;
+                    }
+                    no_children = false;
+                    out.set_child(offset::CHILD_PID, tracee.pid());
+                    out.set_child(offset::CHILD_UID, tracee.uid() as i32);
+                    if report_tracee(pids.held(), &deferred, tracee, &mut out, options) {
+                        return 0;
+                    }
+                }
+                if proctree::has_reports(parent.raw()) {
+                    no_children = false;
+                    let wanted = |r: &proctree::ExitReport| want_pgid.is_none_or(|pgid| r.pgid == pgid);
+                    if report_thread_exit(pids.held(), parent, wanted, &mut out, options) {
                         return 0;
                     }
                 }
@@ -343,32 +440,43 @@ pub fn do_wait(
                 return ECHILD;
             }
         } else {
+            // __WNOTHREAD narrows "a child of this process" to "a child of this
+            // thread"; without it any thread of the group may name it. The
+            // same for a tracer.
+            let ours = |t: Task<'_>| if options & opt::NOTHREAD != 0 { t.raw() == me } else { in_group(t, mine) };
             let task = taskcalls::pid_get_task_zombie(pids.held(), id as u32);
             // SAFETY: found in the registry under `pids_lock`.
             let Some(task) = (unsafe { Task::from_raw(pids.held(), task) }) else {
+                // A traced thread that has exited is a report, not a task;
+                // there is nothing to wait *for* once it is not one either.
+                for t in mine.threads().filter(|&t| ours(t)) {
+                    if report_thread_exit(pids.held(), t, |r| r.tid == id, &mut out, options) {
+                        return 0;
+                    }
+                }
                 return ECHILD;
             };
-            let Some(parent) = task.parent() else {
-                return ECHILD;
-            };
-            // __WNOTHREAD narrows "a child of this process" to "a child of this
-            // thread"; without it any thread of the group may name it.
-            let ours = if options & opt::NOTHREAD != 0 {
-                parent.raw() == me
+            let parent_ours = task.parent().is_some_and(ours);
+            if task.tracer().is_some_and(ours) && !(parent_ours && task.leads_group()) {
+                // This process's tracee, thread or not, and not its child.
+                out.set_child(offset::CHILD_PID, id);
+                out.set_child(offset::CHILD_UID, task.uid() as i32);
+                if report_tracee(pids.held(), &deferred, task, &mut out, options) {
+                    return 0;
+                }
             } else {
-                parent.group().map(Group::raw) == Some(mine.raw())
-            };
-            if !ours {
-                return ECHILD;
-            }
-            // SAFETY: a group's leader is live under `pids_lock`.
-            let Some(leader) = task.group().and_then(|g| unsafe { Task::from_raw(pids.held(), g.leader()) }) else {
-                return ECHILD;
-            };
-            out.set_child(offset::CHILD_PID, id);
-            out.set_child(offset::CHILD_UID, leader.uid() as i32);
-            if reap_if_needed(pids.held(), &deferred, leader, &mut out, options) {
-                return 0;
+                if !parent_ours {
+                    return ECHILD;
+                }
+                // SAFETY: a group's leader is live under `pids_lock`.
+                let Some(leader) = task.group().and_then(|g| unsafe { Task::from_raw(pids.held(), g.leader()) }) else {
+                    return ECHILD;
+                };
+                out.set_child(offset::CHILD_PID, id);
+                out.set_child(offset::CHILD_UID, leader.uid() as i32);
+                if reap_if_needed(pids.held(), &deferred, leader, mine, &mut out, options) {
+                    return 0;
+                }
             }
         }
 

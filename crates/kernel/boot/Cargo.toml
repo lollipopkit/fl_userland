@@ -23,6 +23,7 @@ kernel-pids = { path = "../pids" }
 kernel-pagetable = { path = "../pagetable" }
 util-iulenv = { path = "../../util/iulenv" }
 kernel-signaldeliver = { path = "../signaldeliver" }
+kernel-ptrace = { path = "../ptrace" }
 kernel-rlimit = { path = "../rlimit" }
 fs-ttydev = { path = "../../fs/ttydev" }
 kernel-groupcalls = { path = "../../kernel/groupcalls" }

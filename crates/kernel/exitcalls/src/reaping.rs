@@ -41,7 +41,7 @@ pub(super) fn detach_and_notify(
     deferred: &super::Deferred,
     status: c_int,
     (utime, stime): (grouprusage::Timeval, grouprusage::Timeval),
-) -> (*mut ffi::task, bool) {
+) -> (*mut ffi::task, bool, bool) {
     let me = kernel_pids::Task::current(pids).expect("the exiting thread has its task");
     let t = me.task();
     // `exiting` is already set: `claim_session_terminal` marks the task as
@@ -98,7 +98,9 @@ pub(super) fn detach_and_notify(
         unsafe { (*t.signals.get()).clear() };
     }
 
+    exit_ptrace(pids, deferred, me);
     reparent_children(pids, me);
+    let keep_tid = leader.raw() != me.raw() && report_thread_exit(me, status);
 
     let mut auto_reap = false;
     let last_of_group = exit_tgroup(me, deferred);
@@ -156,7 +158,12 @@ pub(super) fn detach_and_notify(
         // early is not a reason to lose them". A container run says otherwise:
         // a child that burned 1.7 s leaves RUSAGE_CHILDREN unchanged under
         // SIG_IGN, against +1.73 s for the same child reaped by `waitpid`.
-        auto_reap = parent_will_never_wait(parent, leader);
+        // Traced by someone other than the parent: the tracer hears of the
+        // exit first and waits for it, and the parent only once the tracer
+        // has (`ptrace_release_zombie`). Linux's `exit_notify`: a traced task
+        // is not auto-reaped, and `do_notify_parent` goes to `tsk->parent`.
+        let tracer = leader.tracer().filter(|t| !same_process(*t, parent));
+        auto_reap = tracer.is_none() && parent_will_never_wait(parent, leader);
 
         // `exit_notify`'s `kill_orphaned_pgrp(tsk->group_leader, NULL)`, after
         // the children have gone to their new parent and **before** the parent
@@ -187,10 +194,125 @@ pub(super) fn detach_and_notify(
         if util_iulenv::env().pidfd_trace {
             eprintln!("[pidfd] notify_exit(pid={pid}): {matched} pidfds matched+woken");
         }
-        notify_parent(parent, leader, me, utime, stime);
+        match tracer {
+            Some(tracer) => {
+                if let Some(g) = tracer.group() {
+                    kernel_tgroup::tgroup_notify_child_exit(g);
+                }
+                notify_exit(tracer, leader, me, utime, stime, ffi::SIGCHLD_ as c_int);
+            }
+            None => notify_parent(parent, leader, me, utime, stime),
+        }
         run_exit_hook(leader.pid(), status);
     }
-    (leader.raw(), auto_reap)
+    (leader.raw(), auto_reap, keep_tid)
+}
+
+/// Whether two tasks are threads of one process.
+fn same_process(a: kernel_pids::Task<'_>, b: kernel_pids::Task<'_>) -> bool {
+    a.group().zip(b.group()).is_some_and(|(a, b)| a.id() == b.id())
+}
+
+/// A traced thread that is not its group's leader exits: its task goes, as
+/// every thread's does, and what its tracer's `wait` will report is kept
+/// for it (`proctree::push_report`). Answers whether a report was kept, in
+/// which case the caller reserves the tid once the task is destroyed, so the
+/// number is not handed out while the tracer can still name it.
+///
+/// Linux keeps the thread as a zombie in its tracer's `ptraced` list until
+/// the tracer waits; a thread's task here cannot outlive its group, which
+/// the leader's reaping frees, so the report is that zombie.
+pub(super) fn report_thread_exit(me: kernel_pids::Task<'_>, status: c_int) -> bool {
+    let Some(tracer) = me.tracer() else {
+        return false;
+    };
+    proctree::detach(me.raw());
+    // The group's code when the whole group is going, as `wait_task_zombie`
+    // reads it; the thread's own otherwise.
+    let status = me.group().and_then(|g| g.exit_pending()).unwrap_or(status as u32);
+    let report = proctree::ExitReport {
+        tid: me.pid(),
+        status,
+        pgid: me.group().map_or(0, |g| g.pgid()),
+        uid: me.creds().uid(),
+    };
+    if !proctree::push_report(tracer.raw(), report) {
+        return false;
+    }
+    if let Some(g) = tracer.group() {
+        kernel_tgroup::tgroup_notify_child_exit(g);
+    }
+    let mut info = ffi::siginfo_ { sig: ffi::SIGCHLD_ as c_int, ..Default::default() };
+    info.__bindgen_anon_1.child.pid = me.pid();
+    info.__bindgen_anon_1.child.uid = report.uid;
+    info.__bindgen_anon_1.child.status = status as i32;
+    kernel_sigqueue::childinfo::decode_in_place(&mut info);
+    signaldeliver::send_exit_signal(tracer, ffi::SIGCHLD_ as c_int, info);
+    true
+}
+
+/// Linux's `exit_ptrace`: a tracer is leaving, so every task it traces is let
+/// go -- continued if stopped, killed if it asked for `PTRACE_O_EXITKILL`,
+/// handed to its parent if it is a zombie whose exit this tracer never
+/// collected -- and the exits it holds for threads are dropped, their
+/// numbers released.
+///
+/// It walked the tracer's *children* until 2026-11-13, when every tracee was
+/// one.
+pub(super) fn exit_ptrace(pids: &kernel_pids::PidsHeld, deferred: &super::Deferred, me: kernel_pids::Task<'_>) {
+    let tracees: Vec<_> = me.tracees().collect();
+    for tracee in tracees {
+        proctree::detach(tracee.raw());
+        if tracee.is_zombie() {
+            // Its parent was told at the exit when the parent is this
+            // process, which is the `PTRACE_TRACEME` case; otherwise only
+            // this tracer was, and the parent is told now.
+            if !tracee.parent().is_some_and(|p| same_process(p, me)) {
+                ptrace_release_zombie(pids, deferred, tracee);
+            }
+            continue;
+        }
+        let Some(p) = tracee.ptrace() else {
+            continue;
+        };
+        let kill = p.options() & EXITKILL != 0;
+        if p.detach_on_tracer_exit() {
+            strace!("{} detached from its exiting tracer", tracee.pid());
+        }
+        if kill {
+            signaldeliver::ptrace_signal(tracee, ffi::SIGKILL_ as c_int);
+        }
+    }
+    for report in proctree::drain_reports(me.raw()) {
+        kernel_pids::set_task(pids, report.tid, std::ptr::null_mut());
+    }
+}
+
+/// `PTRACE_O_EXITKILL`.
+const EXITKILL: u32 = 0x10_0000;
+
+/// A zombie leader its tracer is done with -- waited for, or the tracer
+/// left -- goes to its real parent, which is told now, as Linux's
+/// `wait_task_zombie` does for a `ptrace_reparented` task; or is released at
+/// once if that parent will never wait. Its tracer edge is already gone.
+pub fn ptrace_release_zombie(pids: &kernel_pids::PidsHeld, deferred: &super::Deferred, leader: kernel_pids::Task<'_>) {
+    let Some(parent) = leader.parent() else {
+        return;
+    };
+    if parent_will_never_wait(parent, leader) {
+        // SAFETY: a zombie leader under `pids_lock`, which nothing else holds.
+        unsafe {
+            super::tgroup_release(pids, leader.raw(), deferred);
+            taskcalls::task_destroy(pids, leader.raw());
+        }
+        return;
+    }
+    if let Some(g) = parent.group() {
+        kernel_tgroup::tgroup_notify_child_exit(g);
+    }
+    let total = leader.group().map(|g| g.times().own());
+    let (utime, stime) = total.map_or_else(Default::default, |t| (t.utime(), t.stime()));
+    notify_parent(parent, leader, leader, utime, stime);
 }
 
 /// The children of a task that is leaving, moved to whoever takes them.
@@ -200,16 +322,6 @@ pub(super) fn reparent_children(pids: &kernel_pids::PidsHeld, me: kernel_pids::T
     // walk was backwards by index for the same reason.
     let children: Vec<_> = me.children().collect();
     for child in children {
-        // A tracer that leaves detaches its tracees, which is Linux's
-        // `exit_ptrace`. Without it a tracee parked in a ptrace stop waits
-        // for a continue that cannot come: `ptrace_orphan_probe` measured
-        // two of its three cases hanging here where a real kernel resumed
-        // all three. Here rather than in a loop of its own because every
-        // tracee is a child -- PTRACE_TRACEME is the only way in -- so this
-        // is the one walk that already visits them.
-        if child.ptrace().is_some_and(|p| p.detach_on_tracer_exit()) {
-            strace!("{} detached from its exiting tracer", child.pid());
-        }
         // prctl(PR_SET_PDEATHSIG) asked to hear about this. Sent *before*
         // the reparenting, because it is about the parent that is going
         // away.
@@ -301,6 +413,19 @@ pub(super) fn notify_parent(
     utime: grouprusage::Timeval,
     stime: grouprusage::Timeval,
 ) {
+    notify_exit(parent, leader, task, utime, stime, leader.exit_signal());
+}
+
+/// [`notify_parent`] with the signal named: a tracer is sent `SIGCHLD`
+/// whatever the exit signal, as Linux's `do_notify_parent` for a traced task.
+fn notify_exit(
+    parent: kernel_pids::Task<'_>,
+    leader: kernel_pids::Task<'_>,
+    task: kernel_pids::Task<'_>,
+    utime: grouprusage::Timeval,
+    stime: grouprusage::Timeval,
+    sig: c_int,
+) {
     let mut info = ffi::siginfo_::default();
     // The pid is the *process's*, which is the leader's -- `task` is
     // whichever thread of the group happened to exit last, and telling a
@@ -326,6 +451,6 @@ pub(super) fn notify_parent(
     // The decode says SIGCHLD, which is right for the signal it decodes.
     // clone(2) lets a child ask for a different one on exit, and that is
     // the signal being sent.
-    info.sig = leader.exit_signal();
-    signaldeliver::send_exit_signal(parent, leader.exit_signal(), info);
+    info.sig = sig;
+    signaldeliver::send_exit_signal(parent, sig, info);
 }

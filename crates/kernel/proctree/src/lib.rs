@@ -129,8 +129,9 @@ pub use taskview::ffi::{TaskId, TgroupId};
 
 mod api;
 pub use api::{
-    add, child_at, children_len, counts, group_add, group_add_new, group_at, group_forget,
-    group_len, group_remove, is_ancestor, parent, remove, set_parent,
+    add, attach, child_at, children_len, counts, detach, group_add, group_add_new, group_at,
+    group_forget, group_len, group_remove, is_ancestor, parent, remove, set_parent, tracee_at,
+    tracer, push_report, take_report, drain_reports, has_reports,
 };
 
 
@@ -207,6 +208,29 @@ struct Node {
     /// in. The C list added at the head, so it was newest-first; nothing
     /// depends on either, and oldest-first is the one a reader expects.
     children: Vec<TaskId>,
+    /// Linux's `task->parent` where it differs from `real_parent`: the task
+    /// tracing this one, which need not be its parent since `PTRACE_ATTACH`.
+    /// `parent` stays the real one, so reparenting and `getppid` do not see
+    /// a tracer.
+    tracer: Option<TaskId>,
+    /// Linux's `ptraced` list: the tasks this one traces, in attach order.
+    tracees: Vec<TaskId>,
+    /// Traced threads that exited and that this tracer has not waited for:
+    /// Linux keeps each as a zombie in `ptraced`. The task is gone here --
+    /// a thread's task cannot outlive its group -- so what is kept is what
+    /// `wait` reports, and the caller keeps the number reserved.
+    reports: Vec<ExitReport>,
+}
+
+/// A traced thread's exit, for its tracer's `wait`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ExitReport {
+    pub tid: Pid,
+    /// The `wait` status.
+    pub status: u32,
+    /// Its process group, for `waitpid(-pgid)`.
+    pub pgid: Pid,
+    pub uid: u32,
 }
 
 #[derive(Default)]
@@ -232,11 +256,7 @@ impl Tree {
         // the new task has no children, whatever the old one left behind.
         if let Some(old) = self.nodes.remove(&task) {
             self.stale += 1;
-            if let Some(p) = old.parent
-                && let Some(parent) = self.nodes.get_mut(&p)
-            {
-                parent.children.retain(|&c| c != task);
-            }
+            self.unlink(task, old);
         }
         self.nodes.entry(task).or_default().parent = parent;
         if let Some(p) = parent {
@@ -258,16 +278,102 @@ impl Tree {
         let Some(node) = self.nodes.remove(&task) else {
             return;
         };
+        self.unlink(task, node);
+    }
+
+    /// Take a node that has left the table out of every list that names it,
+    /// and clear what names it in turn. A tracee still here is a tracer that
+    /// exited without detaching, which this undoes rather than leaving a
+    /// tracer edge to a freed task.
+    fn unlink(&mut self, task: TaskId, node: Node) {
         if let Some(p) = node.parent
             && let Some(parent) = self.nodes.get_mut(&p)
         {
             parent.children.retain(|&c| c != task);
+        }
+        if let Some(t) = node.tracer
+            && let Some(tracer) = self.nodes.get_mut(&t)
+        {
+            tracer.tracees.retain(|&c| c != task);
         }
         for child in node.children {
             if let Some(c) = self.nodes.get_mut(&child) {
                 c.parent = None;
             }
         }
+        for tracee in node.tracees {
+            if let Some(c) = self.nodes.get_mut(&tracee) {
+                c.tracer = None;
+            }
+        }
+    }
+
+    /// Keep `report` for `tracer`'s `wait`. False if the list cannot grow.
+    pub fn push_report(&mut self, tracer: TaskId, report: ExitReport) -> bool {
+        let Some(node) = self.nodes.get_mut(&tracer) else {
+            return false;
+        };
+        if node.reports.try_reserve(1).is_err() {
+            return false;
+        }
+        node.reports.push(report);
+        true
+    }
+
+    /// The first of `tracer`'s reports that `want` accepts, taken unless
+    /// `keep`.
+    pub fn take_report(&mut self, tracer: TaskId, want: impl Fn(&ExitReport) -> bool, keep: bool) -> Option<ExitReport> {
+        let node = self.nodes.get_mut(&tracer)?;
+        let i = node.reports.iter().position(want)?;
+        Some(if keep { node.reports[i] } else { node.reports.remove(i) })
+    }
+
+    /// Every report `tracer` still holds, for a tracer that is leaving.
+    pub fn drain_reports(&mut self, tracer: TaskId) -> Vec<ExitReport> {
+        self.nodes.get_mut(&tracer).map(|n| std::mem::take(&mut n.reports)).unwrap_or_default()
+    }
+
+    /// Whether `tracer` holds any report.
+    pub fn has_reports(&self, tracer: TaskId) -> bool {
+        self.nodes.get(&tracer).is_some_and(|n| !n.reports.is_empty())
+    }
+
+    /// `task` is traced by `tracer` from now on. False if it already has a
+    /// tracer, if either is not in the table, or if the list cannot grow.
+    pub fn attach(&mut self, task: TaskId, tracer: TaskId) -> bool {
+        if task == tracer || !self.nodes.contains_key(&tracer) {
+            return false;
+        }
+        match self.nodes.get(&task) {
+            Some(node) if node.tracer.is_none() => {}
+            _ => return false,
+        }
+        let list = &mut self.nodes.get_mut(&tracer).expect("checked").tracees;
+        if list.try_reserve(1).is_err() {
+            return false;
+        }
+        list.push(task);
+        self.nodes.get_mut(&task).expect("checked").tracer = Some(tracer);
+        true
+    }
+
+    /// `task` is no longer traced. Answers who traced it.
+    pub fn detach(&mut self, task: TaskId) -> Option<TaskId> {
+        let tracer = self.nodes.get_mut(&task)?.tracer.take()?;
+        if let Some(node) = self.nodes.get_mut(&tracer) {
+            node.tracees.retain(|&c| c != task);
+        }
+        Some(tracer)
+    }
+
+    pub fn tracer(&self, task: TaskId) -> Option<TaskId> {
+        self.nodes.get(&task)?.tracer
+    }
+
+    /// The `i`th task `task` traces, or `None` past the end; as
+    /// [`Tree::child_at`].
+    pub fn tracee_at(&self, task: TaskId, i: usize) -> Option<TaskId> {
+        self.nodes.get(&task)?.tracees.get(i).copied()
     }
 
     pub fn parent(&self, task: TaskId) -> Option<TaskId> {

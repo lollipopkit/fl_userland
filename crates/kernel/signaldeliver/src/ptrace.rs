@@ -106,23 +106,76 @@ fn syscall_stop(p: &ffi::ptrace_state) {
 /// nothing a caller holds is skipped. A caller holding a lock the tracer needs
 /// hangs, which is a deadlock and not a soundness question.
 pub fn ptrace_exec_event_stop() -> bool {
-    ptrace_event_stop(ffi::PTRACE_EVENT_EXEC_ as c_int, ffi::PTRACE_O_TRACEEXEC_)
+    // Linux's message is the pid the task had before the exec, which is its
+    // own unless a non-leader thread exec'd; this kernel's exec keeps the pid.
+    let pid = taskview::current_pid() as u64;
+    ptrace_event_stop(ffi::PTRACE_EVENT_EXEC_ as c_int, ffi::PTRACE_O_TRACEEXEC_, pid)
 }
 
-/// `PTRACE_EVENT_EXIT`, from `do_exit` and before it releases anything.
-pub fn ptrace_exit_event_stop() -> bool {
-    ptrace_event_stop(ffi::PTRACE_EVENT_EXIT_ as c_int, ffi::PTRACE_O_TRACEEXIT_)
+/// `PTRACE_EVENT_EXIT`, from `do_exit` and before it releases anything. The
+/// message is the exit status, as `wait` would report it.
+pub fn ptrace_exit_event_stop(status: c_int) -> bool {
+    ptrace_event_stop(ffi::PTRACE_EVENT_EXIT_ as c_int, ffi::PTRACE_O_TRACEEXIT_, status as u32 as u64)
 }
 
-/// The two above, which is where the option each event belongs to is written
-/// down -- so a caller names the event it is at and no bit crosses a crate
-/// boundary.
-fn ptrace_event_stop(event: c_int, option: u32) -> bool {
+/// Which event a new task is, by Linux's `kernel_clone`: a vfork, then
+/// anything whose exit signal is not `SIGCHLD` (a thread's is 0), then a fork.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ForkEvent {
+    Fork,
+    Vfork,
+    Clone,
+}
+
+impl ForkEvent {
+    pub fn of(vfork: bool, exit_signal: c_int) -> ForkEvent {
+        if vfork {
+            ForkEvent::Vfork
+        } else if exit_signal != ffi::SIGCHLD_ as c_int {
+            ForkEvent::Clone
+        } else {
+            ForkEvent::Fork
+        }
+    }
+
+    /// The option that asks for it, and its `PTRACE_EVENT_*`.
+    fn option_and_event(self) -> (u32, c_int) {
+        match self {
+            ForkEvent::Fork => (0x2, 1),
+            ForkEvent::Vfork => (0x4, 2),
+            ForkEvent::Clone => (0x8, 3),
+        }
+    }
+
+    /// Whether a tracee with `options` takes this event: the question a new
+    /// task's auto-attach asks before it is let run.
+    pub fn wanted(self, options: u32) -> bool {
+        options & self.option_and_event().0 != 0
+    }
+}
+
+/// The fork event stop, in the parent, once the new task `pid` has been let
+/// run. The new task was attached already (`crates/kernel/forkcalls`).
+pub fn ptrace_fork_event_stop(event: ForkEvent, pid: c_int) -> bool {
+    let (option, ev) = event.option_and_event();
+    ptrace_event_stop(ev, option, pid as u64)
+}
+
+/// `PTRACE_EVENT_VFORK_DONE`, in a vfork parent once its child has exec'd or
+/// exited.
+pub fn ptrace_vfork_done_stop(pid: c_int) -> bool {
+    ptrace_event_stop(5, 0x20, pid as u64)
+}
+
+/// The stops above, which is where the option each event belongs to is
+/// written down -- so a caller names the event it is at and no bit crosses a
+/// crate boundary.
+fn ptrace_event_stop(event: c_int, option: u32, msg: u64) -> bool {
     taskview::with_current_ptrace(|p| {
-        if !(p.is_traced() && p.arm_event(event, option)) {
+        if !(p.is_traced() && p.arm_event(event, option, msg)) {
             return false;
         }
-        p.enter_stop(ffi::SIGTRAP_ as c_int, &EVENT_TRAP_INFO);
+        p.enter_stop(ffi::SIGTRAP_ as c_int, &event_info(event));
         notify_tracer_of_stop(p.stop_signal());
         p.leave_syscall_pairing();
         if p.wait_while_stopped(sigkill_is_pending) {
@@ -139,22 +192,56 @@ fn ptrace_event_stop(event: c_int, option: u32) -> bool {
     .unwrap_or(false)
 }
 
-/// The `siginfo_` of an event stop. There is no signal behind it -- the stop is
-/// an event -- so it is the zeroed one Linux's `ptrace_event` leaves, and it is
-/// a constant rather than a value built per stop because building one would
-/// suggest a sender that does not exist.
-static EVENT_TRAP_INFO: ffi::siginfo_ = ffi::siginfo_ {
-    sig: 0,
-    sig_errno: 0,
-    code: 0,
-    _pad0: 0,
-    __bindgen_anon_1: ffi::siginfo___bindgen_ty_1 { _pad: [0; 112] },
-};
+/// The `siginfo_` of an event stop: Linux's `ptrace_do_notify`, which says
+/// `SIGTRAP`, `si_code` the reported status (`SIGTRAP | event << 8`) and the
+/// stopping task as the sender. It was all zeroes until 2026-11-13, read as
+/// "no sender" from a comment rather than measured; `ptrace_attach_probe`'s
+/// GETSIGINFO after `PTRACE_INTERRUPT` reads `signo 5 code 0x8005`.
+fn event_info(event: c_int) -> SigInfo {
+    let mut info = SigInfo {
+        sig: ffi::SIGTRAP_ as c_int,
+        code: ffi::SIGTRAP_ as c_int | (event << 8),
+        ..SigInfo::default()
+    };
+    info.__bindgen_anon_1.kill.pid = taskview::current_pid();
+    info.__bindgen_anon_1.kill.uid = taskview::with_current_creds(|c| c.uid()).unwrap_or(0);
+    info
+}
 
-/// Tell the tracer that this task has stopped. The tracer is the parent, so
-/// this is [`notify_parent_of_stop`] with `CLD_TRAPPED`.
+/// `PTRACE_EVENT_STOP`, the event Linux reports for a trap with no other
+/// event behind it.
+const PTRACE_EVENT_STOP: c_int = 128;
+
+/// Linux's `do_jobctl_trap` for a seized tracee: a `PTRACE_INTERRUPT`, or
+/// the first stop of a task a seized one forked, taken on the way back to
+/// the guest. Answers whether it stopped.
+pub(super) fn trap_stop() -> bool {
+    taskview::with_current_ptrace(|p| {
+        if !p.take_trap() {
+            return false;
+        }
+        p.enter_stop(ffi::SIGTRAP_ as c_int | (PTRACE_EVENT_STOP << 8), &event_info(PTRACE_EVENT_STOP));
+        notify_tracer_of_stop(p.stop_signal());
+        p.leave_syscall_pairing();
+        if p.wait_while_stopped(sigkill_is_pending) {
+            strace!("{} received a SIGKILL in a trap stop", taskview::current_pid());
+            crate::do_exit_group(ffi::SIGKILL_ as c_int);
+        }
+        // Linux's `do_jobctl_trap` ignores what `ptrace_stop` returns, so a
+        // `PTRACE_CONT` signal after a trap is dropped, as after an event
+        // stop.
+        let _ = p.take_resume_signal();
+        true
+    })
+    .unwrap_or(false)
+}
+
+/// Tell the tracer that this task has stopped: Linux's
+/// `do_notify_parent_cldstop(tsk, true, CLD_TRAPPED)`, to `tsk->parent`,
+/// which is the tracer. It went to the real parent until 2026-11-13, which
+/// was the tracer for as long as `PTRACE_TRACEME` was the only way in.
 fn notify_tracer_of_stop(sig: c_int) {
-    notify_parent_of_stop(ffi::CLD_TRAPPED_ as c_int, sig);
+    notify_of_stop(ffi::CLD_TRAPPED_ as c_int, sig, true);
 }
 
 /// Park a traced thread on its tracer, with the signal that stopped it.

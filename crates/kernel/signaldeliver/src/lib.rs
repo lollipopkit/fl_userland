@@ -349,6 +349,22 @@ pub fn deliver_signal(to: Target<'_>, sig: c_int, info: SigInfo) {
     to.poke();
 }
 
+/// `crates/kernel/ptrace`'s signal hook: one thread, from the kernel --
+/// Linux's `send_sig_info(sig, SEND_SIG_PRIV, task)`, whose `si_code` is
+/// `SI_KERNEL` (`ptrace_attach_probe`'s GETSIGINFO after an attach).
+pub fn ptrace_signal(task: kernel_pids::Task<'_>, sig: c_int) {
+    send_signal(Target::Task(task), sig, SigInfo { sig, ..receive::kernel_info() });
+}
+
+/// `crates/kernel/ptrace`'s wake hook, for `PTRACE_INTERRUPT`: make the task
+/// leave the JIT and any wait a signal would end, so it takes the trap it was
+/// just asked for. Linux's `ptrace_signal_wake_up`.
+pub fn ptrace_wake(task: kernel_pids::Task<'_>) {
+    let to = Target::Task(task);
+    to.poke();
+    to.wake();
+}
+
 /// The signal a child's parent gets when the child exits, which `clone(2)` lets
 /// the child choose.
 ///
@@ -428,20 +444,6 @@ pub fn send_signal(to: Target<'_>, sig: c_int, info: SigInfo) {
 /// answers false when there is nothing to queue -- signal 0, a task that is
 /// gone, or one running an offloaded host binary, which took it.
 fn about_to_queue(to: Target<'_>, sig: c_int) -> bool {
-    // The one thing `crates/kernel/ptrace` needs from this crate, installed
-    // here rather than at boot because every route to a *stopped* tracee runs
-    // through a signal first: an attach sends SIGSTOP, a `PTRACE_TRACEME` child
-    // stops at its execve's SIGTRAP, and a syscall-stop needs a
-    // `PTRACE_SYSCALL` on a tracee that is already stopped. So a `PTRACE_KILL`
-    // cannot be reached before this has run.
-    //
-    // Before the early returns below, so that "any call arms it" is the whole
-    // rule and there is no argument about which signals count. After the first
-    // it is an acquire load that fails, on a path that already takes a mutex.
-    kernel_ptrace::set_kill_hook(|task| {
-        send_signal(Target::Task(task), ffi::SIGKILL_ as c_int, SigInfo::default());
-    });
-
     // Signal zero is for testing whether a process exists.
     if sig == 0 {
         return false;
@@ -628,24 +630,5 @@ mod tests {
         assert!(!sigset_size_valid(4));
         assert!(!sigset_size_valid(16));
         assert!(!sigset_size_valid(128));
-    }
-
-    /// Delivering a signal arms `PTRACE_KILL`, and nothing else can catch it if
-    /// it stops.
-    ///
-    /// A `PTRACE_KILL` with no hook installed is a **silent no-op**: the arm
-    /// clears `stopped` and notifies, so the tracee resumes and the tracer sees
-    /// a successful call, with no SIGKILL. That is not distinguishable by any
-    /// unit test in `crates/kernel/ptrace`, which has no signal layer to
-    /// deliver through.
-    ///
-    /// Signal zero, which returns before anything is queued — the install is
-    /// deliberately the first statement, so that "any call arms it" is the
-    /// whole rule.
-    #[test]
-    fn delivering_a_signal_arms_ptrace_kill() {
-        // `Me` on a thread with no task: nothing past the arming runs.
-        send_signal(Target::Me, 0, SigInfo::default());
-        assert!(kernel_ptrace::kill_hook_installed());
     }
 }

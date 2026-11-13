@@ -80,30 +80,20 @@ fn abandoning_leaves_the_stop_without_continuing_it() {
     );
 }
 
-/// Two options are honoured and every other bit is refused, which is what
-/// makes a tracer fall back rather than wait for an event that never comes.
+/// Every option with a stop behind it is honoured, and the two seccomp ones
+/// are refused: an accepted option whose event never comes leaves a tracer
+/// waiting for ever.
 #[test]
-fn setoptions_takes_the_two_that_relabel_an_existing_stop() {
-    assert!(
-        options_valid(0),
-        "the empty set, which strace asks for first"
-    );
-    assert!(options_valid(ffi::PTRACE_O_TRACESYSGOOD_ as u64));
-    assert!(options_valid(ffi::PTRACE_O_TRACEEXEC_ as u64));
-    assert!(options_valid(ffi::PTRACE_O_TRACEEXIT_ as u64));
-    assert_eq!(
-        OPTIONS_HONOURED, 0x51,
-        "the word strace sends in one call, which is what used to be refused"
-    );
-    assert!(options_valid(0x51));
-    // TRACEFORK, TRACEVFORK, TRACECLONE, TRACEVFORKDONE, TRACESECCOMP,
-    // EXITKILL, SUSPEND_SECCOMP -- the events with no stop to relabel.
-    for bit in [0x2u64, 0x4, 0x8, 0x20, 0x80, 0x0010_0000, 0x0020_0000] {
-        assert!(!options_valid(bit), "{bit:#x}");
-        assert!(
-            !options_valid(bit | ffi::PTRACE_O_TRACESYSGOOD_ as u64),
-            "{bit:#x}"
-        );
+fn setoptions_takes_every_option_with_a_stop_behind_it() {
+    assert!(options_valid(0), "the empty set, which strace asks for first");
+    // strace -f's word: TRACESYSGOOD | TRACEEXEC | TRACEEXIT and the three
+    // fork-family events.
+    assert!(options_valid(0x5f));
+    assert!(options_valid(0x20), "TRACEVFORKDONE");
+    assert!(options_valid(0x10_0000), "EXITKILL");
+    for bit in [0x80u64, 0x0020_0000] {
+        assert!(!options_valid(bit), "{bit:#x}: TRACESECCOMP, SUSPEND_SECCOMP");
+        assert!(!options_valid(bit | ffi::PTRACE_O_TRACESYSGOOD_ as u64), "{bit:#x}");
     }
     assert!(!options_valid(u64::MAX));
 }
@@ -118,13 +108,13 @@ fn an_armed_exec_event_relabels_the_trap_and_only_that_trap() {
 
     // Without the option, arming does nothing and the stop is a SIGTRAP.
     let p = Ptrace::new();
-    assert!(!p.arm_event(ev, ffi::PTRACE_O_TRACEEXEC_), "not asked for");
+    assert!(!p.arm_event(ev, ffi::PTRACE_O_TRACEEXEC_, 0), "not asked for");
     p.enter_stop(trap, &ffi::siginfo_::default());
     assert_eq!(p.take_stop_report(true), Some(((trap as u32) << 8) | 0x7f));
 
     let p = Ptrace::new();
     p.lock().options = ffi::PTRACE_O_TRACEEXEC_;
-    assert!(p.arm_event(ev, ffi::PTRACE_O_TRACEEXEC_));
+    assert!(p.arm_event(ev, ffi::PTRACE_O_TRACEEXEC_, 0));
     p.enter_stop(trap, &ffi::siginfo_::default());
     let want = ((trap | (ev << 8)) as u32) << 8 | 0x7f;
     assert_eq!(
@@ -148,7 +138,7 @@ fn an_armed_exec_event_relabels_the_trap_and_only_that_trap() {
 fn an_armed_event_does_not_relabel_another_signal() {
     let p = Ptrace::new();
     p.lock().options = ffi::PTRACE_O_TRACEEXEC_;
-    assert!(p.arm_event(ffi::PTRACE_EVENT_EXEC_ as c_int, ffi::PTRACE_O_TRACEEXEC_));
+    assert!(p.arm_event(ffi::PTRACE_EVENT_EXEC_ as c_int, ffi::PTRACE_O_TRACEEXEC_, 0));
     p.enter_stop(ffi::SIGSTOP_ as c_int, &ffi::siginfo_::default());
     assert_eq!(p.take_stop_report(true), Some((ffi::SIGSTOP_ << 8) | 0x7f));
 }
@@ -189,7 +179,9 @@ fn only_a_tracee_told_to_stop_stops_at_syscalls() {
     assert!(!p.stops_at_syscalls());
     p.set_stops_at_syscalls(true);
     assert!(!p.stops_at_syscalls(), "not traced");
-    p.set_traced();
+    p.attach(false, 0);
+    assert!(!p.stops_at_syscalls(), "an attach starts from no PTRACE_SYSCALL");
+    p.set_stops_at_syscalls(true);
     assert!(p.stops_at_syscalls());
     p.set_stops_at_syscalls(false);
     assert!(!p.stops_at_syscalls(), "traced, but running free");

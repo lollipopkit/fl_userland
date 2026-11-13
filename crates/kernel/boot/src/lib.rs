@@ -181,6 +181,10 @@ pub fn install_run_hooks() {
         handle_interrupt: |interrupt| unsafe { syscalldispatch::handle_interrupt(interrupt) },
     });
     signaldeliver::set_exit_group_hook(|status| unsafe { exitcalls::do_exit_group(status) });
+    // `PTRACE_KILL` and `PTRACE_ATTACH` send a signal, from below the signal
+    // layer.
+    kernel_ptrace::set_signal_hook(signaldeliver::ptrace_signal);
+    kernel_ptrace::set_wake_hook(signaldeliver::ptrace_wake);
     // The fourth: an interrupt that fires *inside* a prebuilt gadget's callee,
     // which the outer run loop never sees.
     asbestos_dispatch::set_interrupt_hook(|interrupt| unsafe {

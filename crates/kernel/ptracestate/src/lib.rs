@@ -78,6 +78,12 @@ pub struct State {
     /// and then stops -- so the field needs no more synchronisation than the
     /// lock it already sits under.
     pub pending_event: c_int,
+    /// `PTRACE_GETEVENTMSG`'s answer: the new task's pid for a fork, vfork
+    /// or clone event, the exit status for an exit event. Linux's `ptrace_message`.
+    pub event_msg: u64,
+    /// Attached by `PTRACE_SEIZE`, which changes what a new tracee's first
+    /// stop is and is what `PTRACE_INTERRUPT` and `PTRACE_LISTEN` require.
+    pub seized: bool,
 }
 
 /// A task's tracing state.
@@ -101,6 +107,12 @@ pub struct Ptrace {
     /// whole synchronisation that needs, because the tracee is stopped when
     /// the tracer writes it.
     at_syscalls: AtomicBool,
+    /// Linux's `JOBCTL_TRAP_STOP`: take a `PTRACE_EVENT_STOP` stop on the
+    /// way back to the guest. Set by `PTRACE_INTERRUPT` and for a task a
+    /// seized one forked. **Outside the lock**, for the reason `traced` is:
+    /// a blocked wait asks it, from `crates/kernel/taskview`'s
+    /// signal-pending hook, holding whatever lock it waits on.
+    trap: AtomicBool,
     state: GuestLock<State>,
 }
 
@@ -115,6 +127,7 @@ impl Ptrace {
         Ptrace {
             traced: AtomicBool::new(false),
             at_syscalls: AtomicBool::new(false),
+            trap: AtomicBool::new(false),
             state: GuestLock::new(State::default(), 1),
         }
     }
@@ -124,9 +137,50 @@ impl Ptrace {
         self.state.lock()
     }
 
-    /// `PTRACE_TRACEME`.
-    pub fn set_traced(&self) {
+    /// `PTRACE_TRACEME`, `PTRACE_ATTACH` and `PTRACE_SEIZE`, and a task a
+    /// traced one forked under `PTRACE_O_TRACEFORK` and its siblings. Starts
+    /// from nothing a previous tracer left: a detach leaves the options and
+    /// a seize behind, which a new tracer did not ask for.
+    pub fn attach(&self, seized: bool, options: u32) {
+        {
+            let mut s = self.state.lock();
+            s.options = options;
+            s.seized = seized;
+            s.event_msg = 0;
+            s.pending_event = 0;
+            s.in_syscall = false;
+        }
+        self.set_stops_at_syscalls(false);
+        self.trap.store(false, Ordering::Release);
         self.traced.store(true, Ordering::Release);
+    }
+
+    /// Ask for a `PTRACE_EVENT_STOP` at the next return to the guest. The
+    /// caller wakes the task, which a blocked wait needs to notice.
+    pub fn request_trap(&self) {
+        self.trap.store(true, Ordering::Release);
+    }
+
+    /// Whether a trap is asked for: a reason for a blocked wait to end.
+    pub fn trap_pending(&self) -> bool {
+        self.traced.load(Ordering::Relaxed) && self.trap.load(Ordering::Acquire)
+    }
+
+    /// The trap, consumed: true once per request.
+    pub fn take_trap(&self) -> bool {
+        self.trap.swap(false, Ordering::AcqRel) && self.is_traced()
+    }
+
+    /// What a task this one forks inherits under `PTRACE_O_TRACEFORK` and its
+    /// siblings: the options and whether it was seized.
+    pub fn inherited(&self) -> (bool, u32) {
+        let s = self.state.lock();
+        (s.seized, s.options)
+    }
+
+    /// The options the tracer set.
+    pub fn options(&self) -> u32 {
+        self.state.lock().options
     }
 
     /// `PTRACE_DETACH`, and a tracer that exited.
@@ -136,6 +190,7 @@ impl Ptrace {
     /// clearing it.
     pub fn set_detached(&self) {
         self.traced.store(false, Ordering::Release);
+        self.trap.store(false, Ordering::Release);
     }
 
     /// Whether signals to this task go through signal-delivery-stop.
@@ -212,11 +267,12 @@ impl Ptrace {
     /// Arm a `PTRACE_EVENT_*` for the `SIGTRAP` stop that is about to happen,
     /// if the tracer asked for that event's option. The answer says whether it
     /// was armed, which is what tells a caller its stop is an event stop.
-    pub fn arm_event(&self, event: c_int, option: u32) -> bool {
+    pub fn arm_event(&self, event: c_int, option: u32, msg: u64) -> bool {
         let mut s = self.state.lock();
         let armed = s.options & option != 0;
         if armed {
             s.pending_event = event;
+            s.event_msg = msg;
         }
         armed
     }
@@ -255,7 +311,7 @@ impl Ptrace {
     ///
     /// Reported to the tracer whether or not it passed `WUNTRACED`: Linux's
     /// `wait_task_stopped` consults that flag only when the waiter is not the
-    /// tracer, and a traced task here is always traced by its parent. Requiring
+    /// tracer, and only the tracer is told of a ptrace stop. Requiring
     /// it made `waitpid(pid, &st, 0)` on a stopped tracee block for ever, which
     /// is the call gdb and strace make.
     ///
@@ -300,8 +356,8 @@ impl Ptrace {
     /// three.
     ///
     /// It is a detach and not a kill: `PTRACE_O_EXITKILL` is the option that asks
-    /// for the other behaviour, and this kernel does not honour it, so the tracee
-    /// carries on as an ordinary process. The signal it stopped for is suppressed,
+    /// for the other behaviour, which the caller sends after this, so otherwise the
+    /// tracee carries on as an ordinary process. The signal it stopped for is suppressed,
     /// which is what the resume path does with a resume signal of 0 -- the tracer
     /// that would have decided is gone.
     ///

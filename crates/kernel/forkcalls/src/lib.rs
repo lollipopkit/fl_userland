@@ -91,11 +91,10 @@ mod clone {
     /// `sys_clone3`.
     pub const INTO_CGROUP: u64 = 0x2_0000_0000;
 
-    /// What this kernel accepts. Three of them do nothing here and nothing on
-    /// Linux either in the situations a guest can be in: `CLONE_PTRACE` with
-    /// no tracer attached, `CLONE_UNTRACED` with no tracer to hide from, and
-    /// `CLONE_IO`, which shares an I/O context this kernel has no equivalent
-    /// of. Refusing them with `EINVAL`, which this did, refused a program that
+    /// What this kernel accepts. `CLONE_PTRACE` and `CLONE_UNTRACED` decide
+    /// whether a traced parent's child is traced too (`auto_attach`);
+    /// `CLONE_IO` shares an I/O context this kernel has no equivalent of, and
+    /// does nothing here. Refusing the three with `EINVAL`, which this did, refused a program that
     /// runs everywhere else. The namespace flags are not here on purpose: a
     /// kernel built without namespaces answers `EINVAL` to them, and this is
     /// one.
@@ -335,14 +334,16 @@ fn do_clone(
         let _ = usercopy::GuestMem.write(pidfd, &fd.to_le_bytes());
     }
 
-    // A traced parent is **not** stopped for the fork. Linux stops a tracee
-    // at a fork only when its tracer asked with PTRACE_O_TRACEFORK, and
-    // `PTRACE_SETOPTIONS` here accepts no options, so no tracer ever has.
-    // What stood here sent the parent a SIGTRAP anyway, and recorded a trap
-    // event nothing read: under strace, which passes every signal it sees
-    // through, a program died of SIGTRAP at its first fork.
+    // Linux's `ptrace_init_task` and `ptrace_event_pid`: a tracee whose
+    // tracer asked for this event brings its new task with it, attached
+    // before it runs, and stops at the event once the new task is running.
+    let event = auto_attach(task.as_ptr(), flags);
 
     task.start();
+
+    if let Some(event) = event {
+        signaldeliver::receive::ptrace_fork_event_stop(event, pid);
+    }
 
     if let Some(vfork) = vfork {
         // `task` is deliberately not named here, and neither is anything
@@ -350,9 +351,49 @@ fn do_clone(
         // auto-reaped and freed its own struct. That is what the saved `pid` is
         // for; the handoff is reached through this function's own handle.
         vfork.wait();
+        // Whether or not the vfork itself was an event: the option decides.
+        signaldeliver::receive::ptrace_vfork_done_stop(pid);
     }
 
     pid as i64
+}
+
+/// Attach `child` to the calling thread's tracer if the tracer asked for the
+/// event this clone is, or the caller passed `CLONE_PTRACE`, and answer the
+/// event when the tracer asked for it. A seized tracee's
+/// new task takes a `PTRACE_EVENT_STOP` trap first; an attached one's a
+/// `SIGSTOP` -- what `ptrace_attach_probe` reads as the new task's first
+/// report. It inherits the options either way, so its own children follow.
+fn auto_attach(child: *mut ffi::task, flags: u64) -> Option<signaldeliver::receive::ForkEvent> {
+    if flags & clone::UNTRACED != 0 {
+        return None;
+    }
+    let pids = Pids::take();
+    let me = pids.me()?;
+    let mine = me.ptrace()?;
+    if !mine.is_traced() {
+        return None;
+    }
+    let tracer = me.tracer()?;
+    // SAFETY: published under `pids_lock` and not started, so alive.
+    let child = unsafe { kernel_pids::Task::from_raw(pids.held(), child) }?;
+    let event = signaldeliver::receive::ForkEvent::of(flags & clone::VFORK != 0, child.exit_signal());
+    let (seized, options) = mine.inherited();
+    let wanted = event.wanted(options);
+    if !wanted && flags & clone::PTRACE == 0 {
+        return None;
+    }
+    let theirs = child.ptrace()?;
+    if !proctree::attach(child.raw(), tracer.raw()) {
+        return None;
+    }
+    theirs.attach(seized, options);
+    if seized {
+        theirs.request_trap();
+    } else {
+        signaldeliver::ptrace_signal(child, ffi::SIGSTOP_ as c_int);
+    }
+    wanted.then_some(event)
 }
 
 /// Called on a guest thread, from the syscall table.

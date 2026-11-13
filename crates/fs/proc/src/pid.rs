@@ -373,8 +373,7 @@ mod tests {
     /// and a reader finding `TracerPid: 0` believes it. That argument is real
     /// and it does not survive those four names:
     ///
-    /// - `TracerPid: 0` is not a claim, it is the truth. Nothing here attaches
-    ///   a tracer.
+    /// - `TracerPid` is the tracer's pid, since 2026-11-13.
     /// - `ShdPnd` is the process's shared pending set, which exists since
     ///   2026-11-12.
     /// - `SigQ` is two measured numbers, the queue length and

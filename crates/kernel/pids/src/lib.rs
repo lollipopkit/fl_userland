@@ -905,6 +905,16 @@ impl<'a> Task<'a> {
         Task::new(proctree::parent(self.raw()))
     }
 
+    /// The thread tracing this one, which need not be its parent.
+    pub fn tracer(self) -> Option<Task<'a>> {
+        Task::new(proctree::tracer(self.raw()))
+    }
+
+    /// The threads this one traces; read by index, as [`Task::children`].
+    pub fn tracees(self) -> impl Iterator<Item = Task<'a>> {
+        (0..).map_while(move |i| Task::new(proctree::tracee_at(self.raw(), i)))
+    }
+
     /// The real uid, which `wait` reports. Locked by pids_lock.
     pub fn uid(&self) -> u32 {
         self.creds().uid()

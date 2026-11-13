@@ -10,12 +10,12 @@
 //! it had the child's registers and had 68 bytes of nothing. That was fixed by
 //! reading; this is what would have found it.
 //!
-//! # Only `PTRACE_TRACEME` is reachable
+//! # `PTRACE_TRACEME` only
 //!
-//! `PTRACE_ATTACH` is not implemented here, so every case makes its own child
-//! that calls `PTRACE_TRACEME` and then `raise(SIGSTOP)`. That is also the shape
-//! `strace` and `gdb` use to start a program under themselves, so it is the one
-//! worth measuring.
+//! Every case makes its own child that calls `PTRACE_TRACEME` and then
+//! `raise(SIGSTOP)`, the shape `strace` and `gdb` use to start a program
+//! under themselves. Attaching, seizing and the fork events are
+//! `ptrace_attach_probe`'s.
 //!
 //! # No case blocks without a way out
 //!

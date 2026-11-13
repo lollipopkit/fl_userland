@@ -1,9 +1,12 @@
 //! `ptrace(2)`: the per-task tracing state and the syscall over it.
 //!
-//! Only `PTRACE_TRACEME` is reachable — attaching to a process that is already
-//! running is not implemented — so a tracee here is always a child of its
-//! tracer, and always one that asked to be traced. That is the shape `gdb` and
-//! `strace` use to start a program under themselves.
+//! A tracer reaches a tracee four ways: `PTRACE_TRACEME` (the parent),
+//! `PTRACE_ATTACH` and `PTRACE_SEIZE` (anyone `ptrace_may_access` lets in,
+//! since 2026-11-13), and a fork, vfork or clone of a tracee whose tracer
+//! asked for that event, which brings the new task along. The tracer edge is
+//! `crates/kernel/proctree`'s, beside the parent one, so a tracee keeps its
+//! real parent and need not be the tracer's child -- or a process at all: a
+//! tracee is a thread.
 //!
 //! # Syscall stops, and what still stands between this and `strace(1)`
 //!
@@ -29,22 +32,29 @@
 //! queued `SIGTRAP` reports the same number one stop too late, and strace says
 //! `Stray PTRACE_EVENT_EXEC`.
 //!
-//! **`strace -f` does not**, and needs the one structural thing this crate has
-//! never had: a **tracer that is not the parent**. `PTRACE_TRACEME` is the only
-//! way in, so a tracee is always its tracer's child, and `find_stopped_child`
-//! walks children. `TRACEFORK` and its two siblings auto-attach the *grandchild*
-//! to the same tracer, and `wait4` has to report it. That is the same
-//! separation `PTRACE_ATTACH` and `PTRACE_SEIZE` need, along with a **group
-//! stop** counting as a ptrace stop in `find_stopped_child` (Linux's
-//! `ptrace_check_attach` accepts one) and `PTRACE_LISTEN`. Each is a layer that
-//! only shows up when the one before it works, which is why they are written
-//! down here rather than guessed at.
+//! # `strace -f`, `gdb -p`
 //!
-//! `process_vm_readv` is a stub, which strace uses to read a tracee's memory
-//! and falls back to `PTRACE_PEEKDATA` for.
+//! Since 2026-11-13. What they needed was a tracer that is not the parent,
+//! and every layer that assumed one:
+//!
+//! - **finding the tracee** is by tid and then asking who traces it, not a
+//!   walk of the caller's children;
+//! - **`wait`** walks the tracer's tracees beside its children, reports a
+//!   ptrace stop without `WUNTRACED` and a tracee without `__WALL`, and holds
+//!   a traced thread's exit for its tracer (`proctree::ExitReport`);
+//! - **a traced process's exit** goes to the tracer first, and to the real
+//!   parent once the tracer has waited (`exitcalls::ptrace_release_zombie`);
+//! - **a seized tracee** stops by a trap, `PTRACE_EVENT_STOP`, which is
+//!   what `PTRACE_INTERRUPT` asks for and what a seized tracee's new task
+//!   stops at first; the trap ends a blocked wait as a signal would and the
+//!   syscall is restarted after it.
+//!
+//! `ptrace_attach_probe` is the measurement. `PTRACE_LISTEN`, and a group
+//! stop counting as a ptrace stop for an attached tracee, are not done.
 //!
 //! A tracer that exits **does** detach its tracees, since 2026-09-08 --
-//! [`ptrace_detach_on_tracer_exit`], called from `reparent_children`. Before
+//! `exitcalls`' `exit_ptrace`, which kills those that asked for
+//! `PTRACE_O_EXITKILL`. Before
 //! that a tracee parked in a stop waited for a continue that could not come,
 //! which is what `Ctrl-C` on an `strace` produced. See
 //! `docs/changelog/2026-09-08-a-tracee-whose-tracer-died-waited-for-ever.md`,
@@ -114,31 +124,16 @@ use usercopy::GuestMem;
 use util_guestlock::GuestGuard;
 
 mod hooks;
-pub use hooks::{kill_hook_installed, set_kill_hook};
+pub use hooks::{set_signal_hook, set_wake_hook, signal_hook_installed, wake_hook_installed};
 #[path = "regset.rs"]
 mod regset;
 #[path = "requests.rs"]
 mod requests;
 pub use requests::sys_ptrace;
 #[cfg(test)]
-use requests::{OPTIONS_HONOURED, options_valid, resume_signal};
+use requests::{options_valid, resume_signal};
 
-/// Kill a stopped tracee — the one thing this crate needs from the layer above
-/// it, and a hook because the edge only runs one way otherwise.
-///
-/// `crates/kernel/signaldeliver` calls nine functions out of this crate (every
-/// ptrace stop is on the delivery path), so a direct call to its `send_signal`
-/// is a cycle cargo refuses. It was a `send_signal` declared in an
-/// `extern "C"` block until 2026-09-09 — the same call resolved by the linker
-/// on name alone, and one of the last four places a `*mut task` crossed a C ABI
-/// boundary.
-///
-/// `PTRACE_KILL` is the only caller and SIGKILL is the only signal it sends, so
-/// the hook is the *operation* rather than a general signal-sending function:
-/// nothing here has to name a `siginfo_`, and the lock order this crate's
-/// module comment states — this lock before `sighand`'s — is a property of the
-/// one call site either way.
-pub(crate) use hooks::kill;
+pub(crate) use hooks::{signal, wake};
 
 // The shared Rust types and constants are re-exported by kernel-taskview.
 pub use taskview::ffi;

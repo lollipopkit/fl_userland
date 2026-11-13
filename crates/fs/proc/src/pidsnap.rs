@@ -386,6 +386,8 @@ pub struct PidStatus {
     pub tgid: c_int,
     pub pid: c_int,
     pub ppid: c_int,
+    /// The tracing thread's pid, 0 for none: Linux's `task_pid_nr(tracer)`.
+    pub tracer_pid: c_int,
     pub uid: u32,
     pub euid: u32,
     pub suid: u32,
@@ -457,6 +459,7 @@ pub fn status(entry: &mut ffi::proc_entry) -> Option<PidStatus> {
         out.tgid = task.tgid();
         out.pid = task.pid();
         out.ppid = parent_pid(task);
+        out.tracer_pid = task.tracer().map_or(0, |t| t.pid());
         out.uid = creds.uid();
         out.euid = creds.euid();
         out.suid = creds.suid();

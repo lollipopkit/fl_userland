@@ -57,6 +57,7 @@ pub use group::do_exit_group;
 #[cfg(test)]
 use reaping::clock_from_timeval;
 use reaping::{detach_and_notify, record_own_times};
+pub use reaping::ptrace_release_zombie;
 
 fn current() -> *mut ffi::task {
     taskview::current()
@@ -360,7 +361,7 @@ pub unsafe fn do_exit(status: c_int) -> ! {
     // descriptors and its registers all still intact, and the tracer decides
     // when it may go. Before `release_guest_memory` for exactly that reason --
     // a tracer's whole use for this stop is reading what is about to be gone.
-    signaldeliver::receive::ptrace_exit_event_stop();
+    signaldeliver::receive::ptrace_exit_event_stop(status);
 
     // Linux's `exit_signals`: a process-directed signal this thread could have
     // taken is another thread's now. One it was chosen for and did not get to
@@ -406,7 +407,7 @@ pub unsafe fn do_exit(status: c_int) -> ! {
         // once. It was recorded before the lock until 2026-11-11, which left a
         // window where it was in both.
         let group_rusage = record_own_times(status);
-        let (leader, auto_reap) =
+        let (leader, auto_reap, keep_tid) =
             detach_and_notify(pids.held(), &deferred, status, group_rusage);
 
         // Under the lock, for the reason above.
@@ -446,6 +447,11 @@ pub unsafe fn do_exit(status: c_int) -> ! {
                 // Cleared before the destroy, to prevent a dangling access.
                 taskview::clear_current();
                 taskcalls::task_destroy(pids.held(), self_task);
+            }
+            // Its tracer holds its exit and can still name it: the number
+            // stays out of the allocator until that `wait`.
+            if keep_tid {
+                kernel_pids::pidreg_reserve(pids.held(), tid);
             }
         }
     }

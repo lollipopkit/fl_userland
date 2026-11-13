@@ -144,10 +144,7 @@ pub(super) fn format_status(st: &crate::pidsnap::PidStatus, comm: &str) -> Strin
     s.push_str("Ngid:\t0\n");
     s.push_str(&format!("Pid:\t{}\n", st.pid));
     s.push_str(&format!("PPid:\t{}\n", st.ppid));
-    // Always zero: nothing here attaches a tracer. Present because a parser
-    // walking the file by name expects it between PPid and Uid, and because
-    // "is anyone tracing me" is a question programs ask and got no answer to.
-    s.push_str("TracerPid:\t0\n");
+    s.push_str(&format!("TracerPid:\t{}\n", st.tracer_pid));
     s.push_str(&format!(
         "Uid:\t{}\t{}\t{}\t{}\n",
         st.uid, st.euid, st.suid, st.fsuid

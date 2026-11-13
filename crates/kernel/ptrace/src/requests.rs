@@ -4,22 +4,20 @@ use super::*;
 
 // ---------------------------------------------------------------- the syscall
 
-/// A stopped child of the calling task, with its tracing state locked, under
-/// the caller's `pids_lock`, which is what keeps the child alive for as long as
-/// this exists.
+/// A stopped tracee of the calling thread, with its tracing state locked,
+/// under the caller's `pids_lock`, which is what keeps it alive for as long
+/// as this exists.
 ///
-/// The child is found by walking the caller's children, and the walk, the
-/// lookup and every use of the pointer happen under the one guard: a task
-/// found through the process tree can be reaped and freed the moment
-/// `pids_lock` is dropped, and a tracer's other thread in `wait4` is exactly
-/// what does that. This is the shape `crates/kernel/rescalls`'s `prlimit` has,
-/// and it was a TODO here for want of the lock order being checked -- see the
-/// module comment for the check.
+/// Found by number and then asked who traces it, Linux's
+/// `ptrace_check_attach`: `child->ptrace && child->parent == current`. It was
+/// found by walking the caller's children until 2026-11-13, when a tracee
+/// could only be one -- `PTRACE_TRACEME` was the only way in. A tracee is a
+/// *thread* now, which no children list holds, and its tracer need not be
+/// its parent.
 ///
 /// Borrowed from the caller's `PidsGuard`, so the guard outlives it and the
 /// tracing lock is released before `pids_lock`, the reverse of how they were
-/// taken. It held the guard itself until 2026-10-17, which made the struct
-/// borrow from its own field and needed a `'static` that was not true.
+/// taken.
 struct StoppedChild<'a> {
     child: kernel_pids::Task<'a>,
     /// The child's tracing state, for what lives outside its lock.
@@ -27,12 +25,22 @@ struct StoppedChild<'a> {
     guard: GuestGuard<'a, State>,
 }
 
+/// The calling thread's tracee `pid`, stopped or not. Not a zombie: Linux's
+/// `ptrace_check_attach` wants a task it can stop.
+fn find_tracee(pids: &PidsGuard, pid: c_int) -> Option<(kernel_pids::Task<'_>, &Ptrace)> {
+    let me = pids.me()?;
+    let task = pids.find_live(pid)?;
+    if task.tracer()?.raw() != me.raw() {
+        return None;
+    }
+    Some((task, task.ptrace()?))
+}
+
 /// `None` is `ESRCH` to every caller: Linux's `ptrace_check_attach` fails that
-/// way both for a pid that is not this process's tracee and for one that is not
+/// way both for a pid that is not this thread's tracee and for one that is not
 /// stopped.
 fn find_stopped_child(pids: &PidsGuard, pid: c_int) -> Option<StoppedChild<'_>> {
-    let child = pids.me()?.children().find(|c| c.pid() == pid)?;
-    let ptrace = child.ptrace()?;
+    let (child, ptrace) = find_tracee(pids, pid)?;
     let guard = ptrace.lock();
     guard.stopped.then_some(StoppedChild { child, ptrace, guard })
 }
@@ -46,37 +54,64 @@ pub(super) fn resume_signal(data: u64) -> Option<c_int> {
 /// aarch64 Linux has signals 1..=64.
 const MAX_SIG: c_int = 64;
 
-/// The options this kernel honours, which is two.
+/// The options this kernel honours.
 ///
-/// Both are cheap for the same reason: they change the *number* a stop that
-/// already happens reports, and nothing else. `PTRACE_O_TRACESYSGOOD` is a bit
-/// in the signal of a syscall-stop; `PTRACE_O_TRACEEXEC` re-labels the stop
-/// `execve` has always taken after a successful exec.
+/// `TRACESYSGOOD` and `TRACEEXEC` change the number a stop that already
+/// happens reports. `TRACEEXIT` and the three fork-family events take a stop
+/// where the event happens (`crates/kernel/signaldeliver`'s
+/// `ptrace_event_stop`); `EXITKILL` is read when the tracer exits.
 ///
-/// The rest ask for an event -- a fork, a vfork, a clone, an exit, a seccomp
-/// trap -- at a point where nothing here stops at all, and accepting one would
-/// put the tracer into a wait for a stop that never arrives.
+/// `TRACESECCOMP` is the one left, and is refused rather than accepted:
+/// `crates/kernel/seccomp` answers `SECCOMP_RET_TRACE` with `ENOSYS`, which
+/// is Linux's answer when no tracer asked for the event, and accepting the
+/// option would put a tracer into a wait for a stop that never comes.
 ///
-/// **Refusing one is not free either**, which is what the note that used to
-/// stand here got wrong: it said an EINVAL makes a tracer "say the kernel is
-/// too old and carry on". Measured, strace does not carry on -- it sets
-/// TRACESYSGOOD and TRACEEXEC in one call, prints `PTRACE_SETOPTIONS: Invalid
-/// argument` and detaches, so the whole tool was unusable for the sake of a
-/// bit that costs four lines. Between refusing and pretending there is a third
-/// answer, and for an event whose stop exists it is the right one.
+/// **Refusing one is not free either.** Measured, strace sets TRACESYSGOOD
+/// and TRACEEXEC in one call, prints `PTRACE_SETOPTIONS: Invalid argument`
+/// and detaches on a refusal, so the whole tool was unusable for the sake of
+/// a bit that costs four lines.
 pub(super) const OPTIONS_HONOURED: u64 = ffi::PTRACE_O_TRACESYSGOOD_ as u64
     | ffi::PTRACE_O_TRACEEXEC_ as u64
-    | ffi::PTRACE_O_TRACEEXIT_ as u64;
+    | ffi::PTRACE_O_TRACEEXIT_ as u64
+    | O_TRACEFORK
+    | O_TRACEVFORK
+    | O_TRACECLONE
+    | O_TRACEVFORKDONE
+    | O_EXITKILL;
+
+pub(super) const O_TRACEFORK: u64 = 0x2;
+pub(super) const O_TRACEVFORK: u64 = 0x4;
+pub(super) const O_TRACECLONE: u64 = 0x8;
+pub(super) const O_TRACEVFORKDONE: u64 = 0x20;
+pub(super) const O_EXITKILL: u64 = 0x10_0000;
+
+/// Linux's `PTRACE_O_MASK`: every option it defines, honoured here or not.
+/// `PTRACE_SEIZE` answers `EIO` for a bit outside it, where `SETOPTIONS`
+/// answers `EINVAL` (`ptrace_attach_probe`).
+const OPTIONS_KNOWN: u64 = 0xff | 0x10_0000 | 0x20_0000;
 
 pub(super) fn options_valid(data: u64) -> bool {
     data & !OPTIONS_HONOURED == 0
 }
 
+const PTRACE_GETEVENTMSG: u32 = 0x4201;
+const PTRACE_INTERRUPT: u32 = 0x4207;
+
 pub fn sys_ptrace(request: u32, pid: c_int, addr: u64, data: u64) -> Result<(), Errno> {
     strace!("ptrace({request}, {pid}, {addr:#x}, {data:#x})");
     match request {
         ffi::PTRACE_TRACEME_ => {
-            taskview::with_current_ptrace(|me| me.set_traced()).ok_or(Errno::ESRCH)
+            // Linux's `ptrace_traceme`: EPERM for a task that is already
+            // traced, and the tracer is the real parent.
+            let pids = PidsGuard::take();
+            let me = pids.me().ok_or(Errno::ESRCH)?;
+            let ptrace = me.ptrace().ok_or(Errno::ESRCH)?;
+            let parent = me.parent().ok_or(Errno::EPERM)?;
+            if ptrace.is_traced() || !proctree::attach(me.raw(), parent.raw()) {
+                return Err(Errno::EPERM);
+            }
+            ptrace.attach(false, 0);
+            Ok(())
         }
 
         // arm64's `arch_ptrace` has no PEEKUSER and no GETREGS/SETREGS/
@@ -106,11 +141,35 @@ pub fn sys_ptrace(request: u32, pid: c_int, addr: u64, data: u64) -> Result<(), 
             Ok(())
         }
 
-        // Attaching to an already-running process is not implemented. EPERM is
-        // what Linux answers for the one case a program can compare against --
-        // attaching to itself -- and is what "you may not trace this" means,
-        // where the EIO below means "no such request".
-        ffi::PTRACE_ATTACH_ | ffi::PTRACE_SEIZE_ => Err(Errno::EPERM),
+        ffi::PTRACE_ATTACH_ | ffi::PTRACE_SEIZE_ => attach(request == ffi::PTRACE_SEIZE_, pid, addr, data),
+
+        // Linux's `ptrace_interrupt` path: any tracee of this thread, stopped
+        // or not; EIO unless it was seized. A tracee already in a stop is
+        // not stopped again -- the trap is taken on its way back out, which
+        // is Linux's too (`JOBCTL_TRAP_STOP` stays set across the resume).
+        PTRACE_INTERRUPT => {
+            let pids = PidsGuard::take();
+            let Some((task, ptrace)) = find_tracee(&pids, pid) else {
+                return Err(Errno::ESRCH);
+            };
+            if !ptrace.lock().seized {
+                return Err(Errno::EIO);
+            }
+            ptrace.request_trap();
+            wake(task);
+            Ok(())
+        }
+
+        PTRACE_GETEVENTMSG => {
+            let pids = PidsGuard::take();
+            let Some(found) = find_stopped_child(&pids, pid) else {
+                return Err(Errno::ESRCH);
+            };
+            if GuestMem.write(data, &found.guard.event_msg.to_le_bytes()) != 0 {
+                return Err(Errno::EFAULT);
+            }
+            Ok(())
+        }
 
         ffi::PTRACE_PEEKTEXT_ | ffi::PTRACE_PEEKDATA_ => {
             let pids = PidsGuard::take();
@@ -188,6 +247,7 @@ pub fn sys_ptrace(request: u32, pid: c_int, addr: u64, data: u64) -> Result<(), 
                 // resumes as a CONT would. The next signal to it is delivered
                 // without a stop.
                 found.ptrace.set_detached();
+                proctree::detach(found.child.raw());
             }
             // Whether the tracee stops again at the next syscall boundary.
             // Written while it is stopped, so the plain store the tracee reads
@@ -207,7 +267,7 @@ pub fn sys_ptrace(request: u32, pid: c_int, addr: u64, data: u64) -> Result<(), 
             found.guard.stopped = false;
             // Under this lock, which is why the module comment states the
             // order: delivering SIGKILL takes `sighand`'s.
-            kill(found.child);
+            signal(found.child, ffi::SIGKILL_ as c_int);
             found.guard.owner().notify(CONT);
             Ok(())
         }
@@ -237,6 +297,40 @@ pub fn sys_ptrace(request: u32, pid: c_int, addr: u64, data: u64) -> Result<(), 
 
         _ => Err(Errno::EIO),
     }
+}
+
+/// `PTRACE_ATTACH` and `PTRACE_SEIZE`: Linux's `ptrace_attach`, in its
+/// order. The tracee is a thread, named by its tid.
+///
+/// An attach sends `SIGSTOP`, so the tracer's next `wait` reports the
+/// tracee stopped; a seize does not stop it, takes its options at once, and
+/// is what `PTRACE_INTERRUPT` needs.
+fn attach(seize: bool, pid: c_int, addr: u64, data: u64) -> Result<(), Errno> {
+    if seize {
+        if addr != 0 || data & !OPTIONS_KNOWN != 0 {
+            return Err(Errno::EIO);
+        }
+        if !options_valid(data) {
+            return Err(Errno::EINVAL);
+        }
+    }
+    let pids = PidsGuard::take();
+    let me = pids.me().ok_or(Errno::ESRCH)?;
+    let target = pids.find_live(pid).ok_or(Errno::ESRCH)?;
+    // `same_thread_group(task, current)`, then `ptrace_may_access`, then
+    // "already traced" and "exiting": all EPERM.
+    if target.is_in_callers_group() || !target.may_ptrace(kernel_creds::PtraceMode::AttachReal) {
+        return Err(Errno::EPERM);
+    }
+    let ptrace = target.ptrace().ok_or(Errno::EPERM)?;
+    if target.task().exiting.get() || ptrace.is_traced() || !proctree::attach(target.raw(), me.raw()) {
+        return Err(Errno::EPERM);
+    }
+    ptrace.attach(seize, if seize { data as u32 } else { 0 });
+    if !seize {
+        signal(target, ffi::SIGSTOP_ as c_int);
+    }
+    Ok(())
 }
 
 /// `PTRACE_GETREGSET` and `PTRACE_SETREGSET`.

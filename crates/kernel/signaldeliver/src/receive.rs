@@ -49,7 +49,10 @@ mod ptrace;
 #[path = "regs.rs"]
 mod regs;
 use ptrace::signal_delivery_stop;
-pub use ptrace::{ptrace_exec_event_stop, ptrace_exit_event_stop, ptrace_syscall_boundary};
+pub use ptrace::{
+    ForkEvent, ptrace_exec_event_stop, ptrace_exit_event_stop, ptrace_fork_event_stop, ptrace_syscall_boundary,
+    ptrace_vfork_done_stop,
+};
 use regs::{restore_regs, snapshot_regs};
 
 use guest_errno::Errno;
@@ -105,12 +108,18 @@ fn child_info(me: &kernel_pids::Task<'_>, leader: Option<kernel_pids::Task<'_>>,
 /// copies of the same twelve lines until 2026-09-30, one per stop, each
 /// making its handles from a raw task pointer.
 pub(crate) fn notify_parent_of_stop(code: c_int, status: c_int) {
+    notify_of_stop(code, status, false);
+}
+
+/// The same, to the tracer when `tracer`: a ptrace stop is the tracer's to
+/// hear about, which is the parent only when it traces this task.
+pub(crate) fn notify_of_stop(code: c_int, status: c_int, tracer: bool) {
     let pids = PidsGuard::take();
     // Checked: a stopped task has a parent, but nothing here makes that true.
     let Some(me) = pids.me() else {
         return;
     };
-    let Some(parent) = me.parent() else {
+    let Some(parent) = (if tracer { me.tracer() } else { me.parent() }) else {
         return;
     };
     if let Some(g) = parent.group() {
@@ -416,20 +425,28 @@ fn force_sigsegv(guard: &mut QueueGuard<'_>, sig: c_int) {
 /// call that another thread could add to and that this thread might not come
 /// back from.
 ///
-pub fn receive_signals() {
+///
+/// Answers whether the thread sat in a ptrace stop, which is a reason to
+/// restart a syscall the stop interrupted once no handler ran: the caller
+/// asks `crates/kernel/syscallrestart`, which refuses when a handler moved
+/// the pc.
+pub fn receive_signals() -> bool {
     let task = current();
     // A thread the group-exit valve gave up on is `exiting`, and has nothing
     // to deliver to: it used to find its `sighand` field emptied here, and the
     // thread's own reference, which this reads now, outlives that.
     if task.is_null() || taskview::current_is_gone() {
-        return;
+        return false;
     }
     let Some(was_stopped) = taskview::with_current_group(|g| g.stop.is_stopped()) else {
-        return;
+        return false;
     };
+    let trapped = ptrace::trap_stop();
     // SAFETY: `task` is the calling thread's, and `queue` is its own.
-    let Some(retarget) = taskview::with_current_queue(|queue| unsafe { deliver_pending(task, queue) }) else {
-        return;
+    let Some((retarget, ptrace_stopped)) =
+        taskview::with_current_queue(|queue| unsafe { deliver_pending(task, queue) })
+    else {
+        return trapped;
     };
     if retarget != 0 {
         crate::routing::retarget_shared(retarget);
@@ -446,15 +463,18 @@ pub fn receive_signals() {
     if let Some(stop_sig) = stopped.flatten() {
         notify_parent_of_stop(ffi::CLD_STOPPED_ as c_int, stop_sig);
     }
+    trapped || ptrace_stopped
 }
 
 /// The body of [`receive_signals`], with the calling task's queue. Answers the
 /// process-directed signals this thread has blocked since the last pass,
-/// which another thread may have to take.
+/// which another thread may have to take, and whether it stopped for its
+/// tracer.
 ///
 /// # Safety
 /// `task` is the calling thread's task and `queue` its own.
-unsafe fn deliver_pending(task: *mut ffi::task, queue: kernel_sighand::Queue<'_>) -> u64 {
+unsafe fn deliver_pending(task: *mut ffi::task, queue: kernel_sighand::Queue<'_>) -> (u64, bool) {
+    let mut ptrace_stopped = false;
     let mut guard = queue.lock();
 
     // A saved mask means the last system call was one like sigsuspend that
@@ -491,13 +511,14 @@ unsafe fn deliver_pending(task: *mut ffi::task, queue: kernel_sighand::Queue<'_>
             // that arrive meanwhile stay on the queue, except SIGKILL, which
             // ends the process from inside.
             guard = unsafe { signal_delivery_stop(task, queue, guard, info.sig, &info) };
+            ptrace_stopped = true;
         } else {
             guard = unsafe { receive_signal(task, guard, &info) };
         }
         allowed = !guard.queue().blocked();
     }
     let (own, shared) = guard.both_mut();
-    own.recalc(shared)
+    (own.recalc(shared), ptrace_stopped)
 }
 
 /// `rt_sigreturn(2)`: put back what the frame on the guest's stack says.

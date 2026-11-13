@@ -458,3 +458,52 @@ fn a_null_is_refused_by_the_three_that_insert_and_missed_by_the_rest() {
 
     remove(a);
 }
+
+/// A tracer is an edge beside the parent one: attaching moves no child, a
+/// second tracer is refused, and removing either end leaves nothing that
+/// names it.
+#[test]
+fn a_tracer_is_not_a_parent() {
+    let mut t = Tree::default();
+    let (init, a, b, c) = (task(1), task(2), task(3), task(4));
+    t.add(init, None);
+    t.add(a, Some(init));
+    t.add(b, Some(init));
+    t.add(c, Some(b));
+    assert!(t.attach(c, a));
+    assert_eq!(t.tracer(c), Some(a));
+    assert_eq!(t.parent(c), Some(b), "the real parent is kept");
+    assert_eq!(t.children_len(a), 0);
+    assert_eq!(t.tracee_at(a, 0), Some(c));
+    assert!(!t.attach(c, init), "one tracer at a time");
+    assert!(!t.attach(a, a), "not itself");
+    assert_eq!(t.detach(c), Some(a));
+    assert_eq!(t.tracee_at(a, 0), None);
+    assert_eq!(t.detach(c), None);
+
+    assert!(t.attach(c, a));
+    t.remove(a);
+    assert_eq!(t.tracer(c), None, "a tracer removed leaves no edge to it");
+    assert!(t.attach(c, init));
+    t.remove(c);
+    assert_eq!(t.tracee_at(init, 0), None, "a tracee removed leaves its tracer's list");
+}
+
+/// A thread's exit is kept for its tracer until taken, and a tracer that
+/// leaves hands its reports back for the caller to release.
+#[test]
+fn a_report_waits_for_its_tracer() {
+    let mut t = Tree::default();
+    let tracer = task(1);
+    t.add(tracer, None);
+    let r = |tid| ExitReport { tid, status: 0, pgid: 1, uid: 0 };
+    assert!(t.push_report(tracer, r(5)));
+    assert!(t.push_report(tracer, r(6)));
+    assert_eq!(t.take_report(tracer, |x| x.tid == 6, true), Some(r(6)), "NOWAIT keeps it");
+    assert_eq!(t.take_report(tracer, |x| x.tid == 6, false), Some(r(6)));
+    assert_eq!(t.take_report(tracer, |x| x.tid == 6, false), None);
+    assert!(t.has_reports(tracer));
+    assert_eq!(t.drain_reports(tracer), vec![r(5)]);
+    assert!(!t.has_reports(tracer));
+    assert!(!t.push_report(task(9), r(7)), "no such tracer");
+}

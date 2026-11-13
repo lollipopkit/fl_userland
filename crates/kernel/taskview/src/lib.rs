@@ -186,6 +186,14 @@ fn signal_pending(lock: &ffi::lock_t) -> bool {
     //
     // SAFETY: `waitfor` calls this hook holding `lock`.
     with_current_queue(|queue| unsafe { queue.interrupts_a_wait_under(lock) }).unwrap_or(false)
+        || ptrace_trap_pending()
+}
+
+/// `PTRACE_INTERRUPT`, or a seized task's first stop, ends a wait as a signal
+/// does (Linux's `signal_wake_up` from `ptrace_trap_notify`); the syscall is
+/// then restarted after the stop, since no handler ran.
+fn ptrace_trap_pending() -> bool {
+    with_current_ptrace(|p| p.trap_pending()).unwrap_or(false)
 }
 
 ///
@@ -196,7 +204,7 @@ fn signal_pending(lock: &ffi::lock_t) -> bool {
 /// `fs-poll` -> `kernel-taskcalls` -> `kernel-exitcalls` -> ... -> `fs-poll`
 /// was one of the cycles that came out of it.
 pub fn current_signal_pending() -> bool {
-    with_current_queue(|queue| queue.deliverable()).unwrap_or(false)
+    with_current_queue(|queue| queue.deliverable()).unwrap_or(false) || ptrace_trap_pending()
 }
 
 #[cfg(test)]

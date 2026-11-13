@@ -14,6 +14,8 @@ util-errno = { path = "../../util/errno" }
 kernel-mmapcalls = { path = "../mmapcalls" }
 kernel-proctree = { path = "../proctree" }
 kernel-pids = { path = "../pids" }
+# `PtraceMode`, which `PTRACE_ATTACH` asks `may_ptrace` with.
+kernel-creds = { path = "../creds" }
 kernel-taskview = { path = "../../kernel/taskview" }
 # The state this crate is the syscall over. Split out on 2026-09-11 so that
 # `struct task` can name it: see the module comment.

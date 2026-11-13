@@ -1,0 +1,72 @@
+ATTACH to a running child                                -> ok
+  what wait then reports                                 -> stopped 19
+  GETSIGINFO of that stop                                -> signo 19 code 0x80
+  its TracerPid is this process                          -> true
+  ATTACH again                                           -> EPERM
+  SEIZE while attached                                   -> EPERM
+  INTERRUPT of a tracee that was not seized              -> EIO
+  DETACH                                                 -> ok
+  wait after DETACH, WNOHANG                             -> nothing
+  its TracerPid after DETACH                             -> 0
+  its exit, reported to the parent                       -> exited 3
+ATTACH to itself                                         -> EPERM
+ATTACH to a pid nobody has                               -> ESRCH
+SEIZE to a pid nobody has                                -> ESRCH
+SEIZE with addr not 0                                    -> EIO
+SEIZE with an option nobody has                          -> EIO
+CONT of a child nobody traces                            -> ESRCH
+INTERRUPT of a child nobody traces                       -> ESRCH
+uid 1000 attaches a root process                         -> EPERM
+uid 1000 attaches a uid 1000 process                     -> ok
+uid 1000 attaches a uid 1000 process, not dumpable       -> EPERM
+sibling: wait(-1) before attaching                       -> ECHILD
+sibling: ATTACH                                          -> ok
+sibling: wait(-1) reports                                -> the target stopped 19
+sibling: CONT                                            -> ok
+sibling: the target's exit, as its tracer                -> exited 3
+sibling: wait again                                      -> ECHILD
+parent: the tracer's exit                                -> exited 0
+parent: the target's exit, as its parent                 -> exited 3
+tracer exits with its tracee stopped: the tracee's exit  -> exited 4
+SEIZE with TRACESYSGOOD                                  -> ok
+  wait, WNOHANG: a seize does not stop it                -> nothing
+  CONT of a running seized tracee                        -> ESRCH
+  INTERRUPT                                              -> ok
+  what wait then reports                                 -> stopped 5 event 128
+  GETSIGINFO of that stop                                -> signo 5 code 0x8005
+  CONT                                                   -> ok
+  wait, WNOHANG, after CONT                              -> nothing
+  its exit                                               -> exited 5
+TRACEFORK: SETOPTIONS                                    -> ok
+TRACEFORK: the traced task reported                      -> stopped 5 event 1, stopped 17, exited 6
+TRACEFORK: the new task reported                         -> stopped 19, exited 5
+TRACEFORK: GETEVENTMSG at each event                     -> the new task
+TRACEFORK: reports from a third task                     -> 0
+TRACEFORK: GETSIGINFO at the first event                 -> signo 5 code 0x105 pid is the tracee true
+fork without TRACEFORK: SETOPTIONS                       -> ok
+fork without TRACEFORK: the traced task reported         -> stopped 17, exited 6
+fork without TRACEFORK: the new task reported            -> nothing
+fork without TRACEFORK: GETEVENTMSG at each event        -> 
+fork without TRACEFORK: reports from a third task        -> 0
+TRACEVFORK|TRACEVFORKDONE: SETOPTIONS                    -> ok
+TRACEVFORK|TRACEVFORKDONE: the traced task reported      -> stopped 5 event 2, stopped 5 event 5, stopped 17, exited 9
+TRACEVFORK|TRACEVFORKDONE: the new task reported         -> stopped 19, exited 8
+TRACEVFORK|TRACEVFORKDONE: GETEVENTMSG at each event     -> the new task, the new task
+TRACEVFORK|TRACEVFORKDONE: reports from a third task     -> 0
+TRACEVFORK|TRACEVFORKDONE: GETSIGINFO at the first event -> signo 5 code 0x205 pid is the tracee true
+TRACECLONE, a thread: SETOPTIONS                         -> ok
+TRACECLONE, a thread: the traced task reported           -> stopped 5 event 3, exited 7
+TRACECLONE, a thread: the new task reported              -> stopped 19, exited
+TRACECLONE, a thread: GETEVENTMSG at each event          -> the new task
+TRACECLONE, a thread: reports from a third task          -> 0
+TRACECLONE, a thread: GETSIGINFO at the first event      -> signo 5 code 0x305 pid is the tracee true
+SEIZE with TRACEFORK                                     -> ok
+  the seized task reported                               -> stopped 5 event 1, stopped 17, exited 6
+  the task it forked reported                            -> stopped 5 event 128, exited 5
+EXITKILL tracer: SEIZE                                   -> ok
+tracer with EXITKILL exits: the tracee                   -> killed by 9
+TRACEEXIT: the stop                                      -> stopped 5 event 6
+  GETEVENTMSG                                            -> 0x300
+  GETSIGINFO                                             -> signo 5 code 0x605 pid is the tracee true
+  then                                                   -> exited 3
+SETOPTIONS(EXITKILL)                                     -> ok
