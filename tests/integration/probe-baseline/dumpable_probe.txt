@@ -1,0 +1,81 @@
+########## a credential change, as root ##########
+at start                                                 -> dumpable 1
+setuid(0)                                                -> ok, dumpable 1
+setuid(65534)                                            -> ok, dumpable 0
+setresuid(-1, 65534, -1)                                 -> ok, dumpable 0
+setresuid(65534, -1, -1)                                 -> ok, dumpable 1
+setresuid(-1, -1, 65534)                                 -> ok, dumpable 1
+setresuid(65534, 0, 0): real only, still root            -> ok, dumpable 1
+setreuid(65534, -1)                                      -> ok, dumpable 1
+setreuid(-1, 65534)                                      -> ok, dumpable 0
+setgid(0)                                                -> ok, dumpable 1
+setgid(65534)                                            -> ok, dumpable 0
+setresgid(65534, -1, -1)                                 -> ok, dumpable 1
+setresgid(-1, 65534, -1)                                 -> ok, dumpable 0
+setresgid(-1, -1, 65534)                                 -> ok, dumpable 1
+setregid(-1, 65534)                                      -> ok, dumpable 0
+setfsuid(0)                                              -> ok, dumpable 1
+setfsuid(65534)                                          -> ok, dumpable 0
+setfsgid(0)                                              -> ok, dumpable 1
+setfsgid(65534)                                          -> ok, dumpable 0
+setgroups([1, 2])                                        -> ok, dumpable 1
+capset(the sets it has)                                  -> ok, dumpable 1
+capset(no effective, no inheritable)                     -> ok, dumpable 1
+PR_SET_DUMPABLE(1) after setuid(65534)                   -> ok, dumpable 1
+euid 65534, flag set back to 1, then euid 0              -> ok, dumpable 0
+########## a credential change, unprivileged ##########
+setuid(0), refused                                       -> EPERM, dumpable 1
+setresuid(-1, -1, -1)                                    -> ok, dumpable 1
+setresuid(-1, 1000, -1): its own euid                    -> ok, dumpable 1
+setresuid(-1, 2000, -1): its saved uid                   -> ok, dumpable 0
+setresuid(2000, -1, -1): real only                       -> ok, dumpable 1
+setfsuid(1000): its own fsuid                            -> ok, dumpable 1
+setfsuid(2000)                                           -> ok, dumpable 0
+setfsuid(3000), refused                                  -> ok, dumpable 1
+########## who owns /proc/self ##########
+ids 1000/2000/1000, dumpable: /proc/self                 -> 2000:2001
+ids 1000/2000/1000, dumpable: /proc/self/status          -> 2000:2001
+ids 1000/2000/1000, dumpable: /proc/self/environ         -> 2000:2001
+ids 1000/2000/1000, dumpable: /proc/self/fd              -> 2000:2001
+ids 1000/2000/1000, dumpable: /proc/self/fdinfo          -> 2000:2001
+ids 1000/2000/1000, dumpable: /proc/self/task            -> 2000:2001
+ids 1000/2000/1000, dumpable: /proc/self/maps            -> 2000:2001
+  status                                                 -> Uid: 1000 2000 1000 2000 / Gid: 1001 2001 1001 2001
+ids 1000/2000/1000, not dumpable: /proc/self             -> 2000:2001
+ids 1000/2000/1000, not dumpable: /proc/self/status      -> 0:0
+ids 1000/2000/1000, not dumpable: /proc/self/environ     -> 0:0
+ids 1000/2000/1000, not dumpable: /proc/self/fd          -> 0:0
+ids 1000/2000/1000, not dumpable: /proc/self/fdinfo      -> 2000:2001
+ids 1000/2000/1000, not dumpable: /proc/self/task        -> 2000:2001
+ids 1000/2000/1000, not dumpable: /proc/self/maps        -> 0:0
+setfsuid(65534): status                                  -> Uid: 0 0 0 65534 / Gid: 0 0 0 0
+setfsgid(65534): status                                  -> Uid: 0 0 0 0 / Gid: 0 0 0 65534
+########## another process of the same user ##########
+after setuid: its own environ                            -> EACCES
+after setuid: its own fd                                 -> a listing
+after setuid: its own fdinfo/0                           -> ok
+after setuid: a peer lists its fdinfo                    -> EACCES
+after setuid: a peer reads its fdinfo/0                  -> EACCES
+after setuid: a peer reads its status                    -> ok
+after setuid: a peer reads its environ                   -> EACCES
+after setuid: a peer lists its fd                        -> EACCES
+dumpable again: its own environ                          -> ok
+dumpable again: its own fd                               -> a listing
+dumpable again: its own fdinfo/0                         -> ok
+dumpable again: a peer lists its fdinfo                  -> a listing
+dumpable again: a peer reads its fdinfo/0                -> ok
+dumpable again: a peer reads its status                  -> ok
+dumpable again: a peer reads its environ                 -> ok
+dumpable again: a peer lists its fd                      -> a listing
+########## execve ##########
+not dumpable, then exec                                  -> dumpable 1, uids 0/0/0, status owned by 0:0
+setuid(65534), then exec                                 -> dumpable 1, uids 65534/65534/65534, status owned by 65534:0
+real uid 65534, euid 0, then exec                        -> dumpable 0, uids 65534/0/0, status owned by 0:0
+real gid 65534, egid 0, then exec                        -> dumpable 0, uids 0/0/0, status owned by 0:0
+setfsuid(65534), then exec                               -> dumpable 0, uids 0/0/0, status owned by 0:0
+saved uid 65534 only, then exec                          -> dumpable 1, uids 0/0/0, status owned by 0:0
+uid 65534 execs a binary it cannot read                  -> dumpable 0, uids 65534/65534/65534, status owned by 0:0
+/tmp/dumpable_probe.sh                                   -> dumpable 1, uids 65534/65534/65534, status owned by 65534:65534
+/tmp/dumpable_probe.sh                                   -> dumpable 0, uids 65534/65534/65534, status owned by 0:0
+uid 65534 execs a program whose ELF interpreter it can read -> status owned by 65534
+uid 65534 execs a program whose ELF interpreter it cannot read -> status owned by 0

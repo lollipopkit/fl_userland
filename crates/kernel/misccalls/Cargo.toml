@@ -1,0 +1,27 @@
+[package]
+name = "kernel-misccalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "misccalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-taskview = { path = "../../kernel/taskview" }
+kernel-pagetable = { path = "../../kernel/pagetable" }
+kernel-procattr = { path = "../procattr" }
+kernel-pids = { path = "../pids" }
+kernel-creds = { path = "../creds" }
+kernel-usercopy = { path = "../usercopy" }
+# The filter engine behind `seccomp(2)` and `PR_SET_SECCOMP`.
+kernel-seccomp = { path = "../seccomp" }
+# The prctl options that read or write mm->flags -- THP disable and MDWE -- are
+# the address space's, and the enforcement of MDWE is where mmap is.
+kernel-mmapcalls = { path = "../mmapcalls" }
+# `PR_FUTEX_HASH`.
+kernel-futexcalls = { path = "../futexcalls" }
+util-strace = { path = "../../util/strace" }

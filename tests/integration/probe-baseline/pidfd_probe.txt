@@ -1,0 +1,37 @@
+########## pidfd_open ##########
+pidfd_open(self, 0)                                      -> a descriptor
+pidfd_open(self, 1) -- PIDFD_NONBLOCK                    -> EINVAL
+pidfd_open(self, 0x40) -- a flag nobody defines          -> EINVAL
+pidfd_open(0)                                            -> EINVAL
+pidfd_open(-1)                                           -> EINVAL
+pidfd_open(999999)                                       -> ESRCH
+
+########## pidfd_send_signal: the refusals ##########
+flags = 1                                                -> 0
+flags = 0xffffffff                                       -> EINVAL
+signal 0 -- a permission check only                      -> 0
+signal 65                                                -> EINVAL
+signal -1                                                -> EINVAL
+a descriptor that is not a pidfd                         -> EBADF
+a descriptor that is not open                            -> EBADF
+an unreadable siginfo pointer                            -> EFAULT
+
+########## the siginfo a caller may claim ##########
+siginfo with SI_USER, to self                            -> 0
+siginfo with SI_QUEUE, to self                           -> 0
+siginfo with SI_KERNEL, to self                          -> 0
+siginfo with si_code 1, to self                          -> 0
+
+########## what the receiver sees ##########
+pidfd_send_signal with SI_QUEUE and a value              -> 0
+  sigtimedwait received it                               -> true
+  si_signo                                               -> 12
+  si_code is SI_QUEUE                                    -> true
+  si_pid is the sender                                   -> true
+  si_value survived                                      -> 0x12345678
+
+########## a process that has exited ##########
+pidfd_open of a live child                               -> a descriptor
+signal 0 through it after it was reaped                  -> ESRCH
+SIGTERM through it after it was reaped                   -> ESRCH
+pidfd_open of the reaped pid                             -> ESRCH

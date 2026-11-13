@@ -1,0 +1,15 @@
+## signals
+the blocked mask                                 -> 1
+a handler                                        -> a handler
+an ignored signal                                -> SIG_IGN
+## what a child starts without
+a pending signal                                 -> 0
+an armed ITIMER_REAL                             -> false
+the parent-death signal                          -> 0
+## what a child keeps
+keepcaps                                         -> 1
+dumpable                                         -> 0
+no_new_privs                                     -> 1
+## record locks
+the parent takes a write lock                    -> 0
+and the child sees it as somebody else's         -> a conflicting lock

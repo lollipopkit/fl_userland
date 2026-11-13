@@ -1,0 +1,651 @@
+########## capget ##########
+capget root                                      -> effective some, permitted some
+capget 1000                                      -> effective none, permitted none
+capget 1000 undumpable                           -> effective none, permitted none
+capget 1000 gid 1001                             -> effective none, permitted none
+capget 1000 saved uid 0                          -> effective none, permitted some
+capget real 2000 eff 1000                        -> effective none, permitted none
+########## root -> root ##########
+root -> root: pidfd_open                         -> ok
+root -> root: kill 0                             -> ok
+root -> root: pidfd_send_signal 0                -> ok
+root -> root: process_vm_readv                   -> ok
+root -> root: process_vm_writev                  -> ok
+root -> root: kcmp KCMP_VM                       -> ok
+root -> root: pidfd_getfd 0                      -> ok
+root -> root: get_robust_list                    -> ok
+root -> root: prlimit64 get                      -> ok
+root -> root: prlimit64 set the same             -> ok
+root -> root: process_madvise MADV_COLD          -> ok
+root -> root: process_mrelease                   -> EINVAL
+root -> root: sched_setaffinity                  -> ok
+root -> root: setpriority 0                      -> ok
+root -> root: sched_setscheduler SCHED_OTHER     -> ok
+root -> root: sched_setattr SCHED_OTHER          -> ok
+root -> root: ioprio_set BE 4                    -> ok
+root -> root: /proc/<pid>/environ                -> ok
+root -> root: /proc/<pid>/mem                    -> read errno 5
+root -> root: /proc/<pid>/io                     -> ok
+root -> root: /proc/<pid>/syscall                -> ok
+root -> root: /proc/<pid>/personality            -> ok
+########## root -> 1000 ##########
+root -> 1000: pidfd_open                         -> ok
+root -> 1000: kill 0                             -> ok
+root -> 1000: pidfd_send_signal 0                -> ok
+root -> 1000: process_vm_readv                   -> ok
+root -> 1000: process_vm_writev                  -> ok
+root -> 1000: kcmp KCMP_VM                       -> ok
+root -> 1000: pidfd_getfd 0                      -> ok
+root -> 1000: get_robust_list                    -> ok
+root -> 1000: prlimit64 get                      -> ok
+root -> 1000: prlimit64 set the same             -> ok
+root -> 1000: process_madvise MADV_COLD          -> ok
+root -> 1000: process_mrelease                   -> EINVAL
+root -> 1000: sched_setaffinity                  -> ok
+root -> 1000: setpriority 0                      -> ok
+root -> 1000: sched_setscheduler SCHED_OTHER     -> ok
+root -> 1000: sched_setattr SCHED_OTHER          -> ok
+root -> 1000: ioprio_set BE 4                    -> ok
+root -> 1000: /proc/<pid>/environ                -> ok
+root -> 1000: /proc/<pid>/mem                    -> read errno 5
+root -> 1000: /proc/<pid>/io                     -> ok
+root -> 1000: /proc/<pid>/syscall                -> ok
+root -> 1000: /proc/<pid>/personality            -> ok
+########## root -> 1000 undumpable ##########
+root -> 1000 undumpable: pidfd_open              -> ok
+root -> 1000 undumpable: kill 0                  -> ok
+root -> 1000 undumpable: pidfd_send_signal 0     -> ok
+root -> 1000 undumpable: process_vm_readv        -> ok
+root -> 1000 undumpable: process_vm_writev       -> ok
+root -> 1000 undumpable: kcmp KCMP_VM            -> ok
+root -> 1000 undumpable: pidfd_getfd 0           -> ok
+root -> 1000 undumpable: get_robust_list         -> ok
+root -> 1000 undumpable: prlimit64 get           -> ok
+root -> 1000 undumpable: prlimit64 set the same  -> ok
+root -> 1000 undumpable: process_madvise MADV_COLD -> ok
+root -> 1000 undumpable: process_mrelease        -> EINVAL
+root -> 1000 undumpable: sched_setaffinity       -> ok
+root -> 1000 undumpable: setpriority 0           -> ok
+root -> 1000 undumpable: sched_setscheduler SCHED_OTHER -> ok
+root -> 1000 undumpable: sched_setattr SCHED_OTHER -> ok
+root -> 1000 undumpable: ioprio_set BE 4         -> ok
+root -> 1000 undumpable: /proc/<pid>/environ     -> ok
+root -> 1000 undumpable: /proc/<pid>/mem         -> read errno 5
+root -> 1000 undumpable: /proc/<pid>/io          -> ok
+root -> 1000 undumpable: /proc/<pid>/syscall     -> ok
+root -> 1000 undumpable: /proc/<pid>/personality -> ok
+########## root -> 1000 gid 1001 ##########
+root -> 1000 gid 1001: pidfd_open                -> ok
+root -> 1000 gid 1001: kill 0                    -> ok
+root -> 1000 gid 1001: pidfd_send_signal 0       -> ok
+root -> 1000 gid 1001: process_vm_readv          -> ok
+root -> 1000 gid 1001: process_vm_writev         -> ok
+root -> 1000 gid 1001: kcmp KCMP_VM              -> ok
+root -> 1000 gid 1001: pidfd_getfd 0             -> ok
+root -> 1000 gid 1001: get_robust_list           -> ok
+root -> 1000 gid 1001: prlimit64 get             -> ok
+root -> 1000 gid 1001: prlimit64 set the same    -> ok
+root -> 1000 gid 1001: process_madvise MADV_COLD -> ok
+root -> 1000 gid 1001: process_mrelease          -> EINVAL
+root -> 1000 gid 1001: sched_setaffinity         -> ok
+root -> 1000 gid 1001: setpriority 0             -> ok
+root -> 1000 gid 1001: sched_setscheduler SCHED_OTHER -> ok
+root -> 1000 gid 1001: sched_setattr SCHED_OTHER -> ok
+root -> 1000 gid 1001: ioprio_set BE 4           -> ok
+root -> 1000 gid 1001: /proc/<pid>/environ       -> ok
+root -> 1000 gid 1001: /proc/<pid>/mem           -> read errno 5
+root -> 1000 gid 1001: /proc/<pid>/io            -> ok
+root -> 1000 gid 1001: /proc/<pid>/syscall       -> ok
+root -> 1000 gid 1001: /proc/<pid>/personality   -> ok
+########## root -> 1000 saved uid 0 ##########
+root -> 1000 saved uid 0: pidfd_open             -> ok
+root -> 1000 saved uid 0: kill 0                 -> ok
+root -> 1000 saved uid 0: pidfd_send_signal 0    -> ok
+root -> 1000 saved uid 0: process_vm_readv       -> ok
+root -> 1000 saved uid 0: process_vm_writev      -> ok
+root -> 1000 saved uid 0: kcmp KCMP_VM           -> ok
+root -> 1000 saved uid 0: pidfd_getfd 0          -> ok
+root -> 1000 saved uid 0: get_robust_list        -> ok
+root -> 1000 saved uid 0: prlimit64 get          -> ok
+root -> 1000 saved uid 0: prlimit64 set the same -> ok
+root -> 1000 saved uid 0: process_madvise MADV_COLD -> ok
+root -> 1000 saved uid 0: process_mrelease       -> EINVAL
+root -> 1000 saved uid 0: sched_setaffinity      -> ok
+root -> 1000 saved uid 0: setpriority 0          -> ok
+root -> 1000 saved uid 0: sched_setscheduler SCHED_OTHER -> ok
+root -> 1000 saved uid 0: sched_setattr SCHED_OTHER -> ok
+root -> 1000 saved uid 0: ioprio_set BE 4        -> ok
+root -> 1000 saved uid 0: /proc/<pid>/environ    -> ok
+root -> 1000 saved uid 0: /proc/<pid>/mem        -> read errno 5
+root -> 1000 saved uid 0: /proc/<pid>/io         -> ok
+root -> 1000 saved uid 0: /proc/<pid>/syscall    -> ok
+root -> 1000 saved uid 0: /proc/<pid>/personality -> ok
+########## root -> real 2000 eff 1000 ##########
+root -> real 2000 eff 1000: pidfd_open           -> ok
+root -> real 2000 eff 1000: kill 0               -> ok
+root -> real 2000 eff 1000: pidfd_send_signal 0  -> ok
+root -> real 2000 eff 1000: process_vm_readv     -> ok
+root -> real 2000 eff 1000: process_vm_writev    -> ok
+root -> real 2000 eff 1000: kcmp KCMP_VM         -> ok
+root -> real 2000 eff 1000: pidfd_getfd 0        -> ok
+root -> real 2000 eff 1000: get_robust_list      -> ok
+root -> real 2000 eff 1000: prlimit64 get        -> ok
+root -> real 2000 eff 1000: prlimit64 set the same -> ok
+root -> real 2000 eff 1000: process_madvise MADV_COLD -> ok
+root -> real 2000 eff 1000: process_mrelease     -> EINVAL
+root -> real 2000 eff 1000: sched_setaffinity    -> ok
+root -> real 2000 eff 1000: setpriority 0        -> ok
+root -> real 2000 eff 1000: sched_setscheduler SCHED_OTHER -> ok
+root -> real 2000 eff 1000: sched_setattr SCHED_OTHER -> ok
+root -> real 2000 eff 1000: ioprio_set BE 4      -> ok
+root -> real 2000 eff 1000: /proc/<pid>/environ  -> ok
+root -> real 2000 eff 1000: /proc/<pid>/mem      -> read errno 5
+root -> real 2000 eff 1000: /proc/<pid>/io       -> ok
+root -> real 2000 eff 1000: /proc/<pid>/syscall  -> ok
+root -> real 2000 eff 1000: /proc/<pid>/personality -> ok
+########## root -> itself, undumpable ##########
+root -> itself: pidfd_open                       -> ok
+root -> itself: kill 0                           -> ok
+root -> itself: pidfd_send_signal 0              -> ok
+root -> itself: process_vm_readv                 -> ok
+root -> itself: process_vm_writev                -> ok
+root -> itself: kcmp KCMP_VM                     -> ok
+root -> itself: pidfd_getfd 0                    -> ok
+root -> itself: get_robust_list                  -> ok
+root -> itself: prlimit64 get                    -> ok
+root -> itself: prlimit64 set the same           -> ok
+root -> itself: process_madvise MADV_COLD        -> ok
+root -> itself: process_mrelease                 -> EINVAL
+root -> itself: sched_setaffinity                -> ok
+root -> itself: setpriority 0                    -> ok
+root -> itself: sched_setscheduler SCHED_OTHER   -> ok
+root -> itself: sched_setattr SCHED_OTHER        -> ok
+root -> itself: ioprio_set BE 4                  -> ok
+root -> itself: /proc/<pid>/environ              -> ok
+root -> itself: /proc/<pid>/mem                  -> read errno 5
+root -> itself: /proc/<pid>/io                   -> ok
+root -> itself: /proc/<pid>/syscall              -> ok
+root -> itself: /proc/<pid>/personality          -> ok
+########## 1000 -> root ##########
+1000 -> root: pidfd_open                         -> ok
+1000 -> root: kill 0                             -> EPERM
+1000 -> root: pidfd_send_signal 0                -> EPERM
+1000 -> root: process_vm_readv                   -> EPERM
+1000 -> root: process_vm_writev                  -> EPERM
+1000 -> root: kcmp KCMP_VM                       -> EPERM
+1000 -> root: pidfd_getfd 0                      -> EPERM
+1000 -> root: get_robust_list                    -> EPERM
+1000 -> root: prlimit64 get                      -> EPERM
+1000 -> root: prlimit64 set the same             -> EPERM
+1000 -> root: process_madvise MADV_COLD          -> EACCES
+1000 -> root: process_mrelease                   -> EINVAL
+1000 -> root: sched_setaffinity                  -> EPERM
+1000 -> root: setpriority 0                      -> EPERM
+1000 -> root: sched_setscheduler SCHED_OTHER     -> EPERM
+1000 -> root: sched_setattr SCHED_OTHER          -> EPERM
+1000 -> root: ioprio_set BE 4                    -> EPERM
+1000 -> root: /proc/<pid>/environ                -> open EACCES
+1000 -> root: /proc/<pid>/mem                    -> open EACCES
+1000 -> root: /proc/<pid>/io                     -> open EACCES
+1000 -> root: /proc/<pid>/syscall                -> open EACCES
+1000 -> root: /proc/<pid>/personality            -> open EACCES
+########## 1000 -> 1000 ##########
+1000 -> 1000: pidfd_open                         -> ok
+1000 -> 1000: kill 0                             -> ok
+1000 -> 1000: pidfd_send_signal 0                -> ok
+1000 -> 1000: process_vm_readv                   -> ok
+1000 -> 1000: process_vm_writev                  -> ok
+1000 -> 1000: kcmp KCMP_VM                       -> ok
+1000 -> 1000: pidfd_getfd 0                      -> ok
+1000 -> 1000: get_robust_list                    -> ok
+1000 -> 1000: prlimit64 get                      -> ok
+1000 -> 1000: prlimit64 set the same             -> ok
+1000 -> 1000: process_madvise MADV_COLD          -> EPERM
+1000 -> 1000: process_mrelease                   -> EINVAL
+1000 -> 1000: sched_setaffinity                  -> ok
+1000 -> 1000: setpriority 0                      -> ok
+1000 -> 1000: sched_setscheduler SCHED_OTHER     -> ok
+1000 -> 1000: sched_setattr SCHED_OTHER          -> ok
+1000 -> 1000: ioprio_set BE 4                    -> ok
+1000 -> 1000: /proc/<pid>/environ                -> ok
+1000 -> 1000: /proc/<pid>/mem                    -> read errno 5
+1000 -> 1000: /proc/<pid>/io                     -> ok
+1000 -> 1000: /proc/<pid>/syscall                -> ok
+1000 -> 1000: /proc/<pid>/personality            -> ok
+########## 1000 -> 1000 undumpable ##########
+1000 -> 1000 undumpable: pidfd_open              -> ok
+1000 -> 1000 undumpable: kill 0                  -> ok
+1000 -> 1000 undumpable: pidfd_send_signal 0     -> ok
+1000 -> 1000 undumpable: process_vm_readv        -> EPERM
+1000 -> 1000 undumpable: process_vm_writev       -> EPERM
+1000 -> 1000 undumpable: kcmp KCMP_VM            -> EPERM
+1000 -> 1000 undumpable: pidfd_getfd 0           -> EPERM
+1000 -> 1000 undumpable: get_robust_list         -> EPERM
+1000 -> 1000 undumpable: prlimit64 get           -> ok
+1000 -> 1000 undumpable: prlimit64 set the same  -> ok
+1000 -> 1000 undumpable: process_madvise MADV_COLD -> EACCES
+1000 -> 1000 undumpable: process_mrelease        -> EINVAL
+1000 -> 1000 undumpable: sched_setaffinity       -> ok
+1000 -> 1000 undumpable: setpriority 0           -> ok
+1000 -> 1000 undumpable: sched_setscheduler SCHED_OTHER -> ok
+1000 -> 1000 undumpable: sched_setattr SCHED_OTHER -> ok
+1000 -> 1000 undumpable: ioprio_set BE 4         -> ok
+1000 -> 1000 undumpable: /proc/<pid>/environ     -> open EACCES
+1000 -> 1000 undumpable: /proc/<pid>/mem         -> open EACCES
+1000 -> 1000 undumpable: /proc/<pid>/io          -> open EACCES
+1000 -> 1000 undumpable: /proc/<pid>/syscall     -> open EACCES
+1000 -> 1000 undumpable: /proc/<pid>/personality -> open EACCES
+########## 1000 -> 1000 gid 1001 ##########
+1000 -> 1000 gid 1001: pidfd_open                -> ok
+1000 -> 1000 gid 1001: kill 0                    -> ok
+1000 -> 1000 gid 1001: pidfd_send_signal 0       -> ok
+1000 -> 1000 gid 1001: process_vm_readv          -> EPERM
+1000 -> 1000 gid 1001: process_vm_writev         -> EPERM
+1000 -> 1000 gid 1001: kcmp KCMP_VM              -> EPERM
+1000 -> 1000 gid 1001: pidfd_getfd 0             -> EPERM
+1000 -> 1000 gid 1001: get_robust_list           -> EPERM
+1000 -> 1000 gid 1001: prlimit64 get             -> EPERM
+1000 -> 1000 gid 1001: prlimit64 set the same    -> EPERM
+1000 -> 1000 gid 1001: process_madvise MADV_COLD -> EACCES
+1000 -> 1000 gid 1001: process_mrelease          -> EINVAL
+1000 -> 1000 gid 1001: sched_setaffinity         -> ok
+1000 -> 1000 gid 1001: setpriority 0             -> ok
+1000 -> 1000 gid 1001: sched_setscheduler SCHED_OTHER -> ok
+1000 -> 1000 gid 1001: sched_setattr SCHED_OTHER -> ok
+1000 -> 1000 gid 1001: ioprio_set BE 4           -> ok
+1000 -> 1000 gid 1001: /proc/<pid>/environ       -> open EACCES
+1000 -> 1000 gid 1001: /proc/<pid>/mem           -> open EACCES
+1000 -> 1000 gid 1001: /proc/<pid>/io            -> read EACCES
+1000 -> 1000 gid 1001: /proc/<pid>/syscall       -> read EPERM
+1000 -> 1000 gid 1001: /proc/<pid>/personality   -> read EPERM
+########## 1000 -> 1000 saved uid 0 ##########
+1000 -> 1000 saved uid 0: pidfd_open             -> ok
+1000 -> 1000 saved uid 0: kill 0                 -> ok
+1000 -> 1000 saved uid 0: pidfd_send_signal 0    -> ok
+1000 -> 1000 saved uid 0: process_vm_readv       -> EPERM
+1000 -> 1000 saved uid 0: process_vm_writev      -> EPERM
+1000 -> 1000 saved uid 0: kcmp KCMP_VM           -> EPERM
+1000 -> 1000 saved uid 0: pidfd_getfd 0          -> EPERM
+1000 -> 1000 saved uid 0: get_robust_list        -> EPERM
+1000 -> 1000 saved uid 0: prlimit64 get          -> EPERM
+1000 -> 1000 saved uid 0: prlimit64 set the same -> EPERM
+1000 -> 1000 saved uid 0: process_madvise MADV_COLD -> EACCES
+1000 -> 1000 saved uid 0: process_mrelease       -> EINVAL
+1000 -> 1000 saved uid 0: sched_setaffinity      -> EPERM
+1000 -> 1000 saved uid 0: setpriority 0          -> EPERM
+1000 -> 1000 saved uid 0: sched_setscheduler SCHED_OTHER -> EPERM
+1000 -> 1000 saved uid 0: sched_setattr SCHED_OTHER -> EPERM
+1000 -> 1000 saved uid 0: ioprio_set BE 4        -> EPERM
+1000 -> 1000 saved uid 0: /proc/<pid>/environ    -> open EACCES
+1000 -> 1000 saved uid 0: /proc/<pid>/mem        -> open EACCES
+1000 -> 1000 saved uid 0: /proc/<pid>/io         -> read EACCES
+1000 -> 1000 saved uid 0: /proc/<pid>/syscall    -> read EPERM
+1000 -> 1000 saved uid 0: /proc/<pid>/personality -> read EPERM
+########## 1000 -> real 2000 eff 1000 ##########
+1000 -> real 2000 eff 1000: pidfd_open           -> ok
+1000 -> real 2000 eff 1000: kill 0               -> EPERM
+1000 -> real 2000 eff 1000: pidfd_send_signal 0  -> EPERM
+1000 -> real 2000 eff 1000: process_vm_readv     -> EPERM
+1000 -> real 2000 eff 1000: process_vm_writev    -> EPERM
+1000 -> real 2000 eff 1000: kcmp KCMP_VM         -> EPERM
+1000 -> real 2000 eff 1000: pidfd_getfd 0        -> EPERM
+1000 -> real 2000 eff 1000: get_robust_list      -> EPERM
+1000 -> real 2000 eff 1000: prlimit64 get        -> EPERM
+1000 -> real 2000 eff 1000: prlimit64 set the same -> EPERM
+1000 -> real 2000 eff 1000: process_madvise MADV_COLD -> EACCES
+1000 -> real 2000 eff 1000: process_mrelease     -> EINVAL
+1000 -> real 2000 eff 1000: sched_setaffinity    -> ok
+1000 -> real 2000 eff 1000: setpriority 0        -> ok
+1000 -> real 2000 eff 1000: sched_setscheduler SCHED_OTHER -> ok
+1000 -> real 2000 eff 1000: sched_setattr SCHED_OTHER -> ok
+1000 -> real 2000 eff 1000: ioprio_set BE 4      -> EPERM
+1000 -> real 2000 eff 1000: /proc/<pid>/environ  -> open EACCES
+1000 -> real 2000 eff 1000: /proc/<pid>/mem      -> open EACCES
+1000 -> real 2000 eff 1000: /proc/<pid>/io       -> read EACCES
+1000 -> real 2000 eff 1000: /proc/<pid>/syscall  -> read EPERM
+1000 -> real 2000 eff 1000: /proc/<pid>/personality -> read EPERM
+########## 1000 -> itself, undumpable ##########
+1000 -> itself: pidfd_open                       -> ok
+1000 -> itself: kill 0                           -> ok
+1000 -> itself: pidfd_send_signal 0              -> ok
+1000 -> itself: process_vm_readv                 -> ok
+1000 -> itself: process_vm_writev                -> ok
+1000 -> itself: kcmp KCMP_VM                     -> ok
+1000 -> itself: pidfd_getfd 0                    -> ok
+1000 -> itself: get_robust_list                  -> ok
+1000 -> itself: prlimit64 get                    -> ok
+1000 -> itself: prlimit64 set the same           -> ok
+1000 -> itself: process_madvise MADV_COLD        -> ok
+1000 -> itself: process_mrelease                 -> EINVAL
+1000 -> itself: sched_setaffinity                -> ok
+1000 -> itself: setpriority 0                    -> ok
+1000 -> itself: sched_setscheduler SCHED_OTHER   -> ok
+1000 -> itself: sched_setattr SCHED_OTHER        -> ok
+1000 -> itself: ioprio_set BE 4                  -> ok
+1000 -> itself: /proc/<pid>/environ              -> open EACCES
+1000 -> itself: /proc/<pid>/mem                  -> open EACCES
+1000 -> itself: /proc/<pid>/io                   -> open EACCES
+1000 -> itself: /proc/<pid>/syscall              -> open EACCES
+1000 -> itself: /proc/<pid>/personality          -> open EACCES
+########## fs 1000 real 2000 -> root ##########
+fs 1000 real 2000 -> root: pidfd_open            -> ok
+fs 1000 real 2000 -> root: kill 0                -> EPERM
+fs 1000 real 2000 -> root: pidfd_send_signal 0   -> EPERM
+fs 1000 real 2000 -> root: process_vm_readv      -> EPERM
+fs 1000 real 2000 -> root: process_vm_writev     -> EPERM
+fs 1000 real 2000 -> root: kcmp KCMP_VM          -> EPERM
+fs 1000 real 2000 -> root: pidfd_getfd 0         -> EPERM
+fs 1000 real 2000 -> root: get_robust_list       -> EPERM
+fs 1000 real 2000 -> root: prlimit64 get         -> EPERM
+fs 1000 real 2000 -> root: prlimit64 set the same -> EPERM
+fs 1000 real 2000 -> root: process_madvise MADV_COLD -> EACCES
+fs 1000 real 2000 -> root: process_mrelease      -> EINVAL
+fs 1000 real 2000 -> root: sched_setaffinity     -> EPERM
+fs 1000 real 2000 -> root: setpriority 0         -> EPERM
+fs 1000 real 2000 -> root: sched_setscheduler SCHED_OTHER -> EPERM
+fs 1000 real 2000 -> root: sched_setattr SCHED_OTHER -> EPERM
+fs 1000 real 2000 -> root: ioprio_set BE 4       -> EPERM
+fs 1000 real 2000 -> root: /proc/<pid>/environ   -> open EACCES
+fs 1000 real 2000 -> root: /proc/<pid>/mem       -> open EACCES
+fs 1000 real 2000 -> root: /proc/<pid>/io        -> open EACCES
+fs 1000 real 2000 -> root: /proc/<pid>/syscall   -> open EACCES
+fs 1000 real 2000 -> root: /proc/<pid>/personality -> open EACCES
+########## fs 1000 real 2000 -> 1000 ##########
+fs 1000 real 2000 -> 1000: pidfd_open            -> ok
+fs 1000 real 2000 -> 1000: kill 0                -> ok
+fs 1000 real 2000 -> 1000: pidfd_send_signal 0   -> ok
+fs 1000 real 2000 -> 1000: process_vm_readv      -> EPERM
+fs 1000 real 2000 -> 1000: process_vm_writev     -> EPERM
+fs 1000 real 2000 -> 1000: kcmp KCMP_VM          -> EPERM
+fs 1000 real 2000 -> 1000: pidfd_getfd 0         -> EPERM
+fs 1000 real 2000 -> 1000: get_robust_list       -> EPERM
+fs 1000 real 2000 -> 1000: prlimit64 get         -> EPERM
+fs 1000 real 2000 -> 1000: prlimit64 set the same -> EPERM
+fs 1000 real 2000 -> 1000: process_madvise MADV_COLD -> EPERM
+fs 1000 real 2000 -> 1000: process_mrelease      -> EINVAL
+fs 1000 real 2000 -> 1000: sched_setaffinity     -> ok
+fs 1000 real 2000 -> 1000: setpriority 0         -> ok
+fs 1000 real 2000 -> 1000: sched_setscheduler SCHED_OTHER -> ok
+fs 1000 real 2000 -> 1000: sched_setattr SCHED_OTHER -> ok
+fs 1000 real 2000 -> 1000: ioprio_set BE 4       -> ok
+fs 1000 real 2000 -> 1000: /proc/<pid>/environ   -> ok
+fs 1000 real 2000 -> 1000: /proc/<pid>/mem       -> read errno 5
+fs 1000 real 2000 -> 1000: /proc/<pid>/io        -> ok
+fs 1000 real 2000 -> 1000: /proc/<pid>/syscall   -> ok
+fs 1000 real 2000 -> 1000: /proc/<pid>/personality -> ok
+########## fs 1000 real 2000 -> 1000 undumpable ##########
+fs 1000 real 2000 -> 1000 undumpable: pidfd_open -> ok
+fs 1000 real 2000 -> 1000 undumpable: kill 0     -> ok
+fs 1000 real 2000 -> 1000 undumpable: pidfd_send_signal 0 -> ok
+fs 1000 real 2000 -> 1000 undumpable: process_vm_readv -> EPERM
+fs 1000 real 2000 -> 1000 undumpable: process_vm_writev -> EPERM
+fs 1000 real 2000 -> 1000 undumpable: kcmp KCMP_VM -> EPERM
+fs 1000 real 2000 -> 1000 undumpable: pidfd_getfd 0 -> EPERM
+fs 1000 real 2000 -> 1000 undumpable: get_robust_list -> EPERM
+fs 1000 real 2000 -> 1000 undumpable: prlimit64 get -> EPERM
+fs 1000 real 2000 -> 1000 undumpable: prlimit64 set the same -> EPERM
+fs 1000 real 2000 -> 1000 undumpable: process_madvise MADV_COLD -> EACCES
+fs 1000 real 2000 -> 1000 undumpable: process_mrelease -> EINVAL
+fs 1000 real 2000 -> 1000 undumpable: sched_setaffinity -> ok
+fs 1000 real 2000 -> 1000 undumpable: setpriority 0 -> ok
+fs 1000 real 2000 -> 1000 undumpable: sched_setscheduler SCHED_OTHER -> ok
+fs 1000 real 2000 -> 1000 undumpable: sched_setattr SCHED_OTHER -> ok
+fs 1000 real 2000 -> 1000 undumpable: ioprio_set BE 4 -> ok
+fs 1000 real 2000 -> 1000 undumpable: /proc/<pid>/environ -> open EACCES
+fs 1000 real 2000 -> 1000 undumpable: /proc/<pid>/mem -> open EACCES
+fs 1000 real 2000 -> 1000 undumpable: /proc/<pid>/io -> open EACCES
+fs 1000 real 2000 -> 1000 undumpable: /proc/<pid>/syscall -> open EACCES
+fs 1000 real 2000 -> 1000 undumpable: /proc/<pid>/personality -> open EACCES
+########## fs 1000 real 2000 -> 1000 gid 1001 ##########
+fs 1000 real 2000 -> 1000 gid 1001: pidfd_open   -> ok
+fs 1000 real 2000 -> 1000 gid 1001: kill 0       -> ok
+fs 1000 real 2000 -> 1000 gid 1001: pidfd_send_signal 0 -> ok
+fs 1000 real 2000 -> 1000 gid 1001: process_vm_readv -> EPERM
+fs 1000 real 2000 -> 1000 gid 1001: process_vm_writev -> EPERM
+fs 1000 real 2000 -> 1000 gid 1001: kcmp KCMP_VM -> EPERM
+fs 1000 real 2000 -> 1000 gid 1001: pidfd_getfd 0 -> EPERM
+fs 1000 real 2000 -> 1000 gid 1001: get_robust_list -> EPERM
+fs 1000 real 2000 -> 1000 gid 1001: prlimit64 get -> EPERM
+fs 1000 real 2000 -> 1000 gid 1001: prlimit64 set the same -> EPERM
+fs 1000 real 2000 -> 1000 gid 1001: process_madvise MADV_COLD -> EACCES
+fs 1000 real 2000 -> 1000 gid 1001: process_mrelease -> EINVAL
+fs 1000 real 2000 -> 1000 gid 1001: sched_setaffinity -> ok
+fs 1000 real 2000 -> 1000 gid 1001: setpriority 0 -> ok
+fs 1000 real 2000 -> 1000 gid 1001: sched_setscheduler SCHED_OTHER -> ok
+fs 1000 real 2000 -> 1000 gid 1001: sched_setattr SCHED_OTHER -> ok
+fs 1000 real 2000 -> 1000 gid 1001: ioprio_set BE 4 -> ok
+fs 1000 real 2000 -> 1000 gid 1001: /proc/<pid>/environ -> open EACCES
+fs 1000 real 2000 -> 1000 gid 1001: /proc/<pid>/mem -> open EACCES
+fs 1000 real 2000 -> 1000 gid 1001: /proc/<pid>/io -> read EACCES
+fs 1000 real 2000 -> 1000 gid 1001: /proc/<pid>/syscall -> read EPERM
+fs 1000 real 2000 -> 1000 gid 1001: /proc/<pid>/personality -> read EPERM
+########## fs 1000 real 2000 -> 1000 saved uid 0 ##########
+fs 1000 real 2000 -> 1000 saved uid 0: pidfd_open -> ok
+fs 1000 real 2000 -> 1000 saved uid 0: kill 0    -> ok
+fs 1000 real 2000 -> 1000 saved uid 0: pidfd_send_signal 0 -> ok
+fs 1000 real 2000 -> 1000 saved uid 0: process_vm_readv -> EPERM
+fs 1000 real 2000 -> 1000 saved uid 0: process_vm_writev -> EPERM
+fs 1000 real 2000 -> 1000 saved uid 0: kcmp KCMP_VM -> EPERM
+fs 1000 real 2000 -> 1000 saved uid 0: pidfd_getfd 0 -> EPERM
+fs 1000 real 2000 -> 1000 saved uid 0: get_robust_list -> EPERM
+fs 1000 real 2000 -> 1000 saved uid 0: prlimit64 get -> EPERM
+fs 1000 real 2000 -> 1000 saved uid 0: prlimit64 set the same -> EPERM
+fs 1000 real 2000 -> 1000 saved uid 0: process_madvise MADV_COLD -> EACCES
+fs 1000 real 2000 -> 1000 saved uid 0: process_mrelease -> EINVAL
+fs 1000 real 2000 -> 1000 saved uid 0: sched_setaffinity -> EPERM
+fs 1000 real 2000 -> 1000 saved uid 0: setpriority 0 -> EPERM
+fs 1000 real 2000 -> 1000 saved uid 0: sched_setscheduler SCHED_OTHER -> EPERM
+fs 1000 real 2000 -> 1000 saved uid 0: sched_setattr SCHED_OTHER -> EPERM
+fs 1000 real 2000 -> 1000 saved uid 0: ioprio_set BE 4 -> EPERM
+fs 1000 real 2000 -> 1000 saved uid 0: /proc/<pid>/environ -> open EACCES
+fs 1000 real 2000 -> 1000 saved uid 0: /proc/<pid>/mem -> open EACCES
+fs 1000 real 2000 -> 1000 saved uid 0: /proc/<pid>/io -> read EACCES
+fs 1000 real 2000 -> 1000 saved uid 0: /proc/<pid>/syscall -> read EPERM
+fs 1000 real 2000 -> 1000 saved uid 0: /proc/<pid>/personality -> read EPERM
+########## fs 1000 real 2000 -> real 2000 eff 1000 ##########
+fs 1000 real 2000 -> real 2000 eff 1000: pidfd_open -> ok
+fs 1000 real 2000 -> real 2000 eff 1000: kill 0  -> ok
+fs 1000 real 2000 -> real 2000 eff 1000: pidfd_send_signal 0 -> ok
+fs 1000 real 2000 -> real 2000 eff 1000: process_vm_readv -> EPERM
+fs 1000 real 2000 -> real 2000 eff 1000: process_vm_writev -> EPERM
+fs 1000 real 2000 -> real 2000 eff 1000: kcmp KCMP_VM -> EPERM
+fs 1000 real 2000 -> real 2000 eff 1000: pidfd_getfd 0 -> EPERM
+fs 1000 real 2000 -> real 2000 eff 1000: get_robust_list -> EPERM
+fs 1000 real 2000 -> real 2000 eff 1000: prlimit64 get -> EPERM
+fs 1000 real 2000 -> real 2000 eff 1000: prlimit64 set the same -> EPERM
+fs 1000 real 2000 -> real 2000 eff 1000: process_madvise MADV_COLD -> EACCES
+fs 1000 real 2000 -> real 2000 eff 1000: process_mrelease -> EINVAL
+fs 1000 real 2000 -> real 2000 eff 1000: sched_setaffinity -> ok
+fs 1000 real 2000 -> real 2000 eff 1000: setpriority 0 -> ok
+fs 1000 real 2000 -> real 2000 eff 1000: sched_setscheduler SCHED_OTHER -> ok
+fs 1000 real 2000 -> real 2000 eff 1000: sched_setattr SCHED_OTHER -> ok
+fs 1000 real 2000 -> real 2000 eff 1000: ioprio_set BE 4 -> ok
+fs 1000 real 2000 -> real 2000 eff 1000: /proc/<pid>/environ -> open EACCES
+fs 1000 real 2000 -> real 2000 eff 1000: /proc/<pid>/mem -> open EACCES
+fs 1000 real 2000 -> real 2000 eff 1000: /proc/<pid>/io -> read EACCES
+fs 1000 real 2000 -> real 2000 eff 1000: /proc/<pid>/syscall -> read EPERM
+fs 1000 real 2000 -> real 2000 eff 1000: /proc/<pid>/personality -> read EPERM
+########## fs 1000 real 2000 -> itself, undumpable ##########
+fs 1000 real 2000 -> itself: pidfd_open          -> ok
+fs 1000 real 2000 -> itself: kill 0              -> ok
+fs 1000 real 2000 -> itself: pidfd_send_signal 0 -> ok
+fs 1000 real 2000 -> itself: process_vm_readv    -> ok
+fs 1000 real 2000 -> itself: process_vm_writev   -> ok
+fs 1000 real 2000 -> itself: kcmp KCMP_VM        -> ok
+fs 1000 real 2000 -> itself: pidfd_getfd 0       -> ok
+fs 1000 real 2000 -> itself: get_robust_list     -> ok
+fs 1000 real 2000 -> itself: prlimit64 get       -> ok
+fs 1000 real 2000 -> itself: prlimit64 set the same -> ok
+fs 1000 real 2000 -> itself: process_madvise MADV_COLD -> ok
+fs 1000 real 2000 -> itself: process_mrelease    -> EINVAL
+fs 1000 real 2000 -> itself: sched_setaffinity   -> ok
+fs 1000 real 2000 -> itself: setpriority 0       -> ok
+fs 1000 real 2000 -> itself: sched_setscheduler SCHED_OTHER -> ok
+fs 1000 real 2000 -> itself: sched_setattr SCHED_OTHER -> ok
+fs 1000 real 2000 -> itself: ioprio_set BE 4     -> ok
+fs 1000 real 2000 -> itself: /proc/<pid>/environ -> open EACCES
+fs 1000 real 2000 -> itself: /proc/<pid>/mem     -> open EACCES
+fs 1000 real 2000 -> itself: /proc/<pid>/io      -> open EACCES
+fs 1000 real 2000 -> itself: /proc/<pid>/syscall -> open EACCES
+fs 1000 real 2000 -> itself: /proc/<pid>/personality -> open EACCES
+########## real 1000 fs 2000 -> root ##########
+real 1000 fs 2000 -> root: pidfd_open            -> ok
+real 1000 fs 2000 -> root: kill 0                -> EPERM
+real 1000 fs 2000 -> root: pidfd_send_signal 0   -> EPERM
+real 1000 fs 2000 -> root: process_vm_readv      -> EPERM
+real 1000 fs 2000 -> root: process_vm_writev     -> EPERM
+real 1000 fs 2000 -> root: kcmp KCMP_VM          -> EPERM
+real 1000 fs 2000 -> root: pidfd_getfd 0         -> EPERM
+real 1000 fs 2000 -> root: get_robust_list       -> EPERM
+real 1000 fs 2000 -> root: prlimit64 get         -> EPERM
+real 1000 fs 2000 -> root: prlimit64 set the same -> EPERM
+real 1000 fs 2000 -> root: process_madvise MADV_COLD -> EACCES
+real 1000 fs 2000 -> root: process_mrelease      -> EINVAL
+real 1000 fs 2000 -> root: sched_setaffinity     -> EPERM
+real 1000 fs 2000 -> root: setpriority 0         -> EPERM
+real 1000 fs 2000 -> root: sched_setscheduler SCHED_OTHER -> EPERM
+real 1000 fs 2000 -> root: sched_setattr SCHED_OTHER -> EPERM
+real 1000 fs 2000 -> root: ioprio_set BE 4       -> EPERM
+real 1000 fs 2000 -> root: /proc/<pid>/environ   -> open EACCES
+real 1000 fs 2000 -> root: /proc/<pid>/mem       -> open EACCES
+real 1000 fs 2000 -> root: /proc/<pid>/io        -> open EACCES
+real 1000 fs 2000 -> root: /proc/<pid>/syscall   -> open EACCES
+real 1000 fs 2000 -> root: /proc/<pid>/personality -> open EACCES
+########## real 1000 fs 2000 -> 1000 ##########
+real 1000 fs 2000 -> 1000: pidfd_open            -> ok
+real 1000 fs 2000 -> 1000: kill 0                -> ok
+real 1000 fs 2000 -> 1000: pidfd_send_signal 0   -> ok
+real 1000 fs 2000 -> 1000: process_vm_readv      -> ok
+real 1000 fs 2000 -> 1000: process_vm_writev     -> ok
+real 1000 fs 2000 -> 1000: kcmp KCMP_VM          -> ok
+real 1000 fs 2000 -> 1000: pidfd_getfd 0         -> ok
+real 1000 fs 2000 -> 1000: get_robust_list       -> ok
+real 1000 fs 2000 -> 1000: prlimit64 get         -> ok
+real 1000 fs 2000 -> 1000: prlimit64 set the same -> ok
+real 1000 fs 2000 -> 1000: process_madvise MADV_COLD -> EACCES
+real 1000 fs 2000 -> 1000: process_mrelease      -> EINVAL
+real 1000 fs 2000 -> 1000: sched_setaffinity     -> EPERM
+real 1000 fs 2000 -> 1000: setpriority 0         -> EPERM
+real 1000 fs 2000 -> 1000: sched_setscheduler SCHED_OTHER -> EPERM
+real 1000 fs 2000 -> 1000: sched_setattr SCHED_OTHER -> EPERM
+real 1000 fs 2000 -> 1000: ioprio_set BE 4       -> ok
+real 1000 fs 2000 -> 1000: /proc/<pid>/environ   -> open EACCES
+real 1000 fs 2000 -> 1000: /proc/<pid>/mem       -> open EACCES
+real 1000 fs 2000 -> 1000: /proc/<pid>/io        -> open EACCES
+real 1000 fs 2000 -> 1000: /proc/<pid>/syscall   -> open EACCES
+real 1000 fs 2000 -> 1000: /proc/<pid>/personality -> open EACCES
+########## real 1000 fs 2000 -> 1000 undumpable ##########
+real 1000 fs 2000 -> 1000 undumpable: pidfd_open -> ok
+real 1000 fs 2000 -> 1000 undumpable: kill 0     -> ok
+real 1000 fs 2000 -> 1000 undumpable: pidfd_send_signal 0 -> ok
+real 1000 fs 2000 -> 1000 undumpable: process_vm_readv -> EPERM
+real 1000 fs 2000 -> 1000 undumpable: process_vm_writev -> EPERM
+real 1000 fs 2000 -> 1000 undumpable: kcmp KCMP_VM -> EPERM
+real 1000 fs 2000 -> 1000 undumpable: pidfd_getfd 0 -> EPERM
+real 1000 fs 2000 -> 1000 undumpable: get_robust_list -> EPERM
+real 1000 fs 2000 -> 1000 undumpable: prlimit64 get -> ok
+real 1000 fs 2000 -> 1000 undumpable: prlimit64 set the same -> ok
+real 1000 fs 2000 -> 1000 undumpable: process_madvise MADV_COLD -> EACCES
+real 1000 fs 2000 -> 1000 undumpable: process_mrelease -> EINVAL
+real 1000 fs 2000 -> 1000 undumpable: sched_setaffinity -> EPERM
+real 1000 fs 2000 -> 1000 undumpable: setpriority 0 -> EPERM
+real 1000 fs 2000 -> 1000 undumpable: sched_setscheduler SCHED_OTHER -> EPERM
+real 1000 fs 2000 -> 1000 undumpable: sched_setattr SCHED_OTHER -> EPERM
+real 1000 fs 2000 -> 1000 undumpable: ioprio_set BE 4 -> ok
+real 1000 fs 2000 -> 1000 undumpable: /proc/<pid>/environ -> open EACCES
+real 1000 fs 2000 -> 1000 undumpable: /proc/<pid>/mem -> open EACCES
+real 1000 fs 2000 -> 1000 undumpable: /proc/<pid>/io -> open EACCES
+real 1000 fs 2000 -> 1000 undumpable: /proc/<pid>/syscall -> open EACCES
+real 1000 fs 2000 -> 1000 undumpable: /proc/<pid>/personality -> open EACCES
+########## real 1000 fs 2000 -> 1000 gid 1001 ##########
+real 1000 fs 2000 -> 1000 gid 1001: pidfd_open   -> ok
+real 1000 fs 2000 -> 1000 gid 1001: kill 0       -> ok
+real 1000 fs 2000 -> 1000 gid 1001: pidfd_send_signal 0 -> ok
+real 1000 fs 2000 -> 1000 gid 1001: process_vm_readv -> EPERM
+real 1000 fs 2000 -> 1000 gid 1001: process_vm_writev -> EPERM
+real 1000 fs 2000 -> 1000 gid 1001: kcmp KCMP_VM -> EPERM
+real 1000 fs 2000 -> 1000 gid 1001: pidfd_getfd 0 -> EPERM
+real 1000 fs 2000 -> 1000 gid 1001: get_robust_list -> EPERM
+real 1000 fs 2000 -> 1000 gid 1001: prlimit64 get -> EPERM
+real 1000 fs 2000 -> 1000 gid 1001: prlimit64 set the same -> EPERM
+real 1000 fs 2000 -> 1000 gid 1001: process_madvise MADV_COLD -> EACCES
+real 1000 fs 2000 -> 1000 gid 1001: process_mrelease -> EINVAL
+real 1000 fs 2000 -> 1000 gid 1001: sched_setaffinity -> EPERM
+real 1000 fs 2000 -> 1000 gid 1001: setpriority 0 -> EPERM
+real 1000 fs 2000 -> 1000 gid 1001: sched_setscheduler SCHED_OTHER -> EPERM
+real 1000 fs 2000 -> 1000 gid 1001: sched_setattr SCHED_OTHER -> EPERM
+real 1000 fs 2000 -> 1000 gid 1001: ioprio_set BE 4 -> ok
+real 1000 fs 2000 -> 1000 gid 1001: /proc/<pid>/environ -> open EACCES
+real 1000 fs 2000 -> 1000 gid 1001: /proc/<pid>/mem -> open EACCES
+real 1000 fs 2000 -> 1000 gid 1001: /proc/<pid>/io -> open EACCES
+real 1000 fs 2000 -> 1000 gid 1001: /proc/<pid>/syscall -> open EACCES
+real 1000 fs 2000 -> 1000 gid 1001: /proc/<pid>/personality -> open EACCES
+########## real 1000 fs 2000 -> 1000 saved uid 0 ##########
+real 1000 fs 2000 -> 1000 saved uid 0: pidfd_open -> ok
+real 1000 fs 2000 -> 1000 saved uid 0: kill 0    -> ok
+real 1000 fs 2000 -> 1000 saved uid 0: pidfd_send_signal 0 -> ok
+real 1000 fs 2000 -> 1000 saved uid 0: process_vm_readv -> EPERM
+real 1000 fs 2000 -> 1000 saved uid 0: process_vm_writev -> EPERM
+real 1000 fs 2000 -> 1000 saved uid 0: kcmp KCMP_VM -> EPERM
+real 1000 fs 2000 -> 1000 saved uid 0: pidfd_getfd 0 -> EPERM
+real 1000 fs 2000 -> 1000 saved uid 0: get_robust_list -> EPERM
+real 1000 fs 2000 -> 1000 saved uid 0: prlimit64 get -> EPERM
+real 1000 fs 2000 -> 1000 saved uid 0: prlimit64 set the same -> EPERM
+real 1000 fs 2000 -> 1000 saved uid 0: process_madvise MADV_COLD -> EACCES
+real 1000 fs 2000 -> 1000 saved uid 0: process_mrelease -> EINVAL
+real 1000 fs 2000 -> 1000 saved uid 0: sched_setaffinity -> EPERM
+real 1000 fs 2000 -> 1000 saved uid 0: setpriority 0 -> EPERM
+real 1000 fs 2000 -> 1000 saved uid 0: sched_setscheduler SCHED_OTHER -> EPERM
+real 1000 fs 2000 -> 1000 saved uid 0: sched_setattr SCHED_OTHER -> EPERM
+real 1000 fs 2000 -> 1000 saved uid 0: ioprio_set BE 4 -> EPERM
+real 1000 fs 2000 -> 1000 saved uid 0: /proc/<pid>/environ -> open EACCES
+real 1000 fs 2000 -> 1000 saved uid 0: /proc/<pid>/mem -> open EACCES
+real 1000 fs 2000 -> 1000 saved uid 0: /proc/<pid>/io -> open EACCES
+real 1000 fs 2000 -> 1000 saved uid 0: /proc/<pid>/syscall -> open EACCES
+real 1000 fs 2000 -> 1000 saved uid 0: /proc/<pid>/personality -> open EACCES
+########## real 1000 fs 2000 -> real 2000 eff 1000 ##########
+real 1000 fs 2000 -> real 2000 eff 1000: pidfd_open -> ok
+real 1000 fs 2000 -> real 2000 eff 1000: kill 0  -> ok
+real 1000 fs 2000 -> real 2000 eff 1000: pidfd_send_signal 0 -> ok
+real 1000 fs 2000 -> real 2000 eff 1000: process_vm_readv -> EPERM
+real 1000 fs 2000 -> real 2000 eff 1000: process_vm_writev -> EPERM
+real 1000 fs 2000 -> real 2000 eff 1000: kcmp KCMP_VM -> EPERM
+real 1000 fs 2000 -> real 2000 eff 1000: pidfd_getfd 0 -> EPERM
+real 1000 fs 2000 -> real 2000 eff 1000: get_robust_list -> EPERM
+real 1000 fs 2000 -> real 2000 eff 1000: prlimit64 get -> EPERM
+real 1000 fs 2000 -> real 2000 eff 1000: prlimit64 set the same -> EPERM
+real 1000 fs 2000 -> real 2000 eff 1000: process_madvise MADV_COLD -> EACCES
+real 1000 fs 2000 -> real 2000 eff 1000: process_mrelease -> EINVAL
+real 1000 fs 2000 -> real 2000 eff 1000: sched_setaffinity -> ok
+real 1000 fs 2000 -> real 2000 eff 1000: setpriority 0 -> ok
+real 1000 fs 2000 -> real 2000 eff 1000: sched_setscheduler SCHED_OTHER -> ok
+real 1000 fs 2000 -> real 2000 eff 1000: sched_setattr SCHED_OTHER -> ok
+real 1000 fs 2000 -> real 2000 eff 1000: ioprio_set BE 4 -> ok
+real 1000 fs 2000 -> real 2000 eff 1000: /proc/<pid>/environ -> open EACCES
+real 1000 fs 2000 -> real 2000 eff 1000: /proc/<pid>/mem -> open EACCES
+real 1000 fs 2000 -> real 2000 eff 1000: /proc/<pid>/io -> open EACCES
+real 1000 fs 2000 -> real 2000 eff 1000: /proc/<pid>/syscall -> open EACCES
+real 1000 fs 2000 -> real 2000 eff 1000: /proc/<pid>/personality -> open EACCES
+########## real 1000 fs 2000 -> itself, undumpable ##########
+real 1000 fs 2000 -> itself: pidfd_open          -> ok
+real 1000 fs 2000 -> itself: kill 0              -> ok
+real 1000 fs 2000 -> itself: pidfd_send_signal 0 -> ok
+real 1000 fs 2000 -> itself: process_vm_readv    -> ok
+real 1000 fs 2000 -> itself: process_vm_writev   -> ok
+real 1000 fs 2000 -> itself: kcmp KCMP_VM        -> ok
+real 1000 fs 2000 -> itself: pidfd_getfd 0       -> ok
+real 1000 fs 2000 -> itself: get_robust_list     -> ok
+real 1000 fs 2000 -> itself: prlimit64 get       -> ok
+real 1000 fs 2000 -> itself: prlimit64 set the same -> ok
+real 1000 fs 2000 -> itself: process_madvise MADV_COLD -> ok
+real 1000 fs 2000 -> itself: process_mrelease    -> EINVAL
+real 1000 fs 2000 -> itself: sched_setaffinity   -> ok
+real 1000 fs 2000 -> itself: setpriority 0       -> ok
+real 1000 fs 2000 -> itself: sched_setscheduler SCHED_OTHER -> ok
+real 1000 fs 2000 -> itself: sched_setattr SCHED_OTHER -> ok
+real 1000 fs 2000 -> itself: ioprio_set BE 4     -> ok
+real 1000 fs 2000 -> itself: /proc/<pid>/environ -> open EACCES
+real 1000 fs 2000 -> itself: /proc/<pid>/mem     -> open EACCES
+real 1000 fs 2000 -> itself: /proc/<pid>/io      -> open EACCES
+real 1000 fs 2000 -> itself: /proc/<pid>/syscall -> open EACCES
+real 1000 fs 2000 -> itself: /proc/<pid>/personality -> open EACCES

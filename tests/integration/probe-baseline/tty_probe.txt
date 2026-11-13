@@ -1,0 +1,105 @@
+## what each end is
+the master isatty                                    -> 1
+the slave isatty                                     -> 1
+  the slave is a character device                    -> 1
+  its permission bits                                -> 400
+  the master is a character device                   -> 1
+## the default termios of a fresh slave
+tcgetattr(slave)                                     -> ok
+  c_iflag                                            -> 1280
+  c_oflag                                            -> 5
+  c_cflag                                            -> 191
+  c_lflag                                            -> 35387
+  c_cc[VINTR]                                        -> 3
+  c_cc[VQUIT]                                        -> 28
+  c_cc[VERASE]                                       -> 127
+  c_cc[VKILL]                                        -> 21
+  c_cc[VEOF]                                         -> 4
+  c_cc[VTIME]                                        -> 0
+  c_cc[VMIN]                                         -> 1
+  c_cc[VSWTC]                                        -> 0
+  c_cc[VSTART]                                       -> 17
+  c_cc[VSTOP]                                        -> 19
+  c_cc[VSUSP]                                        -> 26
+  c_cc[VEOL]                                         -> 0
+  c_cc[VREPRINT]                                     -> 18
+  c_cc[VDISCARD]                                     -> 15
+  c_cc[VWERASE]                                      -> 23
+  c_cc[VLNEXT]                                       -> 22
+  c_cc[VEOL2]                                        -> 0
+  cfgetispeed                                        -> 15
+  cfgetospeed                                        -> 15
+## setting and reading back
+tcsetattr(TCSANOW, raw)                              -> ok
+  c_iflag came back                                  -> 1
+  c_oflag came back                                  -> 1
+  c_lflag came back                                  -> 1
+  c_cflag came back                                  -> 1
+  VMIN came back                                     -> 1
+  VTIME came back                                    -> 1
+  ECHO is off                                        -> 1
+  ICANON is off                                      -> 1
+tcsetattr(an undefined c_lflag bit)                  -> ok
+  it came back                                       -> 1
+tcsetattr(TCSANOW)                                   -> ok
+tcsetattr(TCSADRAIN)                                 -> ok
+tcsetattr(TCSAFLUSH)                                 -> ok
+tcsetattr(an undefined action (99))                  -> EINVAL
+## the termios2 ioctls
+ioctl(slave, TCGETS2)                                -> ok
+  c_iflag matches tcgetattr                          -> 1
+  c_oflag matches tcgetattr                          -> 1
+  c_cflag matches tcgetattr                          -> 1
+  c_lflag matches tcgetattr                          -> 1
+  c_ispeed is 38400                                  -> 1
+  c_ospeed is 38400                                  -> 1
+ioctl(slave, TCSETS2)                                -> ok
+  ECHO came off                                      -> 1
+ioctl(slave, TCSETSW2)                               -> ok
+ioctl(slave, TCSETSF2)                               -> ok
+ioctl(master, TCGETS2)                               -> ok
+ioctl(slave, TCSETS2 with BOTHER)                    -> ok
+  the explicit speed came back                       -> 1
+## the window size
+TIOCGWINSZ on a fresh pty                            -> ok
+  rows                                               -> 0
+  cols                                               -> 0
+TIOCSWINSZ(40x100)                                   -> ok
+  rows came back                                     -> 40
+  cols came back                                     -> 100
+  pixels came back                                   -> 7013
+  the master agrees                                  -> 1
+## the pty pair's own ioctls
+TIOCGPTN on the master                               -> ok
+  the number is not negative                         -> 1
+TIOCGPTN on the slave                                -> ENOTTY
+TIOCSPTLCK(0) on the master                          -> ok
+TIOCSPTLCK on the slave                              -> ENOTTY
+TIOCGPTPEER                                          -> ok
+## queues and flushing
+TIOCINQ on an idle slave                             -> ok
+  it says                                            -> 0
+after the master wrote 6 bytes it says               -> 6
+TIOCOUTQ                                             -> ok
+TCFLSH(TCIFLUSH)                                     -> ok
+TCFLSH(TCOFLUSH)                                     -> ok
+TCFLSH(TCIOFLUSH)                                    -> ok
+TCFLSH(an undefined queue (9))                       -> EINVAL
+after TCIOFLUSH the input queue says                 -> 0
+TCSBRK(0)                                            -> ok
+## exclusive mode
+TIOCEXCL                                             -> ok
+TIOCNXCL                                             -> ok
+## what is not a terminal
+tcgetattr(/dev/null)                                 -> ENOTTY
+  isatty                                             -> 0
+TIOCGWINSZ(/dev/null)                                -> ENOTTY
+tcgetattr(a pipe)                                    -> ENOTTY
+an unknown ioctl on a tty                            -> ENOTTY
+## what the line discipline does with a line
+a canonical read of "abc\r" returns                  -> 4
+  the bytes                                          -> 6162630a
+  what the master saw echoed                         -> 68656c6c6f0d0a6162630d0a
+a raw read of two bytes returns                      -> 2
+  the bytes                                          -> 7879
+the master descriptor is still open                  -> 1

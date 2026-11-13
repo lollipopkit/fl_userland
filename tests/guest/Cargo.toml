@@ -1,0 +1,118 @@
+# Test programs that run *inside* the guest.
+#
+# Its own workspace, not a member of the one at the repository root: these are
+# built for aarch64-unknown-linux-musl and several of them touch things that
+# only exist in the guest (/proc/self/maps, /dev/ptmx), so `cargo test` at the
+# root should not try to build them for the host.
+#
+# Cross-compiled rather than built inside the guest with gcc, which is how the
+# C versions of these worked: that needed `apk add gcc musl-dev` on every run,
+# which needs the network. rust-lld links them statically with no host
+# toolchain at all — see .cargo/config.toml.
+[workspace]
+
+[package]
+name = "guest-tests"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+publish = false
+
+[dependencies]
+libc = "0.2"
+
+[profile.release]
+strip = true
+opt-level = "z"
+
+[[bin]]
+name = "fs_conformance"
+path = "src/bin/fs_conformance.rs"
+
+[[bin]]
+name = "fs_race"
+path = "src/bin/fs_race.rs"
+
+[[bin]]
+name = "tty_ldisc"
+path = "src/bin/tty_ldisc.rs"
+
+[[bin]]
+name = "proc_read_scaling"
+path = "src/bin/proc_read_scaling.rs"
+
+[[bin]]
+name = "sock_semantics"
+path = "src/bin/sock_semantics.rs"
+
+[[bin]]
+name = "syscall_abi"
+path = "src/bin/syscall_abi.rs"
+
+[[bin]]
+name = "mount_race"
+path = "src/bin/mount_race.rs"
+
+[[bin]]
+name = "proc_lock_hold"
+path = "src/bin/proc_lock_hold.rs"
+
+[[bin]]
+name = "fpu_modes"
+path = "src/bin/fpu_modes.rs"
+
+[[bin]]
+name = "inotify_args"
+path = "src/bin/inotify_args.rs"
+
+[[bin]]
+name = "fd_race"
+path = "src/bin/fd_race.rs"
+
+[[bin]]
+name = "task_race"
+path = "src/bin/task_race.rs"
+
+[[bin]]
+name = "exit_stuck"
+path = "src/bin/exit_stuck.rs"
+
+[[bin]]
+name = "signal_race"
+path = "src/bin/signal_race.rs"
+
+[[bin]]
+name = "sock_race"
+path = "src/bin/sock_race.rs"
+
+[[bin]]
+name = "regress_syscall"
+path = "src/bin/regress_syscall.rs"
+
+[[bin]]
+name = "asimd_fcvt"
+path = "src/bin/asimd_fcvt.rs"
+
+[[bin]]
+name = "vdso_symbols"
+path = "src/bin/vdso_symbols.rs"
+
+[[bin]]
+name = "signalfd_close_race"
+path = "src/bin/signalfd_close_race.rs"
+
+[[bin]]
+name = "atomic_bench"
+path = "src/bin/atomic_bench.rs"
+
+[[bin]]
+name = "crypto_bench"
+path = "src/bin/crypto_bench.rs"
+
+[[bin]]
+name = "bad_pc_addr"
+path = "src/bin/bad_pc_addr.rs"
+
+[[bin]]
+name = "mprotect_bench"
+path = "src/bin/mprotect_bench.rs"

@@ -1,0 +1,41 @@
+[package]
+name = "fs-generic"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fs_generic"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+fs-perm = { path = "../perm" }
+kernel-fsinfo = { path = "../../kernel/fsinfo" }
+path = { path = "../path" }
+fs-devices = { path = "../../fs/devices" }
+fs-mount = { path = "../../fs/mount" }
+fs-inode = { path = "../../fs/inode" }
+fs-mounttable = { path = "../../fs/mounttable" }
+libc.workspace = true
+kernel-creds = { path = "../../kernel/creds" }
+kernel-taskview = { path = "../../kernel/taskview" }
+fs-fdobj = { path = "../fdobj" }
+
+# inotify's three notify hooks, called by path: `kernel/inotify.h` was a
+# declaration no C read.
+
+# The `IN_*` event bits, which are Rust constants in the crate that
+# defines the events. `kernel/inotify.h` had a second copy.
+inotify = { path = "../inotify" }
+
+# `tests/open_flags.rs` needs a mounted root: the boot path, realfs, the gadget
+# archive and the rest of the product. All of them depend on this crate, so a
+# normal edge either way is a cycle; a dev-dependency may point back.
+[dev-dependencies]
+iul = { path = "../../iul" }
+kernel-boot = { path = "../../kernel/boot" }
+realfs = { path = "../realfs" }
+fs-fdobj = { path = "../fdobj" }
+asbestos-gadgets = { path = "../../asbestos/gadgets" }

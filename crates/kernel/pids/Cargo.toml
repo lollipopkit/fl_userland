@@ -1,0 +1,23 @@
+[package]
+name = "kernel-pids"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_pids"
+crate-type = ["rlib"]
+
+[dependencies]
+libc = { workspace = true }
+util-identity = { path = "../../util/identity" }
+util-locks = { path = "../../util/locks" }
+kernel-creds = { path = "../creds" }
+kernel-rlimitstate = { path = "../rlimitstate" }
+fdtable = { path = "../../fs/fdtable" }
+kernel-sighand = { path = "../sighand" }
+kernel-taskview = { path = "../../kernel/taskview" }
+# The thread and child lists, which `pids_lock` covers, so that `Task` and
+# `Group` can lend their members rather than hand out raw pointers.
+kernel-proctree = { path = "../proctree" }

@@ -1,0 +1,13 @@
+[package]
+name = "asbestos-crypto"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+# `cpu_state` and the slow-call protocol, which the instructions here are
+# reached through.
+emu-abi = { path = "../../emu/abi" }

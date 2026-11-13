@@ -1,0 +1,8 @@
+## io_uring and rseq
+  io_uring_setup(8, zeroed params)             -EPERM
+  io_uring_setup(0, zeroed params)             -EPERM
+  io_uring_setup(8, NULL)                      -EPERM
+  io_uring_enter(-1, 0, 0, 0, NULL, 0)         -EPERM
+  io_uring_register(-1, 0, NULL, 0)            -EPERM
+  rseq(NULL, 32, 0, 0)                         -EFAULT
+  rseq_slice_yield()                           -ENOSYS

@@ -1,0 +1,103 @@
+## socket(domain, type, protocol)
+socket(AF_UNIX, SOCK_STREAM, 0)                    -> ok
+socket(AF_UNIX, SOCK_DGRAM, 0)                     -> ok
+socket(AF_UNIX, SOCK_SEQPACKET, 0)                 -> ok
+socket(AF_UNIX, SOCK_RAW, 0)                       -> ok
+socket(AF_UNIX, STREAM, proto=1)                   -> ok
+socket(AF_UNIX, type=99, 0)                        -> EINVAL
+socket(domain=99, STREAM, 0)                       -> EAFNOSUPPORT
+socket(domain=-1, STREAM, 0)                       -> EAFNOSUPPORT
+socket(STREAM|NONBLOCK|CLOEXEC)                    -> ok
+socket(STREAM|0x1000000)                           -> EINVAL
+## bind
+bind(a)                                            -> ok
+bind(a) again on the same socket                   -> EADDRINUSE
+bind(a) from another socket                        -> EADDRINUSE
+bind(len=0)                                        -> EINVAL
+bind(len=1)                                        -> EINVAL
+bind(len=2, family only)                           -> ok
+bind(len=huge)                                     -> EINVAL
+bind(NULL)                                         -> EFAULT
+bind(path with no terminator)                      -> ok
+bind(a 100-character path, terminated)             -> ok
+bind(family=AF_INET on a unix socket)              -> EINVAL
+## bind on a socket that already has a name
+path: bind(a free path) when already bound         -> EINVAL
+  ...and the free path now exists                  -> false
+path: bind(a taken path) when already bound        -> EADDRINUSE
+path: bind(the same path) when already bound       -> EADDRINUSE
+path: autobind when already bound                  -> ok
+abstract: bind(a free name) when already bound     -> EINVAL
+abstract: bind(a taken name) when already bound    -> EINVAL
+abstract: bind(the same name) when already bound   -> EINVAL
+abstract: autobind when already bound              -> ok
+abstract: rebind the name it held after every close -> ok
+abstract: rebind the free name it was refused after every close -> ok
+abstract: rebind the taken name it was refused after every close -> ok
+## listen
+listen(backlog=0)                                  -> ok
+listen(backlog=-1)                                 -> ok
+listen(backlog=huge)                               -> ok
+listen(on a datagram socket)                       -> EOPNOTSUPP
+listen(unbound)                                    -> EINVAL
+## connect
+connect(a name nothing is bound to)                -> ENOENT
+connect(a listening socket)                        -> ok
+connect(again, already connected)                  -> EISCONN
+getsockopt(SO_PEERCRED) before accept              -> ok
+  pid is the listener's                            -> true
+  uid is the listener's                            -> true
+getpeername before accept                          -> ok
+  the path is the one connected to                 -> true
+  the length is the name's                         -> true
+connect(to a datagram name from a stream)          -> EPROTOTYPE
+## shutdown
+shutdown(SHUT_RD)                                  -> ok
+shutdown(SHUT_RDWR)                                -> ok
+shutdown(how=99)                                   -> EINVAL
+shutdown(how=-1)                                   -> EINVAL
+shutdown(never connected)                          -> ok
+## sockopt
+getsockopt(SO_TYPE)                                -> ok
+  SO_TYPE value is SOCK_STREAM                     -> true
+getsockopt(level=99)                               -> EOPNOTSUPP
+getsockopt(SOL_SOCKET, optname=9999)               -> ENOPROTOOPT
+getsockopt(SO_TYPE, len=0)                         -> ok
+setsockopt(SO_REUSEADDR, 1)                        -> ok
+setsockopt(SO_REUSEADDR, len=0)                    -> EINVAL
+setsockopt(optname=9999)                           -> ENOPROTOOPT
+## a blocking recv interrupted by a signal
+recv with SA_RESTART, no SO_RCVTIMEO               -> restarted, got the byte
+recv with SA_RESTART, SO_RCVTIMEO of five seconds  -> EINTR
+## sockopt read-back
+setsockopt(SO_PRIORITY, 6)                         -> ok
+  getsockopt(SO_PRIORITY)                          -> 6
+setsockopt(TCP_USER_TIMEOUT, 5000)                 -> ok
+  getsockopt(TCP_USER_TIMEOUT)                     -> 5000
+setsockopt(TCP_DEFER_ACCEPT, 3)                    -> ok
+  getsockopt(TCP_DEFER_ACCEPT)                     -> 3
+setsockopt(TCP_QUICKACK, 0)                        -> ok
+  getsockopt(TCP_QUICKACK)                         -> 0
+## socketpair
+socketpair(AF_UNIX, STREAM)                        -> ok
+socketpair(AF_UNIX, DGRAM)                         -> ok
+socketpair(domain=99)                              -> EAFNOSUPPORT
+socketpair(proto=1)                                -> ok
+## shutdown of a listener another thread is accepting on
+shutdown(listener, SHUT_RDWR)                      -> ok
+  the blocked accept, after SHUT_RDWR              -> EINVAL
+  a new blocking accept, after SHUT_RDWR           -> EINVAL
+  a new accept, after SHUT_RDWR                    -> EAGAIN
+shutdown(listener, SHUT_RD)                        -> ok
+  the blocked accept, after SHUT_RD                -> EINVAL
+  a new blocking accept, after SHUT_RD             -> EINVAL
+  a new accept, after SHUT_RD                      -> EAGAIN
+shutdown(listener, SHUT_WR)                        -> ok
+  the blocked accept, after SHUT_WR                -> still blocked
+  a new blocking accept, after SHUT_WR             -> still blocked
+  a new accept, after SHUT_WR                      -> EAGAIN
+## the wrong kind of descriptor
+listen(a regular file)                             -> ENOTSOCK
+getsockopt(a regular file)                         -> ENOTSOCK
+shutdown(a regular file)                           -> ENOTSOCK
+listen(a closed fd)                                -> EBADF

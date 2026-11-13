@@ -1,0 +1,221 @@
+## the ones with a value to read back
+PR_SET_PDEATHSIG(SIGTERM)                            -> ok
+PR_GET_PDEATHSIG                                     -> r=0, 15
+PR_SET_PDEATHSIG(0)                                  -> ok
+PR_SET_PDEATHSIG(65)                                 -> EINVAL
+PR_GET_DUMPABLE                                      -> 1
+PR_SET_DUMPABLE(0)                                   -> ok
+PR_GET_DUMPABLE after                                -> ok
+PR_SET_DUMPABLE(1)                                   -> ok
+PR_SET_DUMPABLE(3)                                   -> EINVAL
+PR_GET_KEEPCAPS                                      -> ok
+PR_SET_KEEPCAPS(1)                                   -> ok
+PR_GET_KEEPCAPS after                                -> 1
+PR_GET_SECUREBITS with keepcaps set                  -> 16
+PR_SET_KEEPCAPS(2)                                   -> EINVAL
+PR_SET_KEEPCAPS(0)                                   -> ok
+PR_SET_NAME                                          -> ok
+PR_GET_NAME                                          -> probe-name
+PR_SET_NAME with a long name                         -> ok
+  reads back as                                      -> a-name-longer-t
+PR_SET_NAME(NULL)                                    -> EFAULT
+PR_GET_NAME(NULL)                                    -> EFAULT
+PR_GET_TIMERSLACK                                    -> 50000
+PR_SET_TIMERSLACK(100000)                            -> ok
+PR_GET_TIMERSLACK after                              -> 100000
+PR_SET_TIMERSLACK(1<<40)                             -> ok
+PR_GET_TIMERSLACK after, a long                      -> 1099511627776
+PR_SET_TIMERSLACK(0), the default                    -> ok
+PR_GET_TIMERSLACK after                              -> 50000
+PR_SET_TIMERSLACK(7)                                 -> ok
+PR_GET_TIMERSLACK in a child                         -> 7
+PR_SET_TIMERSLACK(9) in the child                    -> ok
+PR_SET_TIMERSLACK(0) in the child                    -> ok
+PR_GET_TIMERSLACK, the child's default               -> 7
+PR_SET_TIMERSLACK(0) in the parent                   -> ok
+PR_GET_TIMERSLACK, the parent's default              -> 50000
+PR_GET_CHILD_SUBREAPER                               -> r=0, 0
+PR_SET_CHILD_SUBREAPER(1)                            -> ok
+PR_GET_CHILD_SUBREAPER after                         -> r=0, 1
+PR_SET_CHILD_SUBREAPER(0)                            -> ok
+PR_GET_THP_DISABLE                                   -> ok
+PR_SET_THP_DISABLE(1)                                -> ok
+PR_GET_THP_DISABLE after                             -> 1
+PR_SET_THP_DISABLE(1, EXCEPT_ADVISED)                -> ok
+PR_GET_THP_DISABLE after                             -> 3
+PR_SET_THP_DISABLE(1) with arg3 = 1                  -> EINVAL
+PR_SET_THP_DISABLE(0, EXCEPT_ADVISED)                -> EINVAL
+PR_GET_THP_DISABLE with a non-zero arg               -> EINVAL
+PR_GET_THP_DISABLE in a child                        -> 3
+PR_GET_THP_DISABLE in the exec'd image               -> 3
+PR_SET_THP_DISABLE(0)                                -> ok
+PR_GET_TID_ADDRESS                                   -> r=0, address is set
+PR_GET_TID_ADDRESS(NULL)                             -> EFAULT
+PR_GET_SECCOMP                                       -> 2
+PR_SET_SECCOMP(99), no such mode                     -> EINVAL
+PR_GET_NO_NEW_PRIVS                                  -> ok
+PR_GET_NO_NEW_PRIVS with a non-zero arg              -> EINVAL
+## capabilities and security bits
+PR_CAPBSET_READ(CAP_CHOWN)                           -> 1
+PR_CAPBSET_READ(CAP_SYS_ADMIN)                       -> ok
+PR_CAPBSET_READ(CAP_CHECKPOINT_RESTORE), the last    -> ok
+PR_CAPBSET_READ(41)                                  -> EINVAL
+PR_CAPBSET_READ(999)                                 -> EINVAL
+PR_CAPBSET_DROP(999)                                 -> EINVAL
+PR_CAPBSET_DROP(CAP_CHOWN) in a child                -> ok
+PR_CAPBSET_READ(CAP_CHOWN) after                     -> ok
+PR_CAPBSET_READ(CAP_DAC_OVERRIDE) after              -> 1
+PR_GET_SECUREBITS                                    -> ok
+PR_SET_SECUREBITS(0)                                 -> ok
+PR_SET_SECUREBITS(0xffff)                            -> EPERM
+PR_SET_SECUREBITS(0x1000)                            -> EPERM
+PR_SET_SECUREBITS(EXEC_RESTRICT_FILE) in a child     -> ok
+PR_SET_SECUREBITS(EXEC_DENY_INTERACTIVE)             -> ok
+PR_GET_SECUREBITS after                              -> 1024
+PR_SET_SECUREBITS(KEEP_CAPS_LOCKED) in a child       -> ok
+PR_GET_SECUREBITS after                              -> 32
+PR_SET_KEEPCAPS(1) under the lock                    -> EPERM
+PR_SET_KEEPCAPS(2) under the lock                    -> EINVAL
+PR_SET_SECUREBITS(0), clearing a lock                -> EPERM
+PR_SET_SECUREBITS(KEEP_CAPS_LOCKED) again            -> ok
+PR_CAP_AMBIENT(IS_SET, CAP_CHOWN)                    -> ok
+PR_CAP_AMBIENT(RAISE, CAP_CHOWN)                     -> EPERM
+PR_CAP_AMBIENT(LOWER, CAP_CHOWN)                     -> ok
+PR_CAP_AMBIENT(CLEAR_ALL)                            -> ok
+PR_CAP_AMBIENT(CLEAR_ALL, 1)                         -> EINVAL
+PR_CAP_AMBIENT(IS_SET, 999)                          -> EINVAL
+PR_CAP_AMBIENT(RAISE, 999)                           -> EINVAL
+PR_CAP_AMBIENT(IS_SET, CAP_CHOWN, 1)                 -> EINVAL
+PR_CAP_AMBIENT(99)                                   -> EINVAL
+## the architecture ones
+PR_GET_UNALIGN                                       -> EINVAL
+PR_SET_UNALIGN(0)                                    -> EINVAL
+PR_GET_FPEMU                                         -> EINVAL
+PR_GET_TIMING                                        -> ok
+PR_SET_TIMING(0)                                     -> ok
+PR_SET_TIMING(1)                                     -> EINVAL
+PR_GET_ENDIAN                                        -> EINVAL
+PR_GET_TSC                                           -> r=0, 1
+PR_GET_TSC(NULL)                                     -> EFAULT
+PR_SET_TSC(PR_TSC_ENABLE)                            -> ok
+PR_SET_TSC(3)                                        -> EINVAL
+PR_SET_TSC(PR_TSC_SIGSEGV) in a child                -> ok
+PR_GET_FP_MODE                                       -> EINVAL
+PR_SET_FP_MODE(0)                                    -> EINVAL
+PR_MPX_ENABLE_MANAGEMENT                             -> EINVAL
+PR_SVE_GET_VL                                        -> EINVAL
+PR_SVE_SET_VL(16)                                    -> EINVAL
+PR_SME_GET_VL                                        -> EINVAL
+PR_PAC_RESET_KEYS(0)                                 -> EINVAL
+PR_PAC_RESET_KEYS(0x100), no such key                -> EINVAL
+PR_PAC_GET_ENABLED_KEYS                              -> EINVAL
+PR_GET_TAGGED_ADDR_CTRL                              -> ok
+PR_GET_TAGGED_ADDR_CTRL(1)                           -> EINVAL
+PR_SET_TAGGED_ADDR_CTRL(PR_TAGGED_ADDR_ENABLE)       -> ok
+PR_GET_TAGGED_ADDR_CTRL after                        -> 1
+PR_SET_TAGGED_ADDR_CTRL(0)                           -> ok
+PR_SET_TAGGED_ADDR_CTRL(0, 1)                        -> EINVAL
+PR_SET_TAGGED_ADDR_CTRL(0xffff)                      -> EINVAL
+PR_GET_SPECULATION_CTRL(STORE_BYPASS)                -> 2
+PR_GET_SPECULATION_CTRL(INDIRECT_BRANCH)             -> ENODEV
+PR_GET_SPECULATION_CTRL(L1D_FLUSH)                   -> ENODEV
+PR_GET_SPECULATION_CTRL(99)                          -> ENODEV
+PR_GET_SPECULATION_CTRL(STORE_BYPASS, 1)             -> EINVAL
+PR_SET_SPECULATION_CTRL(99, 0)                       -> ENODEV
+PR_SET_SPECULATION_CTRL(STORE_BYPASS, 99)            -> ERANGE
+PR_SET_SPECULATION_CTRL(STORE_BYPASS, ENABLE, 1)     -> EINVAL
+  SET(STORE_BYPASS, DISABLE) in a child              -> ok
+  GET after DISABLE                                  -> 2
+  SET(STORE_BYPASS, ENABLE)                          -> ok
+  GET after ENABLE                                   -> 2
+  SET(STORE_BYPASS, DISABLE_NOEXEC)                  -> ok
+  GET after DISABLE_NOEXEC                           -> 2
+  SET(STORE_BYPASS, FORCE_DISABLE)                   -> ok
+  GET after FORCE_DISABLE                            -> 2
+  SET(STORE_BYPASS, ENABLE) after a force            -> EPERM
+  SET(STORE_BYPASS, DISABLE_NOEXEC) after a force    -> EPERM
+  SET(STORE_BYPASS, DISABLE) after a force           -> ok
+  GET at the end                                     -> 2
+## memory-deny-write-execute
+PR_GET_MDWE                                          -> ok
+PR_GET_MDWE(1)                                       -> EINVAL
+PR_SET_MDWE(0)                                       -> ok
+PR_SET_MDWE(NO_INHERIT alone)                        -> EINVAL
+PR_SET_MDWE(4)                                       -> EINVAL
+PR_SET_MDWE(0xffff)                                  -> EINVAL
+PR_SET_MDWE(1, 1)                                    -> EINVAL
+mmap(RWX) without MDWE                               -> ok
+PR_SET_MDWE(REFUSE_EXEC_GAIN) in a child             -> ok
+PR_GET_MDWE after                                    -> 1
+PR_SET_MDWE(REFUSE_EXEC_GAIN) again                  -> ok
+PR_SET_MDWE(0) to undo it                            -> EPERM
+PR_SET_MDWE(REFUSE_EXEC_GAIN|NO_INHERIT) to change it -> EPERM
+  mmap(RWX) under MDWE                               -> EACCES
+  mmap(RW) under MDWE                                -> ok
+  mprotect(RW -> RX)                                 -> EACCES
+  mprotect(RW -> R)                                  -> ok
+  mprotect(R -> RX)                                  -> EACCES
+  mprotect(R -> RWX)                                 -> EACCES
+  mmap(RX) under MDWE                                -> ok
+  mprotect(RX -> RX)                                 -> ok
+  mprotect(RX -> RW)                                 -> ok
+  mprotect(RW -> RX), having been RX once            -> EACCES
+  mmap(X) under MDWE                                 -> ok
+  mprotect(X -> R)                                   -> ok
+  mprotect(R -> X)                                   -> EACCES
+  mmap(PROT_NONE) under MDWE                         -> ok
+  mprotect(NONE -> RW)                               -> ok
+  mprotect(NONE -> X)                                -> EACCES
+  second page of an RX pair made R                   -> ok
+  mprotect(both pages -> RX)                         -> EACCES
+  PR_GET_MDWE in a grandchild                        -> 1
+  mmap(RWX) in the grandchild                        -> EACCES
+PR_GET_MDWE in the exec'd image                      -> 1
+PR_SET_MDWE(REFUSE_EXEC_GAIN|NO_INHERIT) in a child  -> ok
+PR_GET_MDWE after                                    -> 3
+  mmap(RWX) under MDWE|NO_INHERIT                    -> EACCES
+  PR_GET_MDWE in a grandchild                        -> ok
+  mmap(RWX) in the grandchild                        -> ok
+PR_GET_MDWE in the exec'd image                      -> ok
+## the rest
+PR_TASK_PERF_EVENTS_DISABLE                          -> ok
+PR_TASK_PERF_EVENTS_ENABLE                           -> ok
+PR_MCE_KILL_GET                                      -> 2
+PR_MCE_KILL_GET(1)                                   -> EINVAL
+PR_MCE_KILL(SET, EARLY)                              -> ok
+PR_MCE_KILL_GET after                                -> 1
+PR_MCE_KILL(SET, LATE)                               -> ok
+PR_MCE_KILL_GET after                                -> ok
+PR_MCE_KILL(SET, 3)                                  -> EINVAL
+PR_MCE_KILL(CLEAR, 1)                                -> EINVAL
+PR_MCE_KILL(CLEAR)                                   -> ok
+PR_MCE_KILL_GET after CLEAR                          -> 2
+PR_MCE_KILL(SET, DEFAULT, 0, 1)                      -> EINVAL
+PR_MCE_KILL(99)                                      -> EINVAL
+PR_SET_MM(99)                                        -> EPERM
+PR_SET_MM(99, 0, 0, 1)                               -> EINVAL
+PR_SET_MM(99, 0, 1)                                  -> EINVAL
+PR_GET_IO_FLUSHER                                    -> EPERM
+PR_SET_IO_FLUSHER(1)                                 -> EPERM
+PR_GET_IO_FLUSHER after                              -> EPERM
+PR_SET_IO_FLUSHER(0)                                 -> EPERM
+PR_SET_IO_FLUSHER(2)                                 -> EPERM
+PR_SET_SYSCALL_USER_DISPATCH(99)                     -> EINVAL
+PR_SCHED_CORE(99)                                    -> EINVAL
+PR_GET_MEMORY_MERGE                                  -> EINVAL
+PR_SET_MEMORY_MERGE(0)                               -> EINVAL
+PR_SET_VMA(99)                                       -> EINVAL
+PR_GET_AUXV into 8 bytes                             -> 432 bytes, first key 33
+PR_GET_AUXV into 0 bytes                             -> 432
+PR_GET_AUXV into 8 bytes at NULL                     -> EFAULT
+PR_GET_AUXV with a non-zero arg4                     -> EINVAL
+PR_GET_AUXV, whole                                   -> 432 bytes, AT_PAGESZ present
+prctl(9999)                                          -> EINVAL
+prctl(0)                                             -> EINVAL
+prctl(-1)                                            -> EINVAL
+## no_new_privs, last, because it is for ever
+PR_SET_NO_NEW_PRIVS(1)                               -> ok
+PR_GET_NO_NEW_PRIVS after                            -> 1
+PR_SET_NO_NEW_PRIVS(0), cannot be undone             -> EINVAL
+PR_SET_NO_NEW_PRIVS(2)                               -> EINVAL
+PR_SET_NO_NEW_PRIVS(1, 1), a non-zero arg3           -> EINVAL

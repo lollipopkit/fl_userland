@@ -1,0 +1,12 @@
+[package]
+name = "util-plain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "plain"
+crate-type = ["rlib"]
+
+[dependencies]

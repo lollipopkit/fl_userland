@@ -1,0 +1,77 @@
+[package]
+name = "kernel-syscalltable"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "syscalltable"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# Every crate that implements a syscall. The table used to reach them through
+# `extern "C"` declarations generated from `kernel/calls.h`, which needs no
+# dependency edge -- so the graph that would report a layering mistake never saw
+# this, and neither did `cargo test`: the crate carried 232 `#[no_mangle]` test
+# doubles because "a test binary links no C and no other crate".
+fs-dircalls = { path = "../../fs/dircalls" }
+fs-mountcalls = { path = "../../fs/mountcalls" }
+fs-pipecalls = { path = "../../fs/pipecalls" }
+fs-sock = { path = "../../fs/sock" }
+fs-statcalls = { path = "../../fs/statcalls" }
+fs-ttydev = { path = "../../fs/ttydev" }
+kernel-aio = { path = "../../kernel/aio" }
+kernel-epollcalls = { path = "../../kernel/epollcalls" }
+kernel-eventfdcalls = { path = "../../kernel/eventfdcalls" }
+kernel-mqueuecalls = { path = "../../kernel/mqueuecalls" }
+kernel-execcalls = { path = "../../kernel/execcalls" }
+kernel-exitcalls = { path = "../../kernel/exitcalls" }
+kernel-fdattr = { path = "../../kernel/fdattr" }
+kernel-fdcalls = { path = "../../kernel/fdcalls" }
+kernel-forkcalls = { path = "../../kernel/forkcalls" }
+kernel-futexcalls = { path = "../../kernel/futexcalls" }
+kernel-groupcalls = { path = "../../kernel/groupcalls" }
+kernel-idcalls = { path = "../../kernel/idcalls" }
+kernel-inotifycalls = { path = "../../kernel/inotifycalls" }
+kernel-memfdcalls = { path = "../../kernel/memfdcalls" }
+kernel-misccalls = { path = "../../kernel/misccalls" }
+kernel-mmapcalls = { path = "../../kernel/mmapcalls" }
+kernel-pathcalls = { path = "../../kernel/pathcalls" }
+kernel-pidfdcalls = { path = "../../kernel/pidfdcalls" }
+kernel-pollcalls = { path = "../../kernel/pollcalls" }
+kernel-procvmcalls = { path = "../../kernel/procvmcalls" }
+kernel-ptrace = { path = "../../kernel/ptrace" }
+kernel-random = { path = "../../kernel/random" }
+kernel-rescalls = { path = "../../kernel/rescalls" }
+kernel-rwcalls = { path = "../../kernel/rwcalls" }
+kernel-signalcalls = { path = "../../kernel/signalcalls" }
+kernel-signaldeliver = { path = "../../kernel/signaldeliver" }
+kernel-signalfdcalls = { path = "../../kernel/signalfdcalls" }
+kernel-syslogcalls = { path = "../../kernel/syslogcalls" }
+kernel-sysvmsg = { path = "../../kernel/sysvmsg" }
+kernel-sysvsem = { path = "../../kernel/sysvsem" }
+kernel-sysvshm = { path = "../../kernel/sysvshm" }
+kernel-taskcalls = { path = "../../kernel/taskcalls" }
+kernel-timecalls = { path = "../../kernel/timecalls" }
+kernel-timerfdcalls = { path = "../../kernel/timerfdcalls" }
+kernel-unamecalls = { path = "../../kernel/unamecalls" }
+kernel-waitcalls = { path = "../../kernel/waitcalls" }
+
+# A `static` of function pointers is a set of relocations, so a test that only
+# counts entries still has to link all 232 of them -- and the implementations
+# pull in the rest of the kernel, including four `fs_ops` statics that are
+# reached by symbol and the gadget archive.
+#
+# This crate carried 232 `#[no_mangle]` doubles instead until 2026-09-08,
+# because "a test binary links no C and no other crate". It links the product
+# now, which is what makes the assertions be about the real table rather than
+# about 232 stubs.
+#
+# A dev-dependency may point back at a crate that depends on this one; cargo
+# only refuses a cycle among normal dependencies.
+[dev-dependencies]
+# And the gadget archive, which `crates/asbestos/dispatch` reaches by symbol.
+asbestos-gadgets = { path = "../../asbestos/gadgets" }
+iul = { path = "../../iul" }

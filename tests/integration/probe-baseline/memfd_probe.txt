@@ -1,0 +1,127 @@
+## the flags and the name
+memfd_create("probe", 0)                                   -> ok
+memfd_create("", 0), an empty name                         -> ok
+MFD_CLOEXEC                                                -> ok
+  FD_CLOEXEC is set                                        -> true
+no MFD_CLOEXEC                                             -> ok
+  FD_CLOEXEC is set                                        -> false
+flag 0x20                                                  -> EINVAL
+flag 0x40000000, a huge page size alone                    -> EINVAL
+MFD_EXEC | MFD_NOEXEC_SEAL                                 -> EINVAL
+MFD_HUGETLB                                                -> ENOSYS
+a name of 249 bytes                                        -> ok
+a name of 250 bytes                                        -> EINVAL
+a name of 1000 bytes                                       -> EINVAL
+a name at a bad address                                    -> EFAULT
+a NULL name                                                -> EFAULT
+## what the file looks like
+a plain memfd                                              -> ok
+  mode                                                     -> 100777
+  nlink                                                    -> 0
+  size                                                     -> 0
+  uid is ours                                              -> true
+  /proc/self/fd                                            -> /memfd:look (deleted)
+  F_GET_SEALS                                              -> 0x1
+  F_ADD_SEALS(SHRINK) without MFD_ALLOW_SEALING            -> EPERM
+  F_GETFL & O_ACCMODE                                      -> 2
+  fstatfs type                                             -> 0x1021994
+  write 10 bytes                                           -> wrote 10
+  size after                                               -> 10
+  lseek(SEEK_END)                                          -> 10
+  ftruncate(100)                                           -> ok
+  size after                                               -> 100
+  ftruncate(5)                                             -> ok
+  size after                                               -> 5
+  pread at 0                                               -> 5 bytes: "xxxxx"
+  fchmod(0600)                                             -> ok
+MFD_NOEXEC_SEAL                                            -> ok
+  mode                                                     -> 666
+  F_GET_SEALS                                              -> 0x20
+  F_ADD_SEALS(SHRINK)                                      -> ok
+MFD_EXEC                                                   -> ok
+  mode                                                     -> 777
+  F_GET_SEALS                                              -> 0x1
+F_GET_SEALS on a pipe                                      -> EINVAL
+F_ADD_SEALS on /dev/null                                   -> EINVAL
+## the seals
+a sealable memfd                                           -> ok
+  F_GET_SEALS                                              -> 0x0
+  ftruncate(100)                                           -> ok
+  F_ADD_SEALS(0x40)                                        -> EINVAL
+  F_ADD_SEALS(0)                                           -> ok
+  F_ADD_SEALS(SHRINK)                                      -> ok
+  F_GET_SEALS                                              -> 0x2
+  ftruncate(50) under SHRINK                               -> EPERM
+  ftruncate(100) under SHRINK, the same size               -> ok
+  ftruncate(200) under SHRINK                              -> ok
+  F_ADD_SEALS(GROW)                                        -> ok
+  ftruncate(300) under GROW                                -> EPERM
+  ftruncate(200) under GROW, the same size                 -> ok
+  pwrite 10 at 190 under GROW, up to the end               -> wrote 10
+  pwrite 10 at 195 under GROW, past it                     -> EPERM
+  pwrite 10 at 0 under GROW                                -> wrote 10
+  F_ADD_SEALS(SHRINK) again                                -> ok
+  mmap(PROT_READ|PROT_WRITE, MAP_SHARED) before WRITE      -> ok
+  F_ADD_SEALS(WRITE) with a writable shared mapping        -> EBUSY
+  F_ADD_SEALS(WRITE) once it is unmapped                   -> ok
+  F_GET_SEALS                                              -> 0xe
+  pwrite under WRITE                                       -> EPERM
+  write under WRITE                                        -> EPERM
+  ftruncate(200) under WRITE, the same size                -> ok
+  mmap(PROT_READ|PROT_WRITE, MAP_SHARED) under WRITE       -> EPERM
+  mmap(PROT_READ, MAP_SHARED) under WRITE                  -> ok
+    mprotect(PROT_READ|PROT_WRITE) on it                   -> EACCES
+    mprotect(PROT_READ) on it                              -> ok
+  mmap(PROT_READ|PROT_WRITE, MAP_PRIVATE) under WRITE      -> ok
+    mprotect(PROT_READ|PROT_WRITE) on the private one      -> ok
+  pread under WRITE                                        -> 4 bytes
+  F_ADD_SEALS(SEAL)                                        -> ok
+  F_ADD_SEALS(EXEC) after SEAL                             -> EPERM
+  F_GET_SEALS                                              -> 0xf
+FUTURE_WRITE                                               -> ok
+  ftruncate(4096)                                          -> ok
+  mmap(PROT_READ|PROT_WRITE, MAP_SHARED) before            -> ok
+  F_ADD_SEALS(FUTURE_WRITE) with a writable shared mapping -> ok
+  F_GET_SEALS                                              -> 0x10
+  a store through the earlier mapping                      -> ok
+  pwrite under FUTURE_WRITE                                -> EPERM
+  mmap(PROT_READ|PROT_WRITE, MAP_SHARED) under FUTURE_WRITE -> EPERM
+  mmap(PROT_READ, MAP_SHARED) under FUTURE_WRITE           -> ok
+  ftruncate(8192) under FUTURE_WRITE                       -> ok
+EXEC on an executable memfd                                -> ok
+  F_ADD_SEALS(EXEC)                                        -> ok
+  F_GET_SEALS, the write seals come with it                -> 0x3e
+  mode after                                               -> 777
+  fchmod(0777) under EXEC, the same bits                   -> ok
+  fchmod(0755) under EXEC                                  -> ok
+  fchmod(0666) under EXEC                                  -> EPERM
+  mode after that                                          -> 755
+  pwrite under EXEC                                        -> EPERM
+EXEC on a non-executable memfd                             -> ok
+  fchmod(0666)                                             -> ok
+  F_ADD_SEALS(EXEC)                                        -> ok
+  F_GET_SEALS, EXEC alone                                  -> 0x20
+  fchmod(0777) under EXEC                                  -> EPERM
+  fchmod(0600) under EXEC                                  -> ok
+  pwrite under EXEC alone                                  -> wrote 1
+a read-only shared mapping and F_SEAL_WRITE                -> ok
+  ftruncate(4096)                                          -> ok
+  mmap(PROT_READ, MAP_SHARED)                              -> ok
+  F_ADD_SEALS(WRITE) with it mapped                        -> EBUSY
+  F_ADD_SEALS(SHRINK) with it mapped                       -> ok
+  F_ADD_SEALS(WRITE) once unmapped                         -> ok
+the owner                                                  -> ok
+  fchown(1234, 5678)                                       -> ok
+  uid:gid after                                            -> 1234:5678
+## a mapping is one set of pages
+a memfd of one page                                        -> ok
+  ftruncate(4096)                                          -> ok
+  mmap(MAP_SHARED)                                         -> ok
+  the child saw the parent's store                         -> exit 0
+  and the parent sees the child's                          -> 0xbeef
+  and a read of the file sees it                           -> 0xbeef
+  a dup shares the seals                                   -> 0x1
+## a memfd can be run
+a memfd holding busybox                                    -> ok
+  written whole                                            -> true
+  execveat(memfd, "", AT_EMPTY_PATH) as true               -> ran, exit 0

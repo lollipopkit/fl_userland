@@ -1,0 +1,13 @@
+[package]
+name = "util-strace"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "strace"
+crate-type = ["rlib"]
+
+[dependencies]
+util-logchan = { path = "../logchan" }

@@ -1,0 +1,26 @@
+[package]
+name = "asbestos-gadgets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "asbestos_gadgets"
+crate-type = ["rlib"]
+# There is no Rust in this crate to test, and a test binary for it cannot link:
+# the archive is `+whole-archive` because the gadgets are reached by name from a
+# table, so every one of them comes in, and each references the others plus
+# `fiber_enter` — which live in `crates/asbestos/dispatch`, not here. A harness
+# with nothing to run linked 497 gadgets against nothing and failed
+# `cargo test --workspace` with `Undefined symbols: _fiber_enter`.
+test = false
+doctest = false
+
+[build-dependencies]
+# The offsets the assembly indexes with, computed with `offset_of!` over the
+# same headers. A library call rather than a nested `cargo run`, which is what
+# a build script cannot do.
+cpuoffsets = { path = "../../tools/cpuoffsets" }
+iul-buildcfg = { path = "../../util/buildcfg" }
+cc = "1"

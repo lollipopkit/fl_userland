@@ -1,0 +1,17 @@
+[package]
+name = "util-identity"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "util_identity"
+crate-type = ["rlib"]
+
+# No dependencies, and that is the point: `Identity<T>` is `NonNull<T>` and a
+# `PhantomData`, which is std. It lived in `crates/kernel/abi` until 2026-09-16
+# because `MountId` was its first user, and a crate below the kernel layer that
+# wanted one — `crates/fs/tty`, for which terminal a thread group holds — would
+# have had to depend on the whole shared-types crate to get it. That is the
+# shape `crates/util/synctypes` and `crates/emu/abi` came out of.

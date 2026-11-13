@@ -1,0 +1,361 @@
+## /proc/self/stat
+fields after comm                                  -> 50
+state                                              -> R
+ppid parses                                        -> 1
+pgrp parses                                        -> 1
+session parses                                     -> 1
+num_threads is at least 1                          -> 1
+starttime parses                                   -> 1
+vsize is non-zero                                  -> 1
+rss parses                                         -> 1
+comm is parenthesised                              -> 1
+the line ends with a newline                       -> 1
+## /proc/self/status
+field count                                        -> 58
+the fields, in order                               -> Name,Umask,State,Tgid,Ngid,Pid,PPid,TracerPid,Uid,Gid,FDSize,Groups,NStgid,NSpid,NSpgid,NSsid,Kthread,VmPeak,VmSize,VmLck,VmPin,VmHWM,VmRSS,RssAnon,RssFile,RssShmem,VmData,VmStk,VmExe,VmLib,VmPTE,VmSwap,CoreDumping,THP_enabled,untag_mask,Threads,SigQ,SigPnd,ShdPnd,SigBlk,SigIgn,SigCgt,CapInh,CapPrm,CapEff,CapBnd,CapAmb,NoNewPrivs,Seccomp,Seccomp_filters,Speculation_Store_Bypass,SpeculationIndirectBranch,Cpus_allowed,Cpus_allowed_list,Mems_allowed,Mems_allowed_list,voluntary_ctxt_switches,nonvoluntary_ctxt_switches
+  has Name                                         -> 1
+  has Umask                                        -> 1
+  has State                                        -> 1
+  has Tgid                                         -> 1
+  has Ngid                                         -> 1
+  has Pid                                          -> 1
+  has PPid                                         -> 1
+  has TracerPid                                    -> 1
+  has Uid                                          -> 1
+  has Gid                                          -> 1
+  has FDSize                                       -> 1
+  has Groups                                       -> 1
+  has Threads                                      -> 1
+  has SigQ                                         -> 1
+  has SigPnd                                       -> 1
+  has ShdPnd                                       -> 1
+  has SigBlk                                       -> 1
+  has SigIgn                                       -> 1
+  has SigCgt                                       -> 1
+  has CapInh                                       -> 1
+  has CapPrm                                       -> 1
+  has CapEff                                       -> 1
+  has CapBnd                                       -> 1
+  has CapAmb                                       -> 1
+  has NoNewPrivs                                   -> 1
+  has Seccomp                                      -> 1
+  has Cpus_allowed                                 -> 1
+  has Mems_allowed                                 -> 1
+  has voluntary_ctxt_switches                      -> 1
+  has nonvoluntary_ctxt_switches                   -> 1
+  has VmPeak                                       -> 1
+  has VmSize                                       -> 1
+  has VmRSS                                        -> 1
+  has VmData                                       -> 1
+  has VmStk                                        -> 1
+  has VmExe                                        -> 1
+  NoNewPrivs                                       -> 0
+  untag_mask                                       -> 0xffffffffffffff
+  Uid has four ids                                 -> 1
+  Gid has four ids                                 -> 1
+  SigBlk is 16 hex digits                          -> 1
+  SigIgn is 16 hex digits                          -> 1
+  SigCgt is 16 hex digits                          -> 1
+## /proc/self/statm
+field count                                        -> 7
+all fields parse                                   -> 1
+size is non-zero                                   -> 1
+## /proc/self/maps
+has at least one mapping                           -> 1
+every line has the six fields                      -> 1
+every range is non-empty and ordered               -> 1
+the mappings are in ascending order                -> 1
+  names [stack]                                    -> 1
+  names [heap]                                     -> 1
+  names [vdso]                                     -> 1
+  names [vvar]                                     -> 1
+  exactly one [stack] mapping                      -> 1
+  and it is readable and writable                  -> 1
+  no mapping is write-only                         -> 1
+pthread_getattr_np on the main thread              -> 1
+  it reports a non-empty stack                     -> 1
+  whose base is not null                           -> 1
+  some mapping names a file                        -> 1
+## /proc/self/limits
+row count including the header                     -> 17
+the header starts with Limit                       -> 1
+  has "Max cpu time"                               -> 1
+  has "Max file size"                              -> 1
+  has "Max data size"                              -> 1
+  has "Max stack size"                             -> 1
+  has "Max core file size"                         -> 1
+  has "Max resident set"                           -> 1
+  has "Max processes"                              -> 1
+  has "Max open files"                             -> 1
+  has "Max locked memory"                          -> 1
+  has "Max address space"                          -> 1
+  has "Max file locks"                             -> 1
+  has "Max pending signals"                        -> 1
+  has "Max msgqueue size"                          -> 1
+  has "Max nice priority"                          -> 1
+  has "Max realtime priority"                      -> 1
+  has "Max realtime timeout"                       -> 1
+  row width with a unit (Max cpu time)             -> 78
+  row width without one (Max nice priority)        -> 68
+## the NUL-separated files
+/proc/self/cmdline: non-empty                      -> 1
+  ends with a NUL                                  -> 1
+  has no newline                                   -> 1
+/proc/self/environ: non-empty                      -> 1
+  ends with a NUL                                  -> 1
+  has no newline                                   -> 1
+/proc/self/comm ends with a newline                -> 1
+  is at most 16 bytes with the newline             -> 1
+## /proc/self/auxv
+length is a multiple of 16                         -> 1
+entry count                                        -> 24
+ends with AT_NULL                                  -> 1
+the keys present                                   -> 0,3,4,5,6,7,8,9,11,12,13,14,15,16,17,23,25,26,27,28,29,31,33,51
+  has AT_PHDR                                      -> 1
+  has AT_PHENT                                     -> 1
+  has AT_PHNUM                                     -> 1
+  has AT_PAGESZ                                    -> 1
+  has AT_BASE                                      -> 1
+  has AT_ENTRY                                     -> 1
+  has AT_UID                                       -> 1
+  has AT_EUID                                      -> 1
+  has AT_GID                                       -> 1
+  has AT_EGID                                      -> 1
+  has AT_HWCAP                                     -> 1
+  has AT_CLKTCK                                    -> 1
+  has AT_SECURE                                    -> 1
+  has AT_RANDOM                                    -> 1
+  has AT_EXECFN                                    -> 1
+## the symlinks
+/proc/self/exe is absolute                         -> 1
+/proc/self/cwd is absolute                         -> 1
+/proc/self/root is absolute                        -> 1
+/proc/self/fd has 0, 1 and 2                       -> 1
+  every name is a number                           -> 1
+## what /proc/self/fd names a descriptor with no path
+a pipe's read end                                  -> pipe:[#]
+a pipe's write end                                 -> pipe:[#]
+a unix socket                                      -> socket:[#]
+an eventfd                                         -> anon_inode:[eventfd]
+an epoll                                           -> anon_inode:[eventpoll]
+a timerfd                                          -> anon_inode:[timerfd]
+a signalfd                                         -> anon_inode:[signalfd]
+an inotify                                         -> anon_inode:inotify
+a pidfd                                            -> anon_inode:[pidfd]
+## the system-wide files
+/proc/uptime: non-empty                            -> 1
+/proc/loadavg: non-empty                           -> 1
+/proc/version: non-empty                           -> 1
+  mentions Linux version                           -> 1
+/proc/filesystems: non-empty                       -> 1
+/proc/meminfo: non-empty                           -> 1
+  mentions MemTotal                                -> 1
+  mentions MemFree                                 -> 1
+  mentions MemAvailable                            -> 1
+  mentions Buffers                                 -> 1
+  mentions Cached                                  -> 1
+  mentions SwapTotal                               -> 1
+  mentions SwapFree                                -> 1
+/proc/stat: non-empty                              -> 1
+  mentions cpu                                     -> 1
+  mentions btime                                   -> 1
+  mentions processes                               -> 1
+/proc/cpuinfo: non-empty                           -> 1
+/proc/mounts: non-empty                            -> 1
+/proc/uptime has two fields                        -> 1
+  both parse as floats                             -> 1
+/proc/loadavg has five fields                      -> 1
+  the fourth is running/total                      -> 1
+  the three averages have two decimal places       -> 1
+/proc/meminfo lines are `Name: N [kB]`             -> 1
+  MemTotal is non-zero                             -> 1
+  MemFree is below MemTotal                        -> 1
+  and above three quarters of it                   -> 1
+  and is not exactly half                          -> 1
+## /proc/self/fd names a path
+  / reads back as itself                           -> 1
+  / has no trailing slash                          -> 1
+  /etc reads back as itself                        -> 1
+  /etc has no trailing slash                       -> 1
+  /dev reads back as itself                        -> 1
+  /dev has no trailing slash                       -> 1
+  /tmp reads back as itself                        -> 1
+  /tmp has no trailing slash                       -> 1
+  /proc reads back as itself                       -> 1
+  /proc has no trailing slash                      -> 1
+## threads
+/proc lists the process                            -> 1
+/proc lists a thread by its tid                    -> 0
+/proc/self/task entries                            -> 3
+  includes the leader                              -> 1
+  includes both threads                            -> 1
+/proc/self/task/<tid> is a directory               -> 1
+  has stat                                         -> 1
+  has status                                       -> 1
+  has comm                                         -> 1
+  has maps                                         -> 1
+  has fd                                           -> 1
+  has cwd                                          -> 1
+  has task                                         -> 0
+  status: Pid is the tid                           -> 1
+  status: Tgid is the process                      -> 1
+  status: Name                                     -> probe-thread-0
+  status: Threads                                  -> 3
+  stat: first field is the tid                     -> 1
+  comm                                             -> probe-thread-0
+/proc/<tid>/status by number: Pid is the tid       -> 1
+## a zombie
+/proc/<zombie>/stat: state                         -> Z
+  fields after comm                                -> 50
+  vsize                                            -> 0
+  rss                                              -> 0
+  exit_code                                        -> 768
+/proc/<zombie> is listed in /proc                  -> 1
+/proc/<zombie>/status: State                       -> Z (zombie)
+  Threads                                          -> 1
+  FDSize                                           -> 0
+  has Umask                                        -> 0
+  has VmSize                                       -> 0
+  has VmRSS                                        -> 0
+  has SigPnd                                       -> 1
+  has Cpus_allowed                                 -> 1
+/proc/<zombie>/cmdline: bytes                      -> 0
+/proc/<zombie>/environ                             -> ESRCH
+/proc/<zombie>/auxv                                -> ESRCH
+/proc/<zombie>/maps: bytes                         -> 0
+/proc/<zombie>/comm                                -> procfs_probe
+/proc/<zombie>/statm                               -> 0 0 0 0 0 0 0
+/proc/<zombie>/limits: lines                       -> 17
+/proc/<zombie>/mem                                 -> ESRCH
+/proc/<zombie>/exe                                 -> ENOENT
+/proc/<zombie>/cwd                                 -> ENOENT
+/proc/<zombie>/root                                -> ENOENT
+/proc/<zombie>/fd: entries                         -> 0
+after reaping, /proc/<pid>/stat is gone            -> 1
+## /proc/sys
+/proc/sys/kernel/cap_last_cap: non-empty           -> 1
+/proc/sys/kernel/hostname: non-empty               -> 1
+/proc/sys/kernel/ngroups_max: non-empty            -> 1
+/proc/sys/kernel/osrelease: non-empty              -> 1
+/proc/sys/kernel/ostype: non-empty                 -> 1
+/proc/sys/kernel/pid_max: non-empty                -> 1
+/proc/sys/kernel/version: non-empty                -> 1
+/proc/sys/kernel/random/boot_id: non-empty         -> 1
+/proc/sys/kernel/random/uuid: non-empty            -> 1
+/proc/sys/fs/pipe-max-size: non-empty              -> 1
+/proc/sys/fs/inotify/max_queued_events: non-empty  -> 1
+/proc/sys/vm/overcommit_memory: non-empty          -> 1
+/proc/sys/kernel/cap_last_cap parses as a number   -> 1
+/proc/sys/kernel/ngroups_max parses as a number    -> 1
+/proc/sys/kernel/pid_max parses as a number        -> 1
+/proc/sys/fs/pipe-max-size parses as a number      -> 1
+/proc/sys/fs/inotify/max_queued_events parses as a number -> 1
+/proc/sys/vm/overcommit_memory parses as a number  -> 1
+/proc/sys/kernel/ostype                            -> Linux
+/proc/sys/fs/pipe-max-size                         -> 1048576
+cap_last_cap is at least 37                        -> 1
+two uuids differ                                   -> 1
+a uuid is 36 characters                            -> 1
+two boot_ids agree                                 -> 1
+kernel/hostname agrees with uname                  -> 1
+writing kernel/hostname changes nothing            -> 1
+/proc/sys/kernel is a directory                    -> yes
+## the mount tables
+/proc/self/mountinfo is non-empty                  -> 1
+  every line has the fields and the separator      -> 1
+  the ids are unique                               -> 1
+  the ids are numbers                              -> 1
+  at most one parent id is not a mount             -> 1
+  the parent ids are numbers                       -> 1
+  a line mounts something at /                     -> 1
+/proc/self/mounts has six fields a line            -> 1
+  it has as many lines as mountinfo                -> 1
+/proc/mounts agrees with /proc/self/mounts         -> 1
+/proc/devices names both headings                  -> 1
+  every entry is a major and a name                -> 1
+  major 1 (mem) is listed                          -> 1
+  major 5 (the tty alternate) is listed            -> 1
+  major 136 (pts) is listed                        -> 1
+## /proc/self/smaps
+smaps is non-empty                                 -> 1
+  has Size                                         -> 1
+  has KernelPageSize                               -> 1
+  has MMUPageSize                                  -> 1
+  has Rss                                          -> 1
+  has Pss                                          -> 1
+  has Shared_Clean                                 -> 1
+  has Shared_Dirty                                 -> 1
+  has Private_Clean                                -> 1
+  has Private_Dirty                                -> 1
+  has Referenced                                   -> 1
+  has Anonymous                                    -> 1
+  has Swap                                         -> 1
+  has Locked                                       -> 1
+  has VmFlags                                      -> 1
+  Rss comes before Pss                             -> 1
+  Shared_Dirty comes before Private_Dirty          -> 1
+  VmFlags is last                                  -> 1
+  every kB line is the same width                  -> 1
+  and there are some                               -> 1
+  Rss never exceeds Size                           -> 1
+## /proc/self/smaps_rollup
+smaps_rollup is non-empty                          -> 1
+  the header names it [rollup]                     -> 1
+  has Rss                                          -> 1
+  has Pss                                          -> 1
+  has Private_Dirty                                -> 1
+  has Locked                                       -> 1
+  it has no per-mapping fields                     -> 1
+## the copy-on-write question redis asks
+mprotect the middle page                           -> 1
+madvise(MADV_FREE) is accepted or EINVAL           -> 1
+the child's Shared_Dirty is above zero             -> 1
+## . and .. in a procfs listing
+/proc: the first two names                         -> . ..
+  . is the directory itself                        -> 1
+  .. is its parent                                 -> 1
+  both are DT_DIR                                  -> 1
+/proc/self: the first two names                    -> . ..
+  . is the directory itself                        -> 1
+  .. is its parent                                 -> 1
+  both are DT_DIR                                  -> 1
+/proc/self/fd: the first two names                 -> . ..
+  . is the directory itself                        -> 1
+  .. is its parent                                 -> 1
+  both are DT_DIR                                  -> 1
+/proc/sys: the first two names                     -> . ..
+  . is the directory itself                        -> 1
+  .. is its parent                                 -> 1
+  both are DT_DIR                                  -> 1
+/proc/sys/kernel: the first two names              -> . ..
+  . is the directory itself                        -> 1
+  .. is its parent                                 -> 1
+  both are DT_DIR                                  -> 1
+## link counts
+/proc/self/status: nlink                           -> 1
+/proc/uptime: nlink                                -> 1
+/proc/sys/kernel/ostype: nlink                     -> 1
+/proc/sys: nlink                                   -> 1
+/proc/sys/kernel: nlink                            -> 1
+/proc/self/fd: nlink                               -> 2
+/proc/self/task: nlink                             -> 3
+/proc/self/exe: nlink                              -> 1
+## priority and nice in stat
+after nice(5): priority nice                       -> 25 5
+## oom_score_adj
+initially                                          -> 0
+truncate                                           -> ok
+chmod                                              -> EPERM
+write 500                                          -> ok
+  reads                                            -> 500
+  oom_adj reads                                    -> 8
+write 1001                                         -> EINVAL
+write -1001                                        -> EINVAL
+write abc                                          -> EINVAL
+write " 42\n"                                      -> ok
+  reads                                            -> 42
+oom_adj write 15                                   -> ok
+  oom_score_adj reads                              -> 1000
+oom_adj write 16                                   -> EINVAL
+write 300                                          -> ok
+a child reads                                      -> 300

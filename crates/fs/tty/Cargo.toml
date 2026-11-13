@@ -1,0 +1,31 @@
+[package]
+name = "fs-tty"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fs_tty"
+# rlib: crates/iul is the one staticlib in the product and links this in. See
+# the staticlib note in CLAUDE.md.
+crate-type = ["rlib"]
+
+[dependencies]
+util-ioctlarg = { path = "../../util/ioctlarg" }
+util-plain = { path = "../../util/plain" }
+util-errno = { path = "../../util/errno" }
+fs-pollset = { path = "../pollset" }
+jobctl = { path = "../jobctl" }
+ldisc = { path = "../ldisc" }
+ttyreg = { path = "../ttyreg" }
+# `Identity<T>`: which terminal, as a value the process layer cannot read.
+util-identity = { path = "../../util/identity" }
+util-guestlock = { path = "../../util/guestlock" }
+libc.workspace = true
+
+[dev-dependencies]
+# The real signal state, so a test runs the real `wait_for`. It ran
+# `crates/util/guestlock-teststub`'s parallel one until 2026-09-08.
+kernel-sighand = { path = "../../kernel/sighand" }
+kernel-sigqueue = { path = "../../kernel/sigqueue" }

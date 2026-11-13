@@ -1,0 +1,57 @@
+########## status ##########
+a thread kill()s its process with SIGTERM, then exit_group(3)    -> killed by 15
+a thread tgkill()s the parked leader with SIGTERM, then exit_group(3) -> killed by 15
+SIGTERM then SIGUSR1 to its own process from a thread            -> killed by 15
+the leader blocks SIGTERM, kill()s itself, then exit_group(3)    -> killed by 15
+every thread blocks SIGTERM, it is sent, then exit_group(3)      -> exited 3
+every thread blocks SIGTERM, it is sent, then one unblocks it    -> killed by 15
+a thread kill()s its process with SIGKILL, then exit_group(3)    -> killed by 9
+a thread raise()s SIGPIPE, then exit_group(3)                    -> exited 3
+a thread kill()s its process with SIGQUIT, then exit_group(3)    -> killed by 3
+exit_group(3) in one thread, SIGTERM to itself from the leader   -> exited 3 or killed by 15
+########## where the threads are ##########
+both threads in futex_wait, sent 15                              -> killed by 15
+both threads in futex_wait, sent 9                               -> killed by 9
+both threads in read on an empty pipe, sent 15                   -> killed by 15
+both threads in nanosleep, sent 15                               -> killed by 15
+both threads in epoll_wait, sent 15                              -> killed by 15
+both threads spinning, sent 15                                   -> killed by 15
+the spinning leader blocks SIGTERM, a parked thread does not     -> killed by 15
+########## stopped groups ##########
+a two-thread child, SIGSTOP                                      -> stopped by 19
+  then SIGKILL                                                   -> killed by 9
+a two-thread child, SIGSTOP                                      -> stopped by 19
+  then SIGTERM: its state                                        -> T
+  ShdPnd while stopped                                           -> {15}
+  then SIGCONT                                                   -> killed by 15
+SIGTERM then SIGSTOP at once                                     -> killed by 15
+########## execve ##########
+a thread execs, three parked, 15 sent as it starts, 40 rounds    -> killed by 15 x40
+a thread execs, three spinning, 15 sent as it starts, 40 rounds  -> killed by 15 x40
+a thread execs, three parked, 9 sent as it starts, 40 rounds     -> killed by 9 x40
+a thread execs, three spinning, 9 sent as it starts, 40 rounds   -> killed by 9 x40
+########## after ##########
+a zombie killed by SIGTERM: State                                -> Z
+  SigPnd                                                         -> {}
+  ShdPnd                                                         -> {15}
+  Threads                                                        -> 1
+  reaped                                                         -> killed by 15
+a pidfd before SIGTERM: poll                                     -> 0
+  after it, within 3 s: poll                                     -> 1 revents 0x1
+  reaped                                                         -> killed by 15
+a parent with PR_SET_PDEATHSIG(SIGUSR1) child, SIGTERM           -> killed by 15
+  the child, reparented here                                     -> killed by 10
+########## pid 1 ##########
+kill(1, SIGTERM) from itself, SIG_DFL                            -> survived
+  ShdPnd                                                         -> {}
+tgkill(1, 1, SIGUSR1) from itself, SIG_DFL                       -> survived
+tgkill of another thread of pid 1, SIGTERM, SIG_DFL              -> survived
+SIGTERM while every thread blocks it: ShdPnd                     -> {15}
+  then the leader unblocks it                                    -> survived
+  ShdPnd after                                                   -> {}
+kill(1, SIGTERM) with a handler: it ran                          -> true
+a child sends SIGKILL to 1                                       -> survived
+a child sends SIGTERM to 1                                       -> survived
+a child sends SIGSTOP to 1: State the child sees                 -> S
+a child sends SIGTSTP to 1: State the child sees                 -> S
+the leader blocks SIGTERM, another thread does not: kill(1)      -> sending

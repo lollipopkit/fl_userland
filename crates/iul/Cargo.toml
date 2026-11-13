@@ -1,0 +1,175 @@
+[package]
+name = "iul"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "iul"
+# Both. The staticlib is `libiul.a`, which is what an embedder links --
+# `tools/build-libs.sh` installs it; the
+# rlib is what the CLI binary links, so that `crates/tools/iul` gets one copy of
+# the standard library rather than its own plus the staticlib's -- which under
+# the release profile's LTO are strong globals and a duplicate-symbol error.
+# See the note about there being exactly one staticlib in CLAUDE.md.
+crate-type = ["staticlib", "rlib"]
+
+[features]
+# The symbol-level offload test handlers, asked for with
+# `--features offload-test-symbol`; a default build compiles none of it.
+offload-test-symbol = ["dep:kernel-offloadtest"]
+offload-test-prebuilt = ["dep:kernel-offloadtestprebuilt"]
+
+[dependencies]
+kernel-offloadtest = { path = "../kernel/offloadtest", optional = true }
+kernel-offloadtestprebuilt = { path = "../kernel/offloadtestprebuilt", optional = true }
+fs-bindmount = { path = "../fs/bindmount" }
+bindpath = { path = "../fs/bindpath" }
+cmsg = { path = "../fs/cmsg" }
+msghdr = { path = "../fs/msghdr" }
+rwabi = { path = "../kernel/rwabi" }
+fs-pipe = { path = "../fs/pipe" }
+fakefs = { path = "../fs/fakefs" }
+fs-fake = { path = "../fs/fake" }
+fs-sock = { path = "../fs/sock" }
+fs-generic = { path = "../fs/generic" }
+fs-mounttable = { path = "../fs/mounttable" }
+fs-mountcalls = { path = "../fs/mountcalls" }
+kernel-pollcalls = { path = "../kernel/pollcalls" }
+kernel-epollcalls = { path = "../kernel/epollcalls" }
+kernel-inotifycalls = { path = "../kernel/inotifycalls" }
+kernel-fdcalls = { path = "../kernel/fdcalls" }
+kernel-futexcalls = { path = "../kernel/futexcalls" }
+kernel-groupstop = { path = "../kernel/groupstop" }
+kernel-grouprusage = { path = "../kernel/grouprusage" }
+kernel-ctty = { path = "../kernel/ctty" }
+kernel-itimer = { path = "../kernel/itimer" }
+kernel-execargs = { path = "../kernel/execargs" }
+kernel-execcalls = { path = "../kernel/execcalls" }
+kernel-exitcalls = { path = "../kernel/exitcalls" }
+kernel-forkcalls = { path = "../kernel/forkcalls" }
+kernel-hostsignal = { path = "../kernel/hostsignal" }
+kernel-rwcalls = { path = "../kernel/rwcalls" }
+kernel-fdattr = { path = "../kernel/fdattr" }
+kernel-fsinfo = { path = "../kernel/fsinfo" }
+kernel-timecalls = { path = "../kernel/timecalls" }
+util-logline = { path = "../util/logline" }
+util-waitfor = { path = "../util/waitfor" }
+kernel-syslogcalls = { path = "../kernel/syslogcalls" }
+kernel-timerfdcalls = { path = "../kernel/timerfdcalls" }
+kernel-eventfdcalls = { path = "../kernel/eventfdcalls" }
+kernel-unamecalls = { path = "../kernel/unamecalls" }
+kernel-random = { path = "../kernel/random" }
+fs-dircalls = { path = "../fs/dircalls" }
+fs-statcalls = { path = "../fs/statcalls" }
+fs-pipecalls = { path = "../fs/pipecalls" }
+fs-devices = { path = "../fs/devices" }
+fs-adhoc = { path = "../fs/adhoc" }
+fs-mount = { path = "../fs/mount" }
+fs-inode = { path = "../fs/inode" }
+kernel-v8mute = { path = "../kernel/v8mute" }
+kernel-offloadexec = { path = "../kernel/offloadexec" }
+kernel-syscalldispatch = { path = "../kernel/syscalldispatch" }
+kernel-taskcalls = { path = "../kernel/taskcalls" }
+kernel-offloadreg = { path = "../kernel/offloadreg" }
+util-fchdir = { path = "../util/fchdir" }
+fs-ttyreal = { path = "../fs/ttyreal" }
+kernel-hostrusage = { path = "../kernel/hostrusage" }
+kernel-hoststats = { path = "../kernel/hoststats" }
+kernel-groupcalls = { path = "../kernel/groupcalls" }
+kernel-pidfdcalls = { path = "../kernel/pidfdcalls" }
+kernel-procvmcalls = { path = "../kernel/procvmcalls" }
+kernel-sysvmsg = { path = "../kernel/sysvmsg" }
+kernel-sysvsem = { path = "../kernel/sysvsem" }
+kernel-memfdcalls = { path = "../kernel/memfdcalls" }
+kernel-sysvshm = { path = "../kernel/sysvshm" }
+kernel-signalfdcalls = { path = "../kernel/signalfdcalls" }
+kernel-misccalls = { path = "../kernel/misccalls" }
+kernel-ptrace = { path = "../kernel/ptrace" }
+kernel-tgroup = { path = "../kernel/tgroup" }
+kernel-boot = { path = "../kernel/boot" }
+fs-sockrestart = { path = "../fs/sockrestart" }
+fs-poll = { path = "../fs/poll" }
+fs-fdobj = { path = "../fs/fdobj" }
+fs-ttydev = { path = "../fs/ttydev" }
+kernel-pagetable = { path = "../kernel/pagetable" }
+emu-tlb = { path = "../emu/tlb" }
+asbestos-diag = { path = "../asbestos/diag" }
+asbestos-blockcache = { path = "../asbestos/blockcache" }
+asbestos-crypto = { path = "../asbestos/crypto" }
+asbestos-features = { path = "../asbestos/features" }
+asbestos-dispatch = { path = "../asbestos/dispatch" }
+asbestos-gen = { path = "../asbestos/gen" }
+asbestos-offloadprebuilt = { path = "../asbestos/offloadprebuilt" }
+# The gadgets, assembled by cargo and **bundled into this archive**, so
+# `libiul.a` is the whole engine and an embedder links one file. See
+# crates/asbestos/gadgets.
+asbestos-gadgets = { path = "../asbestos/gadgets" }
+kernel-vdso = { path = "../kernel/vdso" }
+asbestos-offloadsym = { path = "../asbestos/offloadsym" }
+kernel-pathcalls = { path = "../kernel/pathcalls" }
+kernel-rescalls = { path = "../kernel/rescalls" }
+kernel-idcalls = { path = "../kernel/idcalls" }
+kernel-waitcalls = { path = "../kernel/waitcalls" }
+kernel-mmapcalls = { path = "../kernel/mmapcalls" }
+fs-fakedb = { path = "../fs/fakedb" }
+devpts = { path = "../fs/devpts" }
+dirent = { path = "../fs/dirent" }
+fdtable = { path = "../fs/fdtable" }
+inotify = { path = "../fs/inotify" }
+ldisc = { path = "../fs/ldisc" }
+fs-locks = { path = "../fs/locks" }
+path = { path = "../fs/path" }
+pollindex = { path = "../fs/pollindex" }
+fs-pollset = { path = "../fs/pollset" }
+proc = { path = "../fs/proc" }
+realfs = { path = "../fs/realfs" }
+sockabi = { path = "../fs/sockabi" }
+fs-sockaddr = { path = "../fs/sockaddr" }
+statx = { path = "../fs/statx" }
+fs-tty = { path = "../fs/tty" }
+fs-unixname = { path = "../fs/unixname" }
+fs-fakechange = { path = "../fs/fakechange" }
+fs-bindstash = { path = "../fs/bindstash" }
+util-fifo = { path = "../util/fifo" }
+fs-unixpeer = { path = "../fs/unixpeer" }
+tmpfs = { path = "../fs/tmpfs" }
+ttyreg = { path = "../fs/ttyreg" }
+jobctl = { path = "../fs/jobctl" }
+kernel-creds = { path = "../kernel/creds" }
+kernel-errno = { path = "../kernel/errno" }
+kernel-epoll = { path = "../kernel/epoll" }
+kernel-eventfd = { path = "../kernel/eventfd" }
+kernel-timerfd = { path = "../kernel/timerfd" }
+kernel-pidfd = { path = "../kernel/pidfd" }
+kernel-pids = { path = "../kernel/pids" }
+kernel-posixtimers = { path = "../kernel/posixtimers" }
+kernel-proctree = { path = "../kernel/proctree" }
+kernel-sigdisp = { path = "../kernel/sigdisp" }
+kernel-copyloop = { path = "../kernel/copyloop" }
+kernel-groupexit = { path = "../kernel/groupexit" }
+kernel-syscallrestart = { path = "../kernel/syscallrestart" }
+kernel-hostthreads = { path = "../kernel/hostthreads" }
+kernel-vforkhandoff = { path = "../kernel/vforkhandoff" }
+kernel-procattr = { path = "../kernel/procattr" }
+kernel-rlimit = { path = "../kernel/rlimit" }
+kernel-robustlist = { path = "../kernel/robustlist" }
+kernel-sigframe = { path = "../kernel/sigframe" }
+kernel-signalfd = { path = "../kernel/signalfd" }
+kernel-sigqueue = { path = "../kernel/sigqueue" }
+kernel-futex = { path = "../kernel/futex" }
+kernel-initstack = { path = "../kernel/initstack" }
+kernel-mmapabi = { path = "../kernel/mmapabi" }
+kernel-schedabi = { path = "../kernel/schedabi" }
+kernel-shebang = { path = "../kernel/shebang" }
+kernel-sighand = { path = "../kernel/sighand" }
+kernel-signalcalls = { path = "../kernel/signalcalls" }
+kernel-signaldeliver = { path = "../kernel/signaldeliver" }
+kernel-syscallrefs = { path = "../kernel/syscallrefs" }
+util-timeabi = { path = "../util/timeabi" }
+kernel-usercopy = { path = "../kernel/usercopy" }
+elf = { path = "../kernel/elf" }
+util-guestlock = { path = "../util/guestlock" }
+util-iulenv = { path = "../util/iulenv" }
+util-timer = { path = "../util/timer" }

@@ -1,0 +1,66 @@
+[package]
+name = "kernel-exitcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "exitcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-hostsig = { path = "../../util/hostsig" }
+kernel-tgroup = { path = "../tgroup" }
+kernel-sighand = { path = "../sighand" }
+kernel-pids = { path = "../pids" }
+util-logline = { path = "../../util/logline" }
+kernel-hostrusage = { path = "../../kernel/hostrusage" }
+asbestos-diag = { path = "../../asbestos/diag" }
+kernel-groupcalls = { path = "../../kernel/groupcalls" }
+asbestos-dispatch = { path = "../../asbestos/dispatch" }
+kernel-posixtimers = { path = "../../kernel/posixtimers" }
+kernel-grouprusage = { path = "../../kernel/grouprusage" }
+kernel-itimer = { path = "../../kernel/itimer" }
+kernel-sigqueue = { path = "../../kernel/sigqueue" }
+kernel-pidfd = { path = "../pidfd" }
+fs-mount = { path = "../../fs/mount" }
+kernel-groupstop = { path = "../../kernel/groupstop" }
+kernel-rlimit = { path = "../../kernel/rlimit" }
+util-timer = { path = "../../util/timer" }
+kernel-mmapcalls = { path = "../../kernel/mmapcalls" }
+# SEM_UNDO: a process that dies holding a semaphore gives it back.
+kernel-sysvsem = { path = "../sysvsem" }
+# `exit_ptrace`: a tracer that leaves detaches its tracees.
+kernel-signaldeliver = { path = "../../kernel/signaldeliver" }
+kernel-taskcalls = { path = "../../kernel/taskcalls" }
+kernel-fsinfo = { path = "../../kernel/fsinfo" }
+fdtable = { path = "../../fs/fdtable" }
+fs-mounttable = { path = "../../fs/mounttable" }
+kernel-hostthreads = { path = "../../kernel/hostthreads" }
+kernel-ctty = { path = "../../kernel/ctty" }
+# A dead session leader's terminal, given to the terminal layer to tell the
+# session.
+fs-tty = { path = "../../fs/tty" }
+kernel-procattr = { path = "../../kernel/procattr" }
+kernel-groupexit = { path = "../../kernel/groupexit" }
+kernel-creds = { path = "../../kernel/creds" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+kernel-proctree = { path = "../../kernel/proctree" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+# The IUL_* settings as a safe read; see crates/util/iulenv.
+util-iulenv = { path = "../../util/iulenv" }
+libc.workspace = true
+kernel-usercopy = { path = "../usercopy" }
+util-strace = { path = "../../util/strace" }
+
+# `futex_wake` and the robust-list walk, called by path: `kernel/futex.h`
+# was a declaration no C read.
+kernel-futexcalls = { path = "../futexcalls" }
+
+# The pidfd hooks, called by path: `kernel/pidfd.h` was a declaration no C read.
+
+[dev-dependencies]

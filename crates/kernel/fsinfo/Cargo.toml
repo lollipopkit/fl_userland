@@ -1,0 +1,17 @@
+[package]
+name = "kernel-fsinfo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fsinfo"
+crate-type = ["rlib"]
+
+[dependencies]
+# `struct fd` and its typed handle. Not `fs-fdobj`, which is the descriptor
+# *layer*: its closure is 41 crates and contains `kernel-taskview`, which is
+# what stopped `struct task` from naming `FsInfo`.
+kernel-abi = { path = "../abi" }
+libc.workspace = true

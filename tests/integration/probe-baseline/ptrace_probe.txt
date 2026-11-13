@@ -1,0 +1,71 @@
+## the stop itself
+TRACEME then SIGSTOP stops the child               -> true
+  a second look reports the stop again             -> false
+  WSTOPSIG of the stop                             -> 19
+## the registers
+GETREGSET(NT_PRSTATUS)                             -> ok
+  bytes it says it wrote                           -> 272
+  pc is not zero                                   -> true
+  sp is not zero                                   -> true
+GETREGSET(NT_FPREGSET)                             -> ok
+  bytes it says it wrote                           -> 528
+GETREGSET with a note type nobody has              -> EINVAL
+GETREGSET((1 << 32) | NT_PRSTATUS)                 -> ok
+  bytes it says it wrote                           -> 272
+GETREGSET into an iovec of 16 bytes                -> ok
+  bytes it says it wrote                           -> 16
+SETREGSET of what GETREGSET just read              -> ok
+## reading and writing the tracee's memory
+PEEKDATA of a static this program set              -> 0x9abcdef0
+  and the call itself                              -> ok
+POKEDATA into the tracee                           -> ok
+  and reading it back                              -> 0x5a5a5a5a
+  this process's own copy is untouched             -> true
+PEEKDATA of an unmapped address                    -> EIO
+POKEDATA into an unmapped address                  -> EIO
+## the signal that stopped it
+GETSIGINFO                                         -> ok
+  si_signo it reports                              -> 19
+GETSIGINFO into an unmapped buffer                 -> EFAULT
+## what it refuses
+PEEKUSER                                           -> EIO
+GETREGS (an x86 request)                           -> EIO
+GETFPREGS (an x86 request)                         -> EIO
+SETOPTIONS asking for nothing                      -> ok
+a request nobody has                               -> EIO
+SETOPTIONS asking for TRACEFORK                    -> ok
+SETOPTIONS((1 << 32) | TRACESYSGOOD)               -> EINVAL
+PEEKDATA of pid 1                                  -> ESRCH
+ATTACH to itself                                   -> EPERM
+## continuing
+CONT lets the child run to its exit                -> ok
+  and the exit code it reaches                     -> 21
+## continuing with a signal
+CONT with data=SIGTERM                             -> ok
+  what the tracer then sees                        -> stopped again
+  and for which signal                             -> 15
+CONT with data=99, which is no signal              -> EIO
+  and the tracee afterwards (1 unchanged, 2 reported stopped, 0 gone) -> 1
+## detaching
+DETACH                                             -> ok
+  the exit code the child then reaches             -> 21
+  CONT on the detached child                       -> ESRCH
+DETACH with data=SIGTERM                           -> ok
+  the signal it died of, after DETACH              -> 15
+## a traced child that forks
+the child stops after TRACEME                      -> true
+  after CONT, the next thing wait reports          -> stopped by signal 17
+## a poked page keeps its protection
+POKEDATA into a read-only data page                -> ok
+  the tracee's own store to it: exit code          -> 7
+POKEDATA into the text                             -> ok
+  the tracee's own store to it: exit code          -> 7
+## stopping at syscall boundaries
+SETOPTIONS(TRACESYSGOOD)                           -> ok
+  it stopped at least twice                        -> 1
+  every stop is SIGTRAP|0x80                       -> 1
+  an entry names the syscall                       -> 1
+  and its exit names the same one                  -> 1
+  whose answer is the child's pid                  -> 1
+CONT from a syscall stop                           -> ok
+  the child then runs to its exit                  -> 1

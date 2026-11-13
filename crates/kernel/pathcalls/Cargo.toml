@@ -1,0 +1,32 @@
+[package]
+name = "kernel-pathcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "pathcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+kernel-pids = { path = "../pids" }
+util-timeabi = { path = "../../util/timeabi" }
+util-errno = { path = "../../util/errno" }
+fs-generic = { path = "../../fs/generic" }
+kernel-fsinfo = { path = "../../kernel/fsinfo" }
+fs-mounttable = { path = "../../fs/mounttable" }
+kernel-mmapcalls = { path = "../../kernel/mmapcalls" }
+kernel-creds = { path = "../../kernel/creds" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true
+kernel-usercopy = { path = "../usercopy" }
+# statfs's answer for a mount, which fstatfs shares. A Rust call since
+# 2026-09-04; it was a C ABI export of fdattr's that only this crate reached.
+kernel-fdattr = { path = "../fdattr" }
+path = { path = "../../fs/path" }
+fs-perm = { path = "../../fs/perm" }
+util-strace = { path = "../../util/strace" }

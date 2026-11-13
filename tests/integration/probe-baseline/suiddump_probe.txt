@@ -1,0 +1,43 @@
+at start                                                 -> 0
+########## what it accepts ##########
+write "3"                                                -> write EINVAL, reads 0
+write "-1"                                               -> write EINVAL, reads 0
+write "abc"                                              -> write EINVAL, reads 0
+write ""                                                 -> wrote 0, reads 0
+write "2 1"                                              -> wrote 2, reads 2
+write "1\n"                                              -> wrote 2, reads 1
+write "0x1"                                              -> wrote 3, reads 1
+write " 2"                                               -> wrote 2, reads 2
+write "0"                                                -> wrote 1, reads 0
+uid 65534 writes 1                                       -> open EACCES
+uid 65534 reads it                                       -> 0
+its mode and owner                                       -> 100644 0:0
+PR_SET_DUMPABLE(2)                                       -> EINVAL
+########## suid_dumpable 0 ##########
+set                                                      -> wrote 1
+setuid(65534): dumpable                                  -> 0
+  /proc/self/status owned by                             -> 0:0
+  a peer of uid 65534 reads its environ                  -> EACCES
+  a peer of uid 65534 reads its maps                     -> EACCES
+setresuid(65534, 0, 0): dumpable                         -> 1
+suid_dumpable 0: real uid 65534, euid 0, then exec       -> dumpable 0, status owned by 0:0
+suid_dumpable 0: uid 65534 execs a binary it cannot read -> dumpable 0, status owned by 0:0
+########## suid_dumpable 1 ##########
+set                                                      -> wrote 1
+setuid(65534): dumpable                                  -> 1
+  /proc/self/status owned by                             -> 65534:0
+  a peer of uid 65534 reads its environ                  -> ok
+  a peer of uid 65534 reads its maps                     -> ok
+setresuid(65534, 0, 0): dumpable                         -> 1
+suid_dumpable 1: real uid 65534, euid 0, then exec       -> dumpable 1, status owned by 0:0
+suid_dumpable 1: uid 65534 execs a binary it cannot read -> dumpable 1, status owned by 65534:65534
+########## suid_dumpable 2 ##########
+set                                                      -> wrote 1
+setuid(65534): dumpable                                  -> 2
+  /proc/self/status owned by                             -> 0:0
+  a peer of uid 65534 reads its environ                  -> EACCES
+  a peer of uid 65534 reads its maps                     -> EACCES
+setresuid(65534, 0, 0): dumpable                         -> 1
+suid_dumpable 2: real uid 65534, euid 0, then exec       -> dumpable 2, status owned by 0:0
+suid_dumpable 2: uid 65534 execs a binary it cannot read -> dumpable 2, status owned by 0:0
+put back                                                 -> 0

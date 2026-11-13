@@ -1,0 +1,85 @@
+## eventfd2 and timerfd
+## eventfd2 flags
+  eventfd2(0, 0)                                       ok
+  eventfd2(0, EFD_SEMAPHORE)                           ok
+  eventfd2(0, EFD_NONBLOCK)                            ok
+  eventfd2(0, EFD_CLOEXEC)                             ok
+  eventfd2(0, all three)                               ok
+  eventfd2(0, an unallocated bit)                      -EINVAL
+  eventfd2(0, every bit)                               -EINVAL
+## eventfd reads and writes
+  read 8 bytes of a counter of 3                       8
+    the value it gave                                  3
+  read again, now empty and non-blocking               -EAGAIN
+  read 4 bytes                                         -EINVAL
+  read 16 bytes                                        -EAGAIN
+  read 0 bytes                                         -EINVAL
+  read into an unmapped buffer                         -EAGAIN
+  write 8 bytes of 1                                   8
+  write 4 bytes                                        -EINVAL
+  write 16 bytes                                       -EINVAL
+  write 7 bytes                                        -EINVAL
+  write 9 bytes                                        -EINVAL
+  read 9 bytes                                         8
+  write ULLONG_MAX                                     -EINVAL
+  write ULLONG_MAX - 1                                 8
+  write 1 into a full counter                          -EAGAIN
+  read the full counter                                8
+    the value it gave                                  18446744073709551614
+## eventfd semaphore mode
+  semaphore read 1                                     1
+  semaphore read 2                                     1
+  semaphore read 3                                     1
+  semaphore read 4                                     -EAGAIN
+## timerfd_create
+  timerfd_create(CLOCK_REALTIME)                       ok
+  timerfd_create(CLOCK_MONOTONIC)                      ok
+  timerfd_create(CLOCK_BOOTTIME)                       ok
+  timerfd_create(CLOCK_REALTIME_ALARM)                 -EPERM
+  timerfd_create(CLOCK_BOOTTIME_ALARM)                 -EPERM
+  timerfd_create(CLOCK_PROCESS_CPUTIME_ID)             -EINVAL
+  timerfd_create(CLOCK_THREAD_CPUTIME_ID)              -EINVAL
+  timerfd_create(an unallocated clock)                 -EINVAL
+  timerfd_create(clock -1)                             -EINVAL
+  timerfd_create(MONOTONIC, TFD_NONBLOCK)              ok
+  timerfd_create(MONOTONIC, TFD_CLOEXEC)               ok
+  timerfd_create(MONOTONIC, bit 0, which is neither)   -EINVAL
+  timerfd_create(MONOTONIC, every bit)                 -EINVAL
+## timerfd_settime
+  settime, all zero (disarm)                           0
+  settime, NULL new_value                              -EFAULT
+  settime, unreadable new_value                        -EFAULT
+  settime, value tv_nsec = -1                          -EINVAL
+  settime, value tv_nsec = 1e9                         -EINVAL
+  settime, value tv_sec = -1                           -EINVAL
+  settime, interval tv_nsec = -1                       -EINVAL
+  settime, interval tv_nsec = 1e9                      -EINVAL
+  settime, interval tv_sec = -1                        -EINVAL
+  settime(TFD_TIMER_ABSTIME)                           0
+  settime(TFD_TIMER_CANCEL_ON_SET)                     0
+  settime(both)                                        0
+  settime(bit 2, which is neither)                     -EINVAL
+  settime(every bit)                                   -EINVAL
+  settime(ABSTIME, deadline in the past)               0
+## timerfd_gettime
+  gettime of a one-shot                                0
+    interval is zero                                   true
+    value is in the future                             true
+  gettime of an interval timer                         0
+    interval seconds                                   5
+    value is in the future                             true
+  gettime, NULL destination                            -EFAULT
+  gettime, unmapped destination                        -EFAULT
+## timerfd reads
+  read a disarmed timer, non-blocking                  -EAGAIN
+  read 4 bytes                                         -EINVAL
+  write to a timerfd                                   -EINVAL
+  read after a one-shot fired                          8
+    the count it gave                                  1
+  read after re-arming far away                        -EAGAIN
+  read after disarming                                 -EAGAIN
+## the wrong descriptor
+  timerfd_settime on an eventfd                        -EINVAL
+  timerfd_gettime on an eventfd                        -EINVAL
+  timerfd_settime on a closed descriptor               -EBADF
+  timerfd_gettime on a closed descriptor               -EBADF

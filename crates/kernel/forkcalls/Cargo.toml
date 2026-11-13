@@ -1,0 +1,49 @@
+[package]
+name = "kernel-forkcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "forkcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+# The child's address space, locked to write CLONE_CHILD_SETTID into it.
+kernel-pagetable = { path = "../pagetable" }
+util-errno = { path = "../../util/errno" }
+kernel-sighand = { path = "../sighand" }
+kernel-pids = { path = "../pids" }
+kernel-observe = { path = "../observe" }
+kernel-creds = { path = "../creds" }
+kernel-tgroup = { path = "../../kernel/tgroup" }
+kernel-sigqueue = { path = "../../kernel/sigqueue" }
+kernel-taskcalls = { path = "../../kernel/taskcalls" }
+kernel-fsinfo = { path = "../../kernel/fsinfo" }
+fdtable = { path = "../../fs/fdtable" }
+kernel-mmapcalls = { path = "../../kernel/mmapcalls" }
+kernel-hostthreads = { path = "../../kernel/hostthreads" }
+kernel-proctree = { path = "../../kernel/proctree" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true
+kernel-usercopy = { path = "../usercopy" }
+util-strace = { path = "../../util/strace" }
+
+# The vfork handoff, called by path: `kernel/vforkhandoff.h` was a
+# declaration no C read, and `struct task` only forward-declares the type.
+kernel-vforkhandoff = { path = "../vforkhandoff" }
+
+# The pidfd hooks, called by path: `kernel/pidfd.h` was a declaration no C read.
+kernel-pidfdcalls = { path = "../pidfdcalls" }
+# `unshare(CLONE_FILES)` is `close_range(CLOSE_RANGE_UNSHARE)`'s split.
+kernel-fdcalls = { path = "../fdcalls" }
+# `kcmp(KCMP_SYSVSEM)` and `unshare(CLONE_SYSVSEM)`: the undo list.
+kernel-sysvsem = { path = "../sysvsem" }
+# `setns` on a descriptor that is not a pidfd.
+fs-fdobj = { path = "../../fs/fdobj" }
+# `PR_FUTEX_HASH`'s default size, set on each new thread.
+kernel-futexcalls = { path = "../futexcalls" }
+
+[dev-dependencies]

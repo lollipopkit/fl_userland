@@ -1,0 +1,292 @@
+## futex2 and PI futexes
+## PR_FUTEX_HASH, single-threaded
+  GET_SLOTS, before any change                               0
+  GET_SLOTS, after a thread                                  16
+  op 0                                                       -EINVAL
+  op 3                                                       -EINVAL
+  GET_SLOTS with arg 1                                       16
+  GET_SLOTS with arg4 1                                      16
+  GET_SLOTS with arg5 1                                      16
+  SET_SLOTS 32, arg5 1                                       0
+  GET_SLOTS                                                  32
+  SET_SLOTS 3                                                -EINVAL
+  SET_SLOTS 16                                               0
+  GET_SLOTS                                                  16
+  SET_SLOTS 16, flags 1                                      -EINVAL
+  SET_SLOTS 16, flags 2                                      -EINVAL
+  SET_SLOTS 2                                                0
+  GET_SLOTS                                                  2
+  SET_SLOTS 1                                                -EINVAL
+  SET_SLOTS 6                                                -EINVAL
+  SET_SLOTS 1 << 20                                          0
+  GET_SLOTS                                                  1048576
+  SET_SLOTS 1 << 31                                          -ENOMEM
+  SET_SLOTS 8                                                0
+  SET_SLOTS -1                                               -EINVAL
+  GET_SLOTS                                                  8
+  SET_SLOTS 1 << 40                                          0
+  GET_SLOTS                                                  0
+  SET_SLOTS 0                                                -EBUSY
+  GET_SLOTS                                                  0
+  SET_SLOTS 16, unused arg 5                                 -EBUSY
+  GET_SLOTS                                                  0
+  GET_SLOTS after a thread                                   0
+  GET_SLOTS in a forked child                                0
+    and after its first thread                               16
+## futex_wake
+  wake 1, U32 | PRIVATE                                      0
+  wake 1, U32, shared                                        0
+  wake 1, U8                                                 -EINVAL
+  wake 1, U16                                                -EINVAL
+  wake 1, U64                                                -EINVAL
+  wake 1, U32 | NUMA                                         0
+  wake 1, U32 | MPOL                                         0
+  wake 1, U32 | unknown bit 0x10                             -EINVAL
+  wake 1, U32 | bit 31                                       -EINVAL
+  wake, mask 0                                               -EINVAL
+  wake, mask 0x1_0000_0000                                   -EINVAL
+  wake, mask u64::MAX                                        -EINVAL
+  wake 0                                                     0
+  wake -1                                                    0
+  wake, unaligned                                            -EINVAL
+  wake, U16 aligned to 2                                     -EINVAL
+  wake, null                                                 0
+  wake, unmapped                                             0
+  wake, unmapped, shared                                     -EFAULT
+  futex_wake wakes a FUTEX_WAIT waiter                       1
+    and the waiter answers                                   0
+  wake, disjoint mask, against a bitset waiter               0
+  wake, overlapping mask                                     1
+    and the waiter answers                                   0
+## FUTEX2_NUMA
+  wake, node 0                                               0
+    node word after                                          0x0
+  wait mismatch, node 0                                      -EAGAIN
+    node word after                                          0x0
+  wait mismatch, shared, node 0                              -EAGAIN
+    node word after                                          0x0
+  wake, node -1                                              0
+    node word after                                          0x0
+  wait mismatch, node -1                                     -EAGAIN
+    node word after                                          0x0
+  wait mismatch, shared, node -1                             -EAGAIN
+    node word after                                          0x0
+  wake, node 1                                               -EINVAL
+    node word after                                          0x1
+  wait mismatch, node 1                                      -EINVAL
+    node word after                                          0x1
+  wait mismatch, shared, node 1                              -EINVAL
+    node word after                                          0x1
+  wake, node 1000                                            -EINVAL
+    node word after                                          0x3e8
+  wait mismatch, node 1000                                   -EINVAL
+    node word after                                          0x3e8
+  wait mismatch, shared, node 1000                           -EINVAL
+    node word after                                          0x3e8
+  wake, node -2                                              -EINVAL
+    node word after                                          0xfffffffe
+  wait mismatch, node -2                                     -EINVAL
+    node word after                                          0xfffffffe
+  wait mismatch, shared, node -2                             -EINVAL
+    node word after                                          0xfffffffe
+  wake, NUMA at a 4-byte offset                              -EINVAL
+  wake, MPOL without NUMA                                    0
+    node word after                                          0x0
+  wake, NUMA | MPOL, node -1                                 0
+    node word after                                          0x0
+  wake, NUMA, value at the end of the last page              0
+  wake, NUMA, unmapped                                       -EFAULT
+  wake, NUMA, null                                           -EFAULT
+  wake, NUMA, unmapped, shared                               -EFAULT
+  wake, U32, word at the end of the last page                0
+  futex_requeue, NUMA entry                                  -EINVAL
+## wake counts with waiters parked
+  FUTEX_WAKE 0                                               1
+  FUTEX_WAKE -1                                              1
+  FUTEX_WAKE 2                                               2
+  futex_wake 0                                               0
+  futex_wake -1                                              1
+  unknown op 14, unaligned                                   -ENOSYS
+  WAIT, unaligned, bad timeout pointer                       -EFAULT
+  WAKE | CLOCK_REALTIME, unaligned                           -ENOSYS
+## futex_wait
+  mismatch, no timeout                                       -EAGAIN
+  match, past monotonic deadline                             -ETIMEDOUT
+  match, 2ms monotonic deadline                              -ETIMEDOUT
+  match, 2ms realtime deadline                               -ETIMEDOUT
+  match, monotonic time on the realtime clock                -ETIMEDOUT
+  clock BOOTTIME                                             -EINVAL
+  clock 99                                                   -EINVAL
+  clock 99, no timeout, mismatch                             -EAGAIN
+  tv_nsec 1e9                                                -EINVAL
+  negative tv_sec                                            -EINVAL
+  unreadable timeout                                         -EFAULT
+  mask 0                                                     -EINVAL
+  mask 0x1_0000_0000                                         -EINVAL
+  val 0x1_0000_0000                                          -EINVAL
+  val 0xffff_ffff, mismatch                                  -EAGAIN
+  U8                                                         -EINVAL
+  U64                                                        -EINVAL
+  NUMA                                                       -EINVAL
+  unknown flag 0x10                                          -EINVAL
+  unaligned                                                  -EINVAL
+  null                                                       -EFAULT
+  unmapped                                                   -EFAULT
+  shared, mismatch                                           -EAGAIN
+  woken by FUTEX_WAKE                                        0
+## futex_waitv
+  two, both match, 2ms deadline                              -ETIMEDOUT
+  two, realtime deadline                                     -ETIMEDOUT
+  two, past deadline                                         -ETIMEDOUT
+  second does not match                                      -EAGAIN
+  first does not match                                       -EAGAIN
+  nr 0                                                       -EINVAL
+  nr 128, all mismatch                                       -EAGAIN
+  nr 129                                                     -EINVAL
+  nr -1                                                      -EINVAL
+  flags 1                                                    -EINVAL
+  clock BOOTTIME                                             -EINVAL
+  clock 99                                                   -EINVAL
+  clock 99, no timeout, mismatch                             -EAGAIN
+  tv_nsec -1                                                 -EINVAL
+  unreadable timeout                                         -EFAULT
+  null waiters                                               -EINVAL
+  unmapped waiters                                           -EFAULT
+  entry U8, mismatch                                         -EINVAL
+  entry U64, mismatch                                        -EINVAL
+  entry NUMA, mismatch                                       -EINVAL
+  entry unknown flag 0x10, mismatch                          -EINVAL
+  entry shared, mismatch                                     -EAGAIN
+  entry reserved != 0                                        -EINVAL
+  entry val 0x1_0000_0000                                    -EINVAL
+  entry unaligned                                            -EINVAL
+  entry unmapped                                             -EFAULT
+  entry null                                                 -EFAULT
+  one word twice, second mismatch                            -EAGAIN
+  three, woken on index 0                                    0
+  three, woken on index 1                                    1
+  three, woken on index 2                                    2
+  private + shared, shared woken                             1
+## futex_requeue
+  nobody waiting, value matches                              0
+  first value does not match                                 -EAGAIN
+  second value does not match                                0
+  flags 1                                                    -EINVAL
+  nr_wake -1                                                 -EINVAL
+  nr_requeue -1                                              -EINVAL
+  nr_wake 0, nr_requeue 0                                    0
+  private onto shared                                        -EINVAL
+  first U8                                                   -EINVAL
+  reserved != 0                                              -EINVAL
+  same address twice                                         0
+  null waiters                                               -EINVAL
+  second unmapped                                            0
+  two waiters: wake 1, requeue 1                             2
+    wake on the second word                                  1
+    the waiters answer                                       [0, 0]
+## PI futexes
+  LOCK_PI on 0                                               0
+    word                                                     tid
+    LOCK_PI again, own lock                                  -EDEADLK
+    TRYLOCK_PI, own lock                                     -EDEADLK
+    UNLOCK_PI                                                0
+    word                                                     0
+    UNLOCK_PI, not held                                      -EPERM
+  LOCK_PI2 on 0                                              0
+    word                                                     tid
+    LOCK_PI2 again, own lock                                 -EDEADLK
+    TRYLOCK_PI, own lock                                     -EDEADLK
+    UNLOCK_PI                                                0
+    word                                                     0
+    UNLOCK_PI, not held                                      -EPERM
+  TRYLOCK_PI on 0                                            0
+    word                                                     tid
+    UNLOCK_PI                                                0
+  LOCK_PI | CLOCK_REALTIME                                   -ENOSYS
+  LOCK_PI2 | CLOCK_REALTIME on 0                             0
+  TRYLOCK_PI | CLOCK_REALTIME                                -ENOSYS
+  UNLOCK_PI | CLOCK_REALTIME                                 -ENOSYS
+  LOCK_PI, unaligned                                         -EINVAL
+  LOCK_PI, unmapped                                          -EFAULT
+  UNLOCK_PI, unmapped                                        -EFAULT
+  TRYLOCK_PI, unmapped                                       -EFAULT
+  LOCK_PI, owner tid does not exist                          -ESRCH
+    word                                                     0x3fff0000|WAITERS
+  TRYLOCK_PI, owner tid does not exist                       -ESRCH
+    word                                                     0x3fff0000|WAITERS
+  UNLOCK_PI, owner is someone else                           -EPERM
+    word                                                     0x3fff0000
+  LOCK_PI, OWNER_DIED and no owner                           0
+    word                                                     tid|OWNER_DIED
+  UNLOCK_PI, own tid with WAITERS and no waiter              0
+    word                                                     0
+  owner thread LOCK_PI                                       0
+  TRYLOCK_PI, held by a live thread                          -EAGAIN
+  UNLOCK_PI, held by a live thread                           -EPERM
+  LOCK_PI, 20ms realtime deadline                            -ETIMEDOUT
+    word after the timeout                                   WAITERS set
+  LOCK_PI2, 20ms monotonic deadline                          -ETIMEDOUT
+  LOCK_PI2 | CLOCK_REALTIME, 20ms deadline                   -ETIMEDOUT
+  LOCK_PI, bad timespec                                      -EINVAL
+  LOCK_PI, handed over by UNLOCK_PI                          0
+    word                                                     tid|WAITERS
+    the owner's UNLOCK_PI                                    0
+    UNLOCK_PI                                                0
+    word                                                     0
+  WAIT_REQUEUE_PI, same address twice                        -EINVAL
+  WAIT_REQUEUE_PI, mismatch                                  -EAGAIN
+  WAIT_REQUEUE_PI, 5ms monotonic deadline                    -ETIMEDOUT
+  WAIT_REQUEUE_PI | REALTIME, 5ms deadline                   -ETIMEDOUT
+  CMP_REQUEUE_PI, nr_wake 2                                  -EINVAL
+  CMP_REQUEUE_PI, nr_wake 0                                  -EINVAL
+  CMP_REQUEUE_PI, nobody, match                              0
+  CMP_REQUEUE_PI, mismatch                                   -EAGAIN
+  CMP_REQUEUE_PI, same address                               -EINVAL
+  CMP_REQUEUE_PI, nr_requeue -1                              -EINVAL
+  CMP_REQUEUE_PI wakes the WAIT_REQUEUE_PI waiter            1
+    the waiter answers                                       0
+    and owns the mutex                                       true
+    and unlocks it                                           0
+    mutex word                                               0
+  main LOCK_PI on the mutex                                  0
+  CMP_REQUEUE_PI onto a held mutex                           1
+    mutex word                                               tid|WAITERS
+    main UNLOCK_PI                                           0
+    the waiter answers                                       0
+    and owns the mutex                                       true
+    and unlocks it                                           0
+    mutex word                                               0
+## PR_FUTEX_HASH, after threads
+  GET_SLOTS, before any change                               16
+  GET_SLOTS, after a thread                                  16
+  op 0                                                       -EINVAL
+  op 3                                                       -EINVAL
+  GET_SLOTS with arg 1                                       16
+  GET_SLOTS with arg4 1                                      16
+  GET_SLOTS with arg5 1                                      16
+  SET_SLOTS 32, arg5 1                                       0
+  GET_SLOTS                                                  32
+  SET_SLOTS 3                                                -EINVAL
+  SET_SLOTS 16                                               0
+  GET_SLOTS                                                  16
+  SET_SLOTS 16, flags 1                                      -EINVAL
+  SET_SLOTS 16, flags 2                                      -EINVAL
+  SET_SLOTS 2                                                0
+  GET_SLOTS                                                  2
+  SET_SLOTS 1                                                -EINVAL
+  SET_SLOTS 6                                                -EINVAL
+  SET_SLOTS 1 << 20                                          0
+  GET_SLOTS                                                  1048576
+  SET_SLOTS 1 << 31                                          -ENOMEM
+  SET_SLOTS 8                                                0
+  SET_SLOTS -1                                               -EINVAL
+  GET_SLOTS                                                  8
+  SET_SLOTS 1 << 40                                          0
+  GET_SLOTS                                                  0
+  SET_SLOTS 0                                                -EBUSY
+  GET_SLOTS                                                  0
+  SET_SLOTS 16, unused arg 5                                 -EBUSY
+  GET_SLOTS                                                  0
+  GET_SLOTS after a thread                                   0
+  GET_SLOTS in a forked child                                0
+    and after its first thread                               16

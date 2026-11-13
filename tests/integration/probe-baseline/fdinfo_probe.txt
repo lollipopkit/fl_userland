@@ -1,0 +1,272 @@
+########## the directory ##########
+stat /proc/self/fdinfo                           -> 40555
+stat /proc/self/fdinfo/0                         -> 100444
+  st_nlink                                       -> 1
+fdinfo lists as many entries as fd               -> true
+  and the first three are 0 1 2                  -> true
+task/<tid>/fdinfo/0 is readable                  -> true
+read /proc/self/fdinfo/9999                      -> ENOENT
+read /proc/self/fdinfo/x                         -> ENOENT
+read /proc/self/fdinfo/-1                        -> ENOENT
+open fdinfo/0 O_WRONLY                           -> a descriptor
+########## files ##########
+## a file, O_RDWR|O_CREAT|O_APPEND, at offset 5
+  pos:	5
+  flags:	0402002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+## the same file, O_RDONLY|O_CLOEXEC|O_NOFOLLOW
+  pos:	0
+  flags:	02500000
+  mnt_id:	<agrees>
+  ino:	<agrees>
+##   after F_SETFD 0
+  pos:	0
+  flags:	0500000
+  mnt_id:	<agrees>
+  ino:	<agrees>
+## O_PATH
+  pos:	0
+  flags:	010000000
+  mnt_id:	<agrees>
+  ino:	<agrees>
+## a directory
+  pos:	0
+  flags:	0440000
+  mnt_id:	<agrees>
+  ino:	<agrees>
+## /dev/null, O_WRONLY|O_NONBLOCK
+  pos:	0
+  flags:	0404001
+  mnt_id:	<agrees>
+  ino:	<agrees>
+## a memfd
+  pos:	0
+  flags:	0400002
+  mnt_id:	<agrees, zero>
+  ino:	<agrees>
+########## pipes and sockets ##########
+## a pipe's read end, O_NONBLOCK
+  pos:	0
+  flags:	04000
+  mnt_id:	<agrees>
+  ino:	<agrees>
+## a pipe's write end
+  pos:	0
+  flags:	04001
+  mnt_id:	<agrees>
+  ino:	<agrees>
+## a unix stream socketpair
+  pos:	0
+  flags:	02
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  scm_fds: 0
+## a unix datagram socketpair
+  pos:	0
+  flags:	02
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  scm_fds: 0
+## a UDP socket
+  pos:	0
+  flags:	02
+  mnt_id:	<agrees>
+  ino:	<agrees>
+########## eventfd ##########
+## eventfd(5, 0)
+  pos:	0
+  flags:	02
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  eventfd-count:                5
+  eventfd-id: <a number>
+  eventfd-semaphore: 0
+## eventfd(0, SEMAPHORE|NONBLOCK), then 0x123456789abc added
+  pos:	0
+  flags:	04002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  eventfd-count:     123456789abc
+  eventfd-id: <a number>
+  eventfd-semaphore: 1
+########## epoll ##########
+## an empty epoll
+  pos:	0
+  flags:	02000002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+## epoll watching the pipe and the eventfd
+  pos:	0
+  flags:	02000002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  tfd:       10 events: 80000019 data:         deadbeef  pos:0 ino:<agrees> sdev:<agrees>
+  tfd:       17 events: 4000001c data:                7  pos:0 ino:<agrees> sdev:<agrees>
+########## timerfd ##########
+## timerfd, disarmed
+  pos:	0
+  flags:	04002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  clockid: 1
+  ticks: 0
+  settime flags: 00
+  it_value: (0, 0)
+  it_interval: (0, 0)
+## timerfd, 100 s then every 2 s
+  pos:	0
+  flags:	04002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  clockid: 1
+  ticks: 0
+  settime flags: 00
+  it_value: (99, <ns>)
+  it_interval: (2, 500)
+## timerfd, REALTIME, ABSTIME in the past, expired
+  pos:	0
+  flags:	02
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  clockid: 0
+  ticks: 1
+  settime flags: 01
+  it_value: (0, 0)
+  it_interval: (0, 0)
+##   re-armed ABSTIME|CANCEL_ON_SET 50 s ahead
+  pos:	0
+  flags:	02
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  clockid: 0
+  ticks: 0
+  settime flags: 03
+  it_value: (49, <ns>)
+  it_interval: (0, 0)
+########## signalfd ##########
+## signalfd(USR1|TERM|40)
+  pos:	0
+  flags:	02004002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  sigmask:	0000008000004200
+########## inotify ##########
+## inotify, no watches
+  pos:	0
+  flags:	04000
+  mnt_id:	<agrees>
+  ino:	<agrees>
+## inotify watching the file and /tmp
+  pos:	0
+  flags:	04000
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  inotify wd:2 ino:<agrees> sdev:<agrees> mask:80000002 ignored_mask:0 fhandle-bytes:<agrees> fhandle-type:<agrees> f_handle:<agrees>
+  inotify wd:1 ino:<agrees> sdev:<agrees> mask:300 ignored_mask:0 fhandle-bytes:<agrees> fhandle-type:<agrees> f_handle:<agrees>
+########## pidfd ##########
+## pidfd of self
+  pos:	0
+  flags:	02000002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  Pid:	<self>
+  NSpid:	<self>
+## pidfd of an exited, unreaped child
+  pos:	0
+  flags:	02000002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  Pid:	<child>
+  NSpid:	<child>
+## pidfd of a reaped child
+  pos:	0
+  flags:	02000002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  Pid:	-1
+  NSpid:	-1
+########## locks ##########
+F_SETLK F_WRLCK, the whole file, through a       -> ok
+## a
+  pos:	0
+  flags:	0400002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  lock:	1: POSIX  ADVISORY  WRITE <self> <agrees> 0 EOF
+## b, the same file, another description
+  pos:	0
+  flags:	0400002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+F_SETLK F_RDLCK 10..19, through a                -> ok
+## a, split in three
+  pos:	0
+  flags:	0400002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  lock:	1: POSIX  ADVISORY  WRITE <self> <agrees> 0 9
+  lock:	2: POSIX  ADVISORY  READ <self> <agrees> 10 19
+  lock:	3: POSIX  ADVISORY  WRITE <self> <agrees> 20 EOF
+## a dup of a
+  pos:	0
+  flags:	0400002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  lock:	1: POSIX  ADVISORY  WRITE <self> <agrees> 0 9
+  lock:	2: POSIX  ADVISORY  READ <self> <agrees> 10 19
+  lock:	3: POSIX  ADVISORY  WRITE <self> <agrees> 20 EOF
+flock(b, LOCK_SH)                                -> ok
+## b
+  pos:	0
+  flags:	0400002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  lock:	1: FLOCK  ADVISORY  READ <self> <agrees> 0 EOF
+F_OFD_SETLK F_RDLCK 10..14, through c            -> ok
+## c
+  pos:	0
+  flags:	0400002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  lock:	1: OFDLCK ADVISORY  READ -1 <agrees> 10 14
+## a, in a forked child
+  pos:	0
+  flags:	0400002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+## c, in a forked child
+  pos:	0
+  flags:	0400002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+  lock:	1: OFDLCK ADVISORY  READ -1 <agrees> 10 14
+F_SETLK F_UNLCK, the whole file, through a       -> ok
+## a, unlocked
+  pos:	0
+  flags:	0400002
+  mnt_id:	<agrees>
+  ino:	<agrees>
+flock(memfd, LOCK_EX)                            -> ok
+F_SETLK F_WRLCK 0..0 on it                       -> ok
+## a memfd, both kinds
+  pos:	0
+  flags:	0400002
+  mnt_id:	<agrees, zero>
+  ino:	<agrees>
+  lock:	1: FLOCK  ADVISORY  WRITE <self> <agrees> 0 EOF
+  lock:	2: POSIX  ADVISORY  WRITE <self> <agrees> 0 0
+########## another user ##########
+uid 65534: stat root's fdinfo                    -> 40555 uid 0
+  list it                                        -> EACCES
+  stat fdinfo/0                                  -> EACCES
+  read fdinfo/0                                  -> EACCES
+  stat root's fd                                 -> 40500 uid 0
+  list it                                        -> EACCES
+uid 65534: stat its own fdinfo/0                 -> 100444 uid 65534
+  read it                                        -> ok
+another uid 65534 process: list its fdinfo       -> a listing
+another uid 65534 process: read its fdinfo/0     -> ok
+  once it is not dumpable: list its fdinfo       -> EACCES
+  once it is not dumpable: read its fdinfo/0     -> EACCES
+after setresuid alone: a peer lists its fdinfo   -> EACCES

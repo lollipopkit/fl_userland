@@ -1,0 +1,16 @@
+[package]
+name = "kernel-pidfd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_pidfd"
+crate-type = ["rlib"]
+
+[dependencies]
+# `TaskRef`: what a pidfd names. The number alone would name whoever holds it
+# after the process is reaped.
+kernel-pids = { path = "../pids" }
+kernel-taskview = { path = "../taskview" }

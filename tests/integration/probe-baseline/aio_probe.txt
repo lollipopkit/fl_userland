@@ -1,0 +1,375 @@
+## aio
+## a fresh address space
+  three io_setup                                                 0
+  their ring ids                                                 0 1 2
+  destroy the second                                             0
+  the second ring is unmapped                                    absent
+  a fourth                                                       0
+  its ring id                                                    1
+## io_setup
+  io_setup(1)                                                    0
+  ctx is page aligned                                            true
+  ring.nr matches 2*max(nr, 4*cpus), page-rounded                true
+  ring.head                                                      0
+  ring.tail                                                      0
+  ring.magic is 0xa10a10a1                                       true
+  ring.compat_features                                           1
+  ring.incompat_features                                         0
+  ring.header_length                                             32
+  maps line of the ring                                          rw-s off=00000000 pages=<ring.nr's> name="/[aio] (deleted)"
+  aio-nr is readable                                             true
+  aio-nr grew by nr_events                                       1
+  io_setup(1000)                                                 0
+    its ring.nr                                                  2047
+    its maps line                                                rw-s off=00000000 pages=16 name="/[aio] (deleted)"
+    io_destroy                                                   0
+  io_destroy(1)                                                  0
+  aio-nr is back                                                 true
+  *ctxp != 0                                                     -EINVAL
+    *ctxp untouched                                              0x1000
+  nr_events 0                                                    -EINVAL
+  ctxp NULL                                                      -EFAULT
+  ctxp unmapped                                                  -EFAULT
+  ctxp read-only                                                 -EFAULT
+    no ring left behind                                          true
+  nr = aio-max-nr + 1                                            -EAGAIN
+  nr = 4194305 (overflow guard)                                  -EINVAL
+  nr = 0x80000000 (doubles to 0)                                 -EAGAIN
+  nr = 0xffffffff                                                -EINVAL
+  nr = aio-max-nr/2 + 1                                          0
+    and again: over the system-wide budget                       -EAGAIN
+    destroy the first                                            0
+    then the budget is back                                      0
+## io_submit
+  nr -1                                                          -EINVAL
+  ctx 0                                                          -EINVAL
+  ctx unmapped                                                   -EINVAL
+  ctx a page with id 0 at it                                     -EINVAL
+  ctx misaligned (ring + 4)                                      -EINVAL
+  nr 0                                                           0
+  iocbpp NULL                                                    -EFAULT
+  iocbpp[0] NULL                                                 -EFAULT
+  iocbpp[0] unmapped                                             -EFAULT
+  PWRITE 9 at 0                                                  1
+    aio_key afterwards                                           0x0
+    ring tail - head before getevents                            1
+    getevents                                                    1
+    data                                                         0x123456789abcdef0
+    obj is the iocb                                              true
+    res                                                          9
+    res2                                                         0
+    ring head == tail after                                      true
+  PREAD 9 at 0                                                   1
+    res                                                          9
+    bytes                                                        hello aio
+  PREAD 100 at 4: res                                            5
+  PREAD past EOF: res                                            0
+  PREAD 0 bytes: res                                             0
+  PWRITEV 2 vectors at 20                                        1
+    res                                                          7
+  PREADV 2 vectors at 20                                         1
+    res                                                          7
+    bytes                                                        abc|defg
+  PREADV 1025 vectors                                            -EINVAL
+  PREADV vector array unmapped                                   -EFAULT
+  PREADV 0 vectors: res                                          0
+  PREADV into an unmapped vector                                 1
+    res                                                          -EFAULT
+  FSYNC                                                          1
+    res                                                          0
+    res2                                                         0
+  FDSYNC                                                         1
+    res                                                          0
+    res2                                                         0
+  FSYNC with buf                                                 -EINVAL
+  FSYNC with nbytes                                              -EINVAL
+  FSYNC with offset                                              -EINVAL
+  FSYNC with rw_flags                                            -EINVAL
+  FSYNC a pipe                                                   -EINVAL
+  FSYNC an eventfd                                               -EINVAL
+  NOOP                                                           -EINVAL
+  opcode 4                                                       -EINVAL
+  opcode 9                                                       -EINVAL
+  opcode 0xffff                                                  -EINVAL
+  opcode 9, fd -1                                                -EBADF
+  aio_reserved2 set                                              -EINVAL
+  aio_reserved2 set, fd -1                                       -EINVAL
+  nbytes 1<<63                                                   -EINVAL
+  nbytes 1<<63, fd -1                                            -EINVAL
+  fd -1                                                          -EBADF
+  fd 9999                                                        -EBADF
+  PREAD an O_WRONLY fd                                           -EBADF
+  PWRITE an O_RDONLY fd                                          -EBADF
+  PREADV an O_WRONLY fd                                          -EBADF
+  PREAD an O_PATH fd                                             -EBADF
+  FSYNC an O_PATH fd                                             -EBADF
+  FSYNC an O_RDONLY fd                                           1
+    res                                                          0
+  PREAD offset -1                                                -EINVAL
+  PWRITE offset -1                                               -EINVAL
+  PREAD offset i64::MAX                                          -EINVAL
+  PREAD offset i64::MAX - 1, 4 bytes                             -EINVAL
+  PREAD into an unmapped low page                                1
+    res                                                          -EFAULT
+  PREAD into a kernel address                                    -EFAULT
+  PWRITE from an unmapped low page                               1
+    res                                                          -EFAULT
+  PREAD a directory                                              -EINVAL
+    getevents {0,0}                                              0
+  PWRITE a directory                                             -EBADF
+  PREAD an eventfd holding 5                                     1
+    res                                                          8
+    value                                                        5
+  PWRITE 7 to the eventfd                                        -EINVAL
+    counter                                                      -EAGAIN
+  PREAD 4 bytes of an eventfd                                    1
+    res                                                          -EINVAL
+  PREAD a pipe holding 3, offset 100                             1
+    res                                                          3
+  PREAD an empty O_NONBLOCK pipe                                 1
+    res                                                          -EAGAIN
+  PWRITE a pipe, offset 5                                        1
+    res                                                          2
+  PREAD a pipe, offset -1                                        -EINVAL
+  PWRITE a pipe with no reader                                   1
+    res                                                          -errno 32
+## rw_flags, reqprio, aio_flags
+  RWF_HIPRI read                                                 2
+  RWF_DSYNC write                                                2
+  RWF_SYNC write                                                 2
+  RWF_DSYNC read                                                 2
+  RWF_NOWAIT read                                                -EOPNOTSUPP
+  RWF_APPEND read                                                2
+  RWF_NOAPPEND write                                             2
+  RWF_ATOMIC write                                               -EOPNOTSUPP
+  RWF_DONTCACHE read                                             -EOPNOTSUPP
+  RWF_NOSIGNAL write                                             2
+  RWF_NOSIGNAL read                                              2
+  RWF_ATOMIC read                                                -EOPNOTSUPP
+  rw_flags 0x200                                                 -EOPNOTSUPP
+  rw_flags 0x10000                                               -EOPNOTSUPP
+  rw_flags -1                                                    -EOPNOTSUPP
+  RWF_APPEND write at offset 0                                   1
+    res                                                          3
+    the file grew by                                             3
+  aio_reqprio 7 without IOCB_FLAG_IOPRIO                         1
+  aio_reqprio -1 without IOCB_FLAG_IOPRIO                        1
+  IOCB_FLAG_IOPRIO best-effort 4                                 1
+  IOCB_FLAG_IOPRIO class 7                                       -EINVAL
+  IOCB_FLAG_IOPRIO best-effort level 9                           1
+  IOCB_FLAG_IOPRIO realtime                                      -EPERM
+    (completed)                                                  
+  IOCB_FLAG_IOPRIO none                                          1
+  aio_flags 4                                                    1
+  aio_flags 1<<31                                                1
+  an iocb in read-only memory                                    -EFAULT
+    and with fd -1                                               -EBADF
+    and with opcode 9                                            -EFAULT
+## IOCB_FLAG_RESFD
+  PWRITE with RESFD                                              1
+    eventfd counter                                              1
+    three more, counter                                          3
+    getevents                                                    4
+    a semaphore eventfd, first read                              1
+    second read                                                  1
+  RESFD a pipe                                                   -EINVAL
+  RESFD -1                                                       -EBADF
+  RESFD a pipe, fd -1                                            -EBADF
+  RESFD, opcode 9                                                -EINVAL
+    counter                                                      -EAGAIN
+  resfd 9999 without the flag                                    1
+## partial submission
+  good, bad fd, good                                             1
+    events                                                       1
+  bad fd first                                                   -EBADF
+  good, NULL                                                     1
+    events                                                       1
+  good, reserved2                                                1
+## ring capacity
+  io_setup(1), submit until refused: the refusal                 -EAGAIN
+    accepted >= 1                                                true
+    accepted < ring.nr                                           true
+    getevents takes all of them                                  true
+    then a submit is accepted again                              1
+    nr above ring.nr: accepted < ring.nr                         true
+## io_getevents
+  min_nr > nr                                                    -EINVAL
+  min_nr -1                                                      -EINVAL
+  nr -1                                                          -EINVAL
+  min 0, nr 0                                                    0
+  min 0, nr 0, no timeout                                        0
+  ctx 0                                                          -EINVAL
+  ctx unmapped, timeout unmapped                                 -EFAULT
+  timeout unmapped                                               -EFAULT
+  min_nr > nr, timeout unmapped                                  -EFAULT
+  {0,0} with nothing                                             0
+  30ms with nothing                                              0
+    waited at least 30ms                                         true
+  {-1, 0} with nothing, SIGALRM at 100ms                         -EINTR
+    waited for the signal                                        true
+  {0, -1} with nothing, SIGALRM at 100ms                         -EINTR
+    waited for the signal                                        true
+  {0, 1e9} with nothing, SIGALRM at 1.5s                         0
+    waited a second                                              true
+  3 pending, events unmapped                                     -EFAULT
+  3 pending, events read-only                                    -EFAULT
+    nr 2                                                         2
+    then the rest                                                1
+  1 pending, min_nr 2, 30ms                                      1
+    waited for the timeout                                       true
+  1 pending, min_nr 2, no timeout, a second completes at 30ms    2
+    waited for it                                                true
+  1 pending, min 0, nr 4, no timeout                             1
+## userspace reaping
+  tail - head with 2 completed                                   2
+  head moved to tail by hand: getevents                          0
+  head moved back two by hand: getevents                         2
+  head beyond nr: getevents                                      4
+    head afterwards                                              9
+  tail scribbled: getevents                                      4
+    tail after one more completion                               11
+## signals
+  blocked, SIGALRM at 30ms, no SA_RESTART                        -EINTR
+    handler ran                                                  1
+  blocked, SIGALRM at 30ms, SA_RESTART                           -EINTR
+    handler ran                                                  2
+  SIGALRM ignored, 100ms timeout                                 0
+    waited the whole timeout                                     true
+## io_pgetevents
+  usig NULL, {0,0}                                               0
+  sigsetsize 4                                                   -EINVAL
+  sigsetsize 16                                                  -EINVAL
+  usig unmapped                                                  -EFAULT
+  sigmask NULL, size 8                                           0
+  sigmask NULL, size 4                                           0
+  sigmask unmapped                                               -EFAULT
+  bad ctx, usig unmapped                                         -EFAULT
+  bad ctx, sigsetsize 4                                          -EINVAL
+  SIGALRM masked by usig, at 30ms, 100ms timeout                 0
+    waited the whole timeout                                     true
+    handler ran after                                            1
+  SIGUSR1 pending and blocked, usig unblocks it                  -EINTR
+    handler ran                                                  1
+    SIGUSR1 blocked again after                                  1
+  SIGUSR1 pending, usig NULL                                     0
+  SIGUSR1 pending: PREAD a pipe holding a byte                   1
+  SIGUSR1 pending, an event ready, usig unblocks                 1
+    handler ran                                                  2
+## IOCB_CMD_POLL
+  POLLIN on an empty pipe                                        1
+    getevents {0,0}                                              0
+    ring empty                                                   true
+    a write at 30ms; getevents                                   1
+    data                                                         0x9011
+    obj is the iocb                                              true
+    res, after a pipe write woke it                              65
+    res2                                                         0
+  POLLIN + RESFD: the ring tail moves with no syscall            true
+    eventfd counter                                              1
+    getevents                                                    1
+    res, after a pipe write woke it                              65
+    a second write produces nothing more                         0
+  POLLIN|POLLOUT on a regular file                               1
+    completed at once                                            1
+    res                                                          5
+  POLLOUT on a pipe's write end                                  1
+    res                                                          4
+  POLLIN|POLLRDNORM on a pipe holding data                       1
+    res                                                          65
+  events 0 on an empty pipe                                      1
+    getevents {0,0}                                              0
+    the writer closes; getevents                                 1
+    res                                                          16
+  POLLIN on a pipe with no writer                                1
+    res                                                          16
+  POLLIN on a socketpair end                                     1
+    the peer writes at 30ms; getevents                           1
+    res, after a socket write woke it                            195
+  POLLIN on an eventfd                                           1
+    written at 30ms; getevents                                   1
+    res                                                          1
+  events 0x10000                                                 -EINVAL
+  events 0xffff on an empty pipe                                 1
+    getevents {0,0}                                              0
+    cancel                                                       -EINPROGRESS
+    res                                                          0
+  nbytes 1                                                       -EINVAL
+  offset 1                                                       -EINVAL
+  rw_flags 1                                                     -EINVAL
+  reqprio 3                                                      1
+  fd -1                                                          -EBADF
+  POLLIN pending, then the fd is closed                          1
+    a write after the close; getevents 1s                        1
+    res, after a pipe write woke it                              65
+## io_cancel
+  a pending POLL                                                 -EINPROGRESS
+    result untouched                                             77
+    getevents                                                    1
+    obj is the iocb                                              true
+    res                                                          0
+    res2                                                         0
+    cancel it again                                              -EINVAL
+  a completed PWRITE                                             -EINVAL
+  an iocb never submitted, key 0                                 -EINVAL
+  key 1                                                          -EINVAL
+  iocb NULL                                                      -EFAULT
+  iocb NULL, ctx 0                                               -EFAULT
+  key 1, ctx 0                                                   -EINVAL
+  key 0, ctx 0                                                   -EINVAL
+  a pending POLL, result NULL                                    -EINPROGRESS
+  a pending POLL, result unmapped                                -EINPROGRESS
+  a pending POLL, through a copy of its iocb                     -EINVAL
+    then through the iocb                                        -EINPROGRESS
+  a cancelled POLL with RESFD: counter                           1
+  two pending POLLs on one pipe, cancel the first                -EINPROGRESS
+    getevents                                                    1
+    the event is the first                                       true
+    a write, getevents                                           1
+    the event is the second                                      true
+    res, after a pipe write woke it                              65
+## io_destroy
+  io_destroy with an unreaped event                              0
+    the ring is unmapped                                         absent
+    io_destroy again                                             -EINVAL
+    io_submit                                                    -EINVAL
+    io_getevents                                                 -EINVAL
+    io_cancel                                                    -EINVAL
+  io_destroy(0)                                                  -EINVAL
+  io_destroy(unmapped)                                           -EINVAL
+  io_destroy(a plain page)                                       -EINVAL
+  io_destroy with a pending POLL                                 0
+  io_destroy while another thread waits                          0
+    the waiter answers                                           -EINVAL
+    and returned before its timeout                              true
+  munmap the ring                                                0
+    io_submit                                                    -EINVAL
+    io_getevents                                                 -EINVAL
+    io_destroy                                                   -EINVAL
+  ring.id scribbled: io_submit                                   -EINVAL
+    io_destroy                                                   -EINVAL
+    restored: io_submit                                          1
+    io_destroy                                                   0
+  mprotect the ring read-only                                    0
+    io_submit                                                    1
+    io_getevents                                                 1
+    maps line                                                    r--s off=00000000 pages=1 name="/[aio] (deleted)"
+    io_destroy                                                   0
+  mremap the ring: moved                                         true
+    io_submit at the old address                                 -EINVAL
+    io_submit at the new address                                 1
+    io_destroy at the new address                                0
+    the moved ring                                               absent
+## threads, fork and exec
+  another thread submits to the context                          1
+    this thread reaps                                            1
+  child: io_submit on the parent's ctx                           -EINVAL
+  child: io_getevents                                            -EINVAL
+  child: io_destroy                                              -EINVAL
+  child: the ring                                                absent
+  child: io_setup                                                0
+  child: its ring id                                             0
+  parent: io_submit after the child                              1
+  parent: reap                                                   1
+  a child made half the budget and exited: io_setup(half)        0
+  after execve: io_setup(half)                                   0
+  after execve: rings mapped besides the new one                 0

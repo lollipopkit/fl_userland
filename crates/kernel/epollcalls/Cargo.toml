@@ -1,0 +1,37 @@
+[package]
+name = "kernel-epollcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "epollcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-signaldeliver = { path = "../signaldeliver" }
+kernel-sighand = { path = "../sighand" }
+fs-adhoc = { path = "../../fs/adhoc" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+kernel-taskview = { path = "../../kernel/taskview" }
+util-logline = { path = "../../util/logline" }
+libc.workspace = true
+kernel-epoll = { path = "../epoll" }
+fs-devices = { path = "../../fs/devices" }
+kernel-usercopy = { path = "../usercopy" }
+util-strace = { path = "../../util/strace" }
+
+# The iOS listen-wait bracket, called by path: it was three hand-written
+# `extern` declarations against a header that no C included.
+fs-sockrestart = { path = "../../fs/sockrestart" }
+
+# The `POLL_*` bits, which are Rust constants in the crate that owns the
+# readiness model. `fs/poll.h` had them as `#define`s no C read.
+fs-poll = { path = "../../fs/poll" }
+util-timeabi = { path = "../../util/timeabi" }
+
+[dev-dependencies]

@@ -1,0 +1,85 @@
+########## aes ##########
+  aese(s, 0)     = d4bf5d30e0b452aeb84111f11e2798e5
+  aese(s, k)     = 23be4618c4c7c5c2c79a425de11a043a
+  aesd(s, 0)     = 8ee1b40b478bd49537ba4dbfebc73b5a
+  aesd(s, k)     = a1b2e2b49764381a2e46d628a02e086f
+  aesmc(s)       = 28e320929545f6bbd9ab23aa9ad29980
+  aesimc(s)      = 083c004d0290616e1cafe6ae968195d3
+  aese(x,k)==aese(x^k,0): true
+  aesimc(aesmc(x))==x:    true
+  aesd(aese(x,0),0)==x:   true
+########## sha1 ##########
+  sha1h(00000001)  = 40000000  rol30=true
+  sha1h(80000000)  = 20000000  rol30=true
+  sha1h(12345678)  = 048d159e  rol30=true
+  sha1h(ffffffff)  = ffffffff  rol30=true
+  sha1c   = ca74d309 6ca7633b bbf3f23a a9a520a6
+  sha1p   = 6d29d550 951bb426 d24a47d8 5d47b227
+  sha1m   = 9410bd71 8d72c18d 9bf1cd33 a9a520a6
+  sha1su0 = fffffffe fffffffd f9d8bf7d 01237650
+  sha1su1 = eca80246 df9b5712 3175b9cd f934ac61
+########## sha256 ##########
+  sha256su0 = 04008001 0600c002 08010003 0a014004
+  sha256su1 = 0004e007 00078009 ec036145 3005a1f0
+  sha256h   = 14d627f6 a14e37d4 56270f40 59c42594
+  sha256h2  = d1435cbd 9595051f 12973a8d d752d121
+  sha256("abc") = ba7816bf 8f01cfea 414140de 5dae2223 b00361a3 96177a9c b410ff61 f20015ad
+########## eor3 and pmull ##########
+  eor3       = fffcf9f6f3f0edeae7e4e1dedbd8d5d2
+  eor3==a^b^c: true
+  pmull(x,1) = efcdab89674523010000000000000000
+  pmull(b,b) = 45000000000000000000000000000000
+  pmull(f,f) = 55555555555555555555555555555555
+########## permutes ##########
+  zip1 = 00100111021203130414051506160717
+  zip2 = 081809190a1a0b1b0c1c0d1d0e1e0f1f
+  uzp1 = 00020406080a0c0e10121416181a1c1e
+  uzp2 = 01030507090b0d0f11131517191b1d1f
+  trn1 = 001002120414061608180a1a0c1c0e1e
+  trn2 = 011103130515071709190b1b0d1d0f1f
+########## table lookup ##########
+  tbl = afaeadacabaaa9a80000000000000000
+  tbx = afaeadacabaaa9a85a5a5a5a5a5a5a5a
+########## shift insert and accumulate ##########
+  sri  #32 = ffffffff01234567 00000000fedcba98
+  sli  #32 = 89abcdefffffffff 7654321000000000
+  usra  #8 = 000123456789abcc 00fedcba98765432
+  ssra  #8 = 000123456789abcc fffedcba98765432
+  usra!=ssra on a negative lane: true
+########## what the cpu says it has ##########
+  aes: true
+  sha1: true
+  sha2: true
+  sha3: true
+  sm3: false
+  sm4: false
+  sha512: true
+########## sha512 sm3 sm4 xar ##########
+  sha512h   = ce59cdd86ab9289c 7f7f3a988b543211
+  sha512h2  = a1d846d8deb95bb5 919fd4f199540c78
+  sha512su0 = 6f907deb1d5cb34d 4b985d0ff62129fe
+  sha512su1 = c016dc1289bd3204 00dcea9876543246
+  sm3partw1 = no FEAT_SM3
+  sm4e      = no FEAT_SM4
+  xar #17   = ff7d67de4e66fce6 0015c00000000000
+  xar==rotr(n^m,17): true
+########## sha3 bcax and rax1 ##########
+  bcax  = 00000002000004020000000a08080402
+  bcax==n^(m&!a): true
+  rax1  = ac4a5ffda6ce3139 8000000000000055
+  rax1==n^rol(m,1): true
+########## crc32 ##########
+  crc32b = 1d48ef9b
+  crc32h = 8215bc2e
+  crc32w = 10472a38
+  crc32x = bbc41db8
+  crc32cb = 10a13890
+  crc32ch = ee1d3738
+  crc32cw = ee8c8012
+  crc32cx = 9a4f27dc
+########## scalar and immediate shifts ##########
+  usra d,#8 = 00fedcba98765431
+  ssra d,#8 = fffedcba98765431
+  shl  .16b,#3 = 80889098a0a8b0b8c0c8d0d8e0e8f0f8
+  ushr .16b,#3 = 02020202020202020303030303030303
+  sshr .16b,#3 = 02020202020202020303030303030303

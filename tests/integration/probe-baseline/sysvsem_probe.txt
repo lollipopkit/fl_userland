@@ -1,0 +1,62 @@
+== semget ==
+IPC_PRIVATE, 1 sem -> an id
+nsems 0 on create -> -1 EINVAL
+nsems -1 -> -1 EINVAL
+nsems 100000 -> -1 EINVAL
+a key nobody made, no IPC_CREAT -> -1 ENOENT
+create a keyed set of 2 -> an id
+the same key again -> an id
+with IPC_EXCL -> -1 EEXIST
+look it up with nsems 3 -> -1 EINVAL
+look it up with nsems 1 -> 1
+look it up with nsems 0 -> 1
+== semctl ==
+GETVAL of a fresh semaphore -> 0
+SETVAL 5 -> 0
+GETVAL after it -> 5
+SETVAL -1 -> -1 ERANGE
+SETVAL 32768 -> -1 ERANGE
+SETVAL (1 << 32) | 7 -> 0
+GETVAL after it -> 7
+SETVAL (1 << 32) | 0xffff_ffff -> -1 ERANGE
+GETVAL after it -> 7
+SETVAL 5 again -> 0
+GETVAL of sem_num 3, of 3 -> -1 EINVAL
+GETVAL of sem_num -1 -> -1 EINVAL
+GETPID before any op -> 1
+GETNCNT -> 0
+GETZCNT -> 0
+GETALL -> 0
+  values [5, 0, 0]
+SETALL -> 0
+GETALL again -> 0
+  values [7, 8, 9]
+IPC_STAT -> 0
+  uid 0 gid 0 mode 0
+an unknown cmd -> -1 EINVAL
+== semop ==
+acquire 1 of a semaphore worth 7 -> 0
+GETVAL after it -> 6
+release 1 -> 0
+no operations at all -> -1 EINVAL
+wait for zero, not zero, NOWAIT -> -1 EAGAIN
+acquire 100, NOWAIT -> -1 EAGAIN
+sem_num past the end -> -1 EFBIG
+two ops, the second bad -> -1 EFBIG
+GETVAL after that pair -> 7
+release past SEMVMX -> 0
+GETVAL after the overflow -> 32007
+== SEM_UNDO ==
+  child acquired: 0
+value after the child exited holding it -> 1
+value with no SEM_UNDO -> 0
+== removal ==
+IPC_RMID -> 0
+GETVAL after removal -> -1 EINVAL
+semop after removal -> -1 EINVAL
+IPC_RMID twice -> -1 EINVAL
+an id nobody made -> -1 EINVAL
+a negative id -> -1 EINVAL
+== a waiter and IPC_RMID ==
+GETNCNT with one waiter -> 1
+  waiter woke: r=-1 EIDRM

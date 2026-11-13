@@ -1,0 +1,67 @@
+## a trailing slash
+  open(dir/)                                             -> opened
+  open(file/)                                            -> ENOTDIR
+  open(file/.)                                           -> ENOTDIR
+  stat(file/)                                            -> ENOTDIR
+  stat(dir/)                                             -> a directory
+  stat(to_file/)                                         -> ENOTDIR
+  stat(to_dir/)                                          -> a directory
+  lstat(to_file)                                         -> a symlink
+  lstat(to_file/)                                        -> ENOTDIR
+  lstat(to_dir/)                                         -> a directory
+  open(new/, O_CREAT)                                    -> EISDIR
+  mkdir(newdir/)                                         -> 0
+  rmdir(newdir/)                                         -> 0
+  unlink(victim/)                                        -> ENOTDIR
+  is victim still there                                  -> a regular file
+  rmdir(file/)                                           -> ENOTDIR
+  rename(moved, other/)                                  -> ENOTDIR
+  is moved still there                                   -> a regular file
+  open(//)                                               -> opened
+  stat(dir//sub)                                         -> a directory
+  stat(dir///sub///)                                     -> a directory
+## dots
+  stat(/..)                                              -> a directory
+  stat(/../../..)                                        -> a directory
+  stat(/./.././.)                                        -> a directory
+  stat(dir/sub/..)                                       -> a directory
+  stat(dir/file/..)                                      -> ENOTDIR
+  stat(dir/.)                                            -> a directory
+  open(., O_WRONLY)                                      -> EISDIR
+  open(.., O_RDONLY)                                     -> opened
+  stat(the empty path)                                   -> ENOENT
+  open(the empty path)                                   -> ENOENT
+  stat(file/x)                                           -> ENOTDIR
+  stat(file/x/y)                                         -> ENOTDIR
+## symlinks
+  open(a symlink to a file)                              -> opened
+  open(a dangling symlink)                               -> ENOENT
+  lstat(a dangling symlink)                              -> a symlink
+  open(a dangling symlink, O_CREAT)                      -> opened
+  open(a dangling symlink, O_CREAT|O_EXCL)               -> opened
+  open(a symlink, O_NOFOLLOW)                            -> ELOOP
+  open(a symlink to a directory, O_NOFOLLOW)             -> ELOOP
+  open(a loop of two)                                    -> ELOOP
+  stat(a loop of two)                                    -> ELOOP
+  lstat(a loop of two)                                   -> a symlink
+  unlink(a loop of two), which resolves nothing          -> 0
+  a chain of 39 links                                    -> opened
+  a chain of 40 links                                    -> opened
+  a chain of 41 links                                    -> ELOOP
+## limits
+  create a 255-byte name                                 -> opened
+  create a 256-byte name                                 -> ENAMETOOLONG
+  stat a 256-byte name                                   -> ENAMETOOLONG
+  a 4095-byte path that does not exist                   -> ENAMETOOLONG
+  a path past PATH_MAX                                   -> ENAMETOOLONG
+  900 one-byte components                                -> ENOENT
+  600 dot-dots from the root                             -> a directory
+## readlink
+  readlink(a symlink)                                    -> 4 bytes "file"
+  readlink into two bytes                                -> 2 bytes "fi"
+  readlink into zero bytes                               -> 0
+  readlink(a regular file)                               -> EINVAL
+  readlink(a directory)                                  -> EINVAL
+  readlink(a symlink with a trailing slash)              -> ENOTDIR
+  readlink(a dangling symlink)                           -> 7 bytes
+  readlink(the empty path)                               -> ENOENT

@@ -1,0 +1,56 @@
+[package]
+name = "kernel-taskview"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "taskview"
+crate-type = ["rlib"]
+
+[dependencies]
+util-arcslot = { path = "../../util/arcslot" }
+util-locks = { path = "../../util/locks" }
+util-waitfor = { path = "../../util/waitfor" }
+kernel-sigqueue = { path = "../sigqueue" }
+kernel-sighand = { path = "../sighand" }
+libc = { workspace = true }
+# The types. `ffi` is a re-export of this crate, so every consumer still writes
+# `taskview::ffi::task`.
+kernel-abi = { path = "../abi" }
+# The four objects `struct task` and `struct tgroup` hold by value. Each is a
+# leaf crate with no dependencies of its own, which is what makes an edge out
+# of this one safe: nearly everything depends on taskview.
+kernel-hostthreads = { path = "../hostthreads" }
+# The controlling terminal a thread group holds. Sideways, not upward:
+# `kernel-ctty`'s transitive closure is fourteen crates and this one is not
+# among them, and `tools/crate-layers.py` puts `kernel` and `fs` in one layer.
+# The comment that used to keep it opaque said "`kernel-ctty` depends on
+# `fs-tty`", which is true and does not imply a cycle.
+kernel-ctty = { path = "../ctty" }
+# A task's tracing state. Split out of `kernel-ptrace` on 2026-09-11 for this
+# edge: the syscall crate's closure contains this one, the state's is
+# `kernel-abi` and `util-guestlock`.
+kernel-ptracestate = { path = "../ptracestate" }
+# The POSIX timers a thread group owns. Its closure is four `util` crates
+# since `TaskRef` moved to `util-identity` on 2026-09-29.
+kernel-posixtimers = { path = "../posixtimers" }
+# A task's path context. It stopped reaching `fs-fdobj` on 2026-09-11 -- what it
+# wanted was below it -- which is what lets `struct task` name the type.
+kernel-fsinfo = { path = "../fsinfo" }
+kernel-offloadreg = { path = "../offloadreg" }
+kernel-creds = { path = "../creds" }
+kernel-observe = { path = "../observe" }
+kernel-procattr = { path = "../procattr" }
+# A task's seccomp mode and filter chain, read on every syscall.
+kernel-seccomp = { path = "../seccomp" }
+kernel-syscallrestart = { path = "../syscallrestart" }
+kernel-groupexit = { path = "../groupexit" }
+kernel-vforkhandoff = { path = "../vforkhandoff" }
+kernel-rlimitstate = { path = "../rlimitstate" }
+
+[build-dependencies]
+iul-buildcfg = { path = "../../util/buildcfg" }
+# `struct task` and `struct tgroup` are defined in Rust. See the crate comment
+# for why this exists rather than an accessor per field.

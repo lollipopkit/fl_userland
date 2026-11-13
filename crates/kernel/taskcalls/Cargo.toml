@@ -1,0 +1,49 @@
+[package]
+name = "kernel-taskcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "taskcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-hostsig = { path = "../../util/hostsig" }
+util-errno = { path = "../../util/errno" }
+kernel-hoststats = { path = "../hoststats" }
+kernel-sighand = { path = "../sighand" }
+util-logline = { path = "../../util/logline" }
+kernel-pagetable = { path = "../../kernel/pagetable" }
+util-locks = { path = "../../util/locks" }
+kernel-rlimit = { path = "../rlimit" }
+kernel-vforkhandoff = { path = "../vforkhandoff" }
+emu-tlb = { path = "../../emu/tlb" }
+asbestos-dispatch = { path = "../../asbestos/dispatch" }
+kernel-syscallrefs = { path = "../../kernel/syscallrefs" }
+kernel-sigqueue = { path = "../../kernel/sigqueue" }
+util-waitfor = { path = "../../util/waitfor" }
+kernel-mmapcalls = { path = "../../kernel/mmapcalls" }
+kernel-fsinfo = { path = "../../kernel/fsinfo" }
+fdtable = { path = "../../fs/fdtable" }
+kernel-ptrace = { path = "../../kernel/ptrace" }
+kernel-hostthreads = { path = "../../kernel/hostthreads" }
+kernel-procattr = { path = "../../kernel/procattr" }
+kernel-groupexit = { path = "../../kernel/groupexit" }
+kernel-creds = { path = "../../kernel/creds" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+kernel-proctree = { path = "../../kernel/proctree" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true
+kernel-pids = { path = "../pids" }
+kernel-observe = { path = "../observe" }
+# `notify_gone`, from `task_destroy`: a pidfd on a reaped task reads POLLHUP.
+kernel-pidfd = { path = "../pidfd" }
+kernel-seccomp = { path = "../seccomp" }
+util-strace = { path = "../../util/strace" }
+
+[dev-dependencies]

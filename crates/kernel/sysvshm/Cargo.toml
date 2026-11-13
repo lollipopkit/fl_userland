@@ -1,0 +1,27 @@
+[package]
+name = "kernel-sysvshm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "sysvshm"
+crate-type = ["rlib"]
+
+[dependencies]
+# `Owned`: the registry holds one reference to each segment's memfd, and that
+# reference used to be a `usize` released by hand at four sites.
+fs-fdobj = { path = "../../fs/fdobj" }
+util-errno = { path = "../../util/errno" }
+libc.workspace = true
+# A segment is a memfd the kernel made for itself; attaching one is a shared
+# mapping of it.
+kernel-memfdcalls = { path = "../memfdcalls" }
+kernel-mmapcalls = { path = "../mmapcalls" }
+kernel-usercopy = { path = "../usercopy" }
+kernel-taskview = { path = "../taskview" }
+kernel-creds = { path = "../creds" }
+util-strace = { path = "../../util/strace" }
+
+[dev-dependencies]

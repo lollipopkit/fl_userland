@@ -1,0 +1,22 @@
+[package]
+name = "fs-mount"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fs_mount"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# The registry a mount inserts itself into. An ordinary call since
+# 2026-09-09; see the note where the `extern "C"` block was.
+fs-mounttable = { path = "../mounttable" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+
+[dev-dependencies]
+# The mount type whose root descriptor the leak test is about.
+realfs = { path = "../realfs" }

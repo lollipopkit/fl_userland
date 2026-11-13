@@ -1,0 +1,46 @@
+[package]
+name = "kernel-signaldeliver"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "signaldeliver"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-tgroup = { path = "../tgroup" }
+kernel-taskcalls = { path = "../taskcalls" }
+util-logline = { path = "../../util/logline" }
+kernel-vdso = { path = "../../kernel/vdso" }
+asbestos-dispatch = { path = "../../asbestos/dispatch" }
+kernel-ptrace = { path = "../../kernel/ptrace" }
+kernel-creds = { path = "../../kernel/creds" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+kernel-pagetable = { path = "../../kernel/pagetable" }
+# The IUL_* settings as a safe read; see crates/util/iulenv.
+util-iulenv = { path = "../../util/iulenv" }
+libc.workspace = true
+kernel-sigdisp = { path = "../sigdisp" }
+kernel-sighand = { path = "../sighand" }
+kernel-sigqueue = { path = "../sigqueue" }
+kernel-proctree = { path = "../proctree" }
+util-timeabi = { path = "../../util/timeabi" }
+kernel-usercopy = { path = "../usercopy" }
+kernel-sigframe = { path = "../sigframe" }
+kernel-syscallrestart = { path = "../syscallrestart" }
+kernel-groupstop = { path = "../groupstop" }
+kernel-pids = { path = "../pids" }
+util-strace = { path = "../../util/strace" }
+
+# `signalfd_notify`, called by path: `kernel/signalfd.h` was a declaration no C read.
+kernel-signalfdcalls = { path = "../signalfdcalls" }
+
+[dev-dependencies]
+# The real signal state, so a test runs the real `wait_for`. It ran
+# `crates/util/guestlock-teststub`'s parallel one until 2026-09-08.
+kernel-sighand = { path = "../sighand" }
+kernel-sigqueue = { path = "../sigqueue" }

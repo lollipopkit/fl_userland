@@ -1,0 +1,35 @@
+# The two guest programs the prebuilt-gadget offload check runs.
+#
+# Its own workspace, like `tests/guest`, and for the same reason: these are
+# built for aarch64-unknown-linux-musl and `cargo test` at the repository root
+# should not try to build them for the host.
+#
+# They were C until 2026-09-09, cross-compiled by running `apk add gcc
+# musl-dev` inside an aarch64 Alpine container on every run of `run.sh` -- so
+# the check needed Docker and the network to build a forty-line program. rustc
+# cross-compiles it with `rust-lld`, which ships with the toolchain.
+[workspace]
+
+[package]
+name = "offload-guest"
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+publish = false
+
+# **Not stripped, and not a PIE.** `run.sh` reads each function's address out of
+# the binary with `nm` and hands it to the fixture, which registers a host
+# implementation at that guest address -- so the symbol has to be there and the
+# address has to be the one the loader will use.
+[profile.release]
+opt-level = 3
+strip = false
+panic = "abort"
+
+[[bin]]
+name = "mixbench"
+path = "src/bin/mixbench.rs"
+
+[[bin]]
+name = "callbench"
+path = "src/bin/callbench.rs"

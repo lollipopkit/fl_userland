@@ -1,0 +1,14 @@
+[package]
+name = "kernel-execargs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "execargs"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-usercopy = { path = "../usercopy" }

@@ -1,0 +1,14 @@
+########## file mappings ##########
+a file in /tmp, MAP_PRIVATE                          -> agree with fstat; name '/tmp/mapsdev_probe.file'; smaps agrees
+a file in /tmp, MAP_SHARED                           -> agree with fstat; name '/tmp/mapsdev_probe.file'; smaps agrees
+a file in /dev/shm, MAP_PRIVATE                      -> agree with fstat; name '/dev/shm/mapsdev_probe.file'; smaps agrees
+a file in /dev/shm, MAP_SHARED                       -> agree with fstat; name '/dev/shm/mapsdev_probe.file'; smaps agrees
+mount a tmpfs                                        -> ok
+a file on that tmpfs, MAP_SHARED                     -> agree with fstat; name '/tmp/mapsdev_probe.tmpfs/f'; smaps agrees
+a memfd, MAP_SHARED                                  -> agree with fstat; name '/memfd:mapsdev (deleted)'; smaps agrees
+a memfd, MAP_PRIVATE                                 -> agree with fstat; name '/memfd:mapsdev (deleted)'; smaps agrees
+the executable's first mapping                       -> agree with fstat
+########## anonymous mappings ##########
+MAP_PRIVATE|MAP_ANONYMOUS                            -> 00:00 0; name ''; smaps agrees
+[heap]                                               -> 00:00 0
+[stack]                                              -> 00:00 0

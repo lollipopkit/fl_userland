@@ -1,0 +1,64 @@
+[package]
+name = "kernel-boot"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_boot"
+crate-type = ["rlib"]
+
+[dependencies]
+util-locks = { path = "../../util/locks" }
+util-errno = { path = "../../util/errno" }
+util-hostsig = { path = "../../util/hostsig" }
+# `realfs_fdops`, which this used to reach through a bindgen-generated
+# `extern "C" { static realfs_fdops }` -- a dependency edge cargo could not
+# see. realfs does not depend on this crate, so the edge is a plain one.
+realfs = { path = "../../fs/realfs" }
+kernel-sighand = { path = "../sighand" }
+fs-generic = { path = "../../fs/generic" }
+kernel-pids = { path = "../pids" }
+kernel-pagetable = { path = "../pagetable" }
+util-iulenv = { path = "../../util/iulenv" }
+kernel-signaldeliver = { path = "../signaldeliver" }
+kernel-rlimit = { path = "../rlimit" }
+fs-ttydev = { path = "../../fs/ttydev" }
+kernel-groupcalls = { path = "../../kernel/groupcalls" }
+kernel-tgroup = { path = "../../kernel/tgroup" }
+kernel-sigqueue = { path = "../../kernel/sigqueue" }
+fs-adhoc = { path = "../../fs/adhoc" }
+# The filesystem registry, seeded in `become_first_process`.
+# For the run-loop hooks installed in `become_first_process`.
+asbestos-dispatch = { path = "../../asbestos/dispatch" }
+asbestos-diag = { path = "../../asbestos/diag" }
+util-currentpid = { path = "../../util/currentpid" }
+kernel-exitcalls = { path = "../exitcalls" }
+# For the run-loop hooks installed in `become_first_process`.
+kernel-syscalldispatch = { path = "../syscalldispatch" }
+fs-mountcalls = { path = "../../fs/mountcalls" }
+fs-mount = { path = "../../fs/mount" }
+kernel-mmapcalls = { path = "../../kernel/mmapcalls" }
+kernel-taskcalls = { path = "../../kernel/taskcalls" }
+kernel-fsinfo = { path = "../../kernel/fsinfo" }
+fdtable = { path = "../../fs/fdtable" }
+kernel-hostthreads = { path = "../../kernel/hostthreads" }
+kernel-procattr = { path = "../../kernel/procattr" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+kernel-proctree = { path = "../../kernel/proctree" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+# errno_map as a Rust call; through bindgen until 2026-09-04.
+kernel-errno = { path = "../errno" }
+libc.workspace = true
+rustix.workspace = true
+fs-devices = { path = "../../fs/devices" }
+
+[dev-dependencies]
+# The whole engine, so `tests/run_hooks.rs` can link. A test that needs the
+# product is an integration test; see CLAUDE.md's table.
+iul = { path = "../../iul" }
+asbestos-gadgets = { path = "../../asbestos/gadgets" }

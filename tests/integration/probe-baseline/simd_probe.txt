@@ -1,0 +1,430 @@
+########## bitwise ##########
+  and v0.16b, v1.16b, v2.16b         00010001017e0080120054280ab012c0
+  orr v0.16b, v1.16b, v2.16b         017f81ff7fffc0c0ff3457fa9ffcfffc
+  eor v0.16b, v1.16b, v2.16b         017e81fe7e81c040ed3403d2954ced3c
+  bic v0.16b, v1.16b, v2.16b         007e80fe0080404000340250900ccc30
+  orn v0.16b, v1.16b, v2.16b         fefffeff81fe7fff12fffe7dfabfdef3
+  not v0.16b, v1.16b                 ff807f00fe01bf3fedcba9876543210f
+  bsl v0.16b, v1.16b, v2.16b         002300452b7fc0807620566a9abcdecc
+  bit v0.16b, v1.16b, v2.16b         10233245017e778812aafe6cdabedec0
+  bif v0.16b, v1.16b, v2.16b         017e81fe55e640c0993413d89decff30
+  mvn v0.16b, v1.16b                 ff807f00fe01bf3fedcba9876543210f
+########## integer arithmetic ##########
+  add v0.16b, v1.16b, v2.16b         01808100807dc0401134ab22a9ac11bc
+  sub v0.16b, v1.16b, v2.16b         ff7e7ffe827fc040133401ce8bccab24
+  mul v0.16b, v1.16b, v2.16b         007f80ff7f020000ee008eb006403a40
+  neg v0.16b, v1.16b                 00818001ff02c040eeccaa8866442210
+  abs v0.16b, v1.16b                 007f8001010240401234567866442210
+  add v0.8h, v1.8h, v2.8h            01808100807dc0401135ab22a9ac11bd
+  sub v0.8h, v1.8h, v2.8h            ff7d7ffe827ec03f133301ce8bccab24
+  mul v0.8h, v1.8h, v2.8h            007f807f7f810020eedd8e10066d3ae4
+  neg v0.8h, v1.8h                   00818000ff01c03feecbaa876643220f
+  abs v0.8h, v1.8h                   007f8000ff01c03f123456786643220f
+  add v0.4s, v1.4s, v2.4s            01808100807dc1401135ab22a9ac12bd
+  sub v0.4s, v1.4s, v2.4s            ff7d7ffe827ec03f133301ce8bccaa24
+  mul v0.4s, v1.4s, v2.4s            007ffffe7f81c01eeeddd71b066d8b38
+  neg v0.4s, v1.4s                   00817f00ff01bf3feecba9876643210f
+  abs v0.4s, v1.4s                   00817f00ff01bf3f123456786643210f
+  add v0.2d, v1.2d, v2.2d            01808100817dc1401135ab22aaac12bd
+  sub v0.2d, v1.2d, v2.2d            ff7d7ffe827ec03f133301ce8accaa24
+  neg v0.2d, v1.2d                   00817f00fe01bf3feecba9876543210f
+  abs v0.2d, v1.2d                   00817f00fe01bf3feecba9876543210f
+  mla v0.4s, v1.4s, v2.4s            11a13243d4e737a7878893e8e35b8b39
+  mls v0.4s, v1.4s, v2.4s            11a33345d6e4b669abcce3b0d78174c8
+########## saturating ##########
+  sqadd v0.16b, v1.16b, v2.16b       017f81007f7dc08011347f22a9ac11bc
+  uqadd v0.16b, v1.16b, v2.16b       018081ff80ffc0ffff34abffa9ffffff
+  sqsub v0.16b, v1.16b, v2.16b       ff7e80fe82807f401334017f8bccab24
+  uqsub v0.16b, v1.16b, v2.16b       007e7ffe007f0040003401008b00ab24
+  sqadd v0.4s, v1.4s, v2.4s          01808100000000801135ab22a9ac12bd
+  uqadd v0.4s, v1.4s, v2.4s          ffffffffffffffffffffffffffffffff
+  sqneg v0.16b, v1.16b               00817f01ff02c040eeccaa8866442210
+  sqabs v0.16b, v1.16b               007f7f01010240401234567866442210
+  suqadd v0.16b, v1.16b              117f7f7f567f7f48abde1144777f7f7f
+  usqadd v0.16b, v1.16b              11a100435664b748abdeffff77aadd00
+########## min max and compare ##########
+  smax v0.16b, v1.16b, v2.16b        017f01017f7f40c0123456780ff033f0
+  umax v0.16b, v1.16b, v2.16b        017f80ff7ffe80c0ff3456aa9af0def0
+  smin v0.16b, v1.16b, v2.16b        000180ff01fe8080ff0055aa9abcdecc
+  umin v0.16b, v1.16b, v2.16b        00010101017f4080120055780fbc33cc
+  smax v0.4s, v1.4s, v2.4s           0101010101fe40c0123456789abcdef0
+  umin v0.4s, v1.4s, v2.4s           010101017f7f8080123456780ff033cc
+  sabd v0.16b, v1.16b, v2.16b        017e81027e81c040133401ce75345524
+  uabd v0.16b, v1.16b, v2.16b        017e7ffe7e7f4040ed3401328b34ab24
+  saba v0.16b, v1.16b, v2.16b        12a0b446d3e737c8acdebc9a52225424
+  uaba v0.16b, v1.16b, v2.16b        12a0b242d3e5b7c886debcfe6822aa24
+  cmeq v0.16b, v1.16b, v2.16b        00000000000000000000000000000000
+  cmge v0.16b, v1.16b, v2.16b        00ff00000000ffffffffffff000000ff
+  cmgt v0.16b, v1.16b, v2.16b        00ff00000000ffffffffffff000000ff
+  cmhi v0.16b, v1.16b, v2.16b        00ffffff00ff00ff00ffff00ff00ffff
+  cmhs v0.16b, v1.16b, v2.16b        00ffffff00ff00ff00ffff00ff00ffff
+  cmtst v0.16b, v1.16b, v2.16b       00ff00ffffff00ffff00ffffffffffff
+  cmeq v0.16b, v1.16b, #0            ff000000000000000000000000000000
+  cmge v0.16b, v1.16b, #0            ffff0000ff00ff00ffffffff00000000
+  cmgt v0.16b, v1.16b, #0            00ff0000ff00ff00ffffffff00000000
+  cmle v0.16b, v1.16b, #0            ff00ffff00ff00ff00000000ffffffff
+  cmlt v0.16b, v1.16b, #0            0000ffff00ff00ff00000000ffffffff
+########## pairwise and reductions ##########
+  addp v0.16b, v1.16b, v2.16b        7f7fff0046ce56ce0202fe00ffffffff
+  addp v0.4s, v1.4s, v2.4s           017dc1bfacf03469808081810ef18876
+  saddlp v0.8h, v1.16b               7f007fffffff00004600ce0056ffceff
+  uaddlp v0.8h, v1.16b               7f007f01ff0000014600ce005601ce01
+  sadalp v0.8h, v1.16b               9022b24354667788dfaa89cd33eecd00
+  uadalp v0.8h, v1.16b               9022b24554677789dfaa89cd33f0cd02
+  smaxp v0.16b, v1.16b, v2.16b       7fff01403478bcf001017f8000550f33
+  uminp v0.16b, v1.16b, v2.16b       0080014012569ade01017f8000550f33
+  addv b0, v1.16b                    35000000000000000000000000000000
+  addv s0, v1.4s                     ad6df628000000000000000000000000
+  smaxv b0, v1.16b                   7f000000000000000000000000000000
+  uminv b0, v1.16b                   00000000000000000000000000000000
+  uaddlv h0, v1.16b                  35080000000000000000000000000000
+  saddlv h0, v1.16b                  35000000000000000000000000000000
+  addp d0, v1.2d                     12b3d6779cba1fb10000000000000000
+########## widening and narrowing ##########
+  uaddl v0.8h, v1.8b, v2.8b          010080008100000180007d01c0004001
+  saddl v0.8h, v1.8b, v2.8b          0100800081ff000080007d00c0ff40ff
+  uaddl2 v0.8h, v1.16b, v2.16b       11013400ab002201a900ac011101bc01
+  usubl v0.8h, v1.8b, v2.8b          ffff7e007f00fe0082ff7f00c0ff4000
+  uaddw v0.8h, v0.8h, v1.8b          1122b244d56676899aaab9cd1defbf01
+  umull v0.8h, v1.8b, v2.8b          00007f008000ff007f00027e00200060
+  smull v0.8h, v1.8b, v2.8b          00007f0080ffffff7f0002ff00e00020
+  umlal v0.8h, v1.8b, v2.8b          1122b244d566768918abbd4add0eff60
+  xtn v0.8b, v1.8h                   0080014012569ade0000000000000000
+  xtn2 v0.16b, v1.8h                 11223344556677880080014012569ade
+  sqxtn v0.8b, v1.8h                 7f8080807f7f80800000000000000000
+  uqxtn v0.8b, v1.8h                 ffffffffffffffff0000000000000000
+  sqxtun v0.8b, v1.8h                ff000000ffff00000000000000000000
+  addhn v0.8b, v1.8h, v2.8h          80007d403522acbd0000000000000000
+  raddhn v0.8b, v1.8h, v2.8h         80017e413523adbd0000000000000000
+  ushll v0.8h, v1.8b, #3             0000f8030004f8070800f00700020006
+  sshll v0.8h, v1.8b, #3             0000f80300fcf8ff0800f0ff000200fe
+  ushll2 v0.8h, v1.16b, #0           12003400560078009a00bc00de00f000
+  uxtl v0.8h, v1.8b                  00007f008000ff000100fe004000c000
+  sxtl v0.8h, v1.8b                  00007f0080ffffff0100feff4000c0ff
+########## shifts ##########
+  shl v0.16b, v1.16b, #3             00f800f808f0000090a0b0c0d0e0f080
+  ushr v0.16b, v1.16b, #3            000f101f001f081802060a0f13171b1e
+  sshr v0.16b, v1.16b, #3            000ff0ff00ff08f802060a0ff3f7fbfe
+  urshr v0.16b, v1.16b, #3           001010200020081802070b0f13181c1e
+  srshr v0.16b, v1.16b, #3           0010f000000008f802070b0ff3f8fcfe
+  usra v0.16b, v1.16b, #3            1131436355857fa09bb0c5dbf0051a1e
+  ssra v0.16b, v1.16b, #3            1131234355657f809bb0c5dbd0e5fafe
+  ursra v0.16b, v1.16b, #3           1132436455867fa09bb1c6dbf0061b1e
+  sri v0.16b, v1.16b, #3             002f305f407f689882a6aacfd3f7fb1e
+  sli v0.16b, v1.16b, #3             01fa03fc0df6070091a2b3c4d5e6f780
+  shl v0.8h, v1.8h, #5               00e000f020c000084082c00a4093c01b
+  ushr v0.4s, v1.4s, #9              3fc07f007f2060001a2b3c005e6f7800
+  sshr v0.2d, v1.2d, #17             c0ff007f20e0ffff2b3c4d5e6ff8ffff
+  shrn v0.8b, v1.8h, #3              e0f0c008820a931b0000000000000000
+  rshrn v0.8b, v1.8h, #3             e0f0c008820b931c0000000000000000
+  sqshrn v0.8b, v1.8h, #3            7ff0c0807f7f80800000000000000000
+  uqshrn v0.8b, v1.8h, #3            ffffffffffffffff0000000000000000
+  ushl v0.16b, v1.16b, v2.16b        00fe00fe000000000934000000000000
+  sshl v0.16b, v1.16b, v2.16b        00fe00fe000000ff0934000000ff00ff
+  urshl v0.16b, v1.16b, v2.16b       00fe00fe000000000934000000000000
+  sqshl v0.16b, v1.16b, v2.16b       007f80fe7f8000ff09347f0080ff80ff
+  uqshl v0.16b, v1.16b, v2.16b       00feffffffff00000934ff00ff00ff00
+  shl d0, d1, #7                     00803fc0ff007f200000000000000000
+  ushr d0, d1, #7                    fe00ff03fc8180010000000000000000
+  sshr d0, d1, #7                    fe00ff03fc8180ff0000000000000000
+########## register shifts at boundary amounts ##########
+  movi v2.16b, #8ushl v0.16b, v1.16b, v2.16b 00000000000000000000000000000000
+  movi v2.16b, #8sshl v0.16b, v1.16b, v2.16b 00000000000000000000000000000000
+  movi v2.16b, #8urshl v0.16b, v1.16b, v2.16b 00000000000000000000000000000000
+  movi v2.16b, #8uqshl v0.16b, v1.16b, v2.16b 00ffffffffffffffffffffffffffffff
+  movi v2.16b, #63ushl v0.16b, v1.16b, v2.16b 00000000000000000000000000000000
+  movi v2.16b, #63sshl v0.16b, v1.16b, v2.16b 00000000000000000000000000000000
+  movi v2.16b, #64ushl v0.16b, v1.16b, v2.16b 00000000000000000000000000000000
+  movi v2.16b, #64sshl v0.16b, v1.16b, v2.16b 00000000000000000000000000000000
+  movi v2.16b, #64ushl v0.2d, v1.2d, v2.2d 00000000000000000000000000000000
+  movi v2.16b, #64sshl v0.2d, v1.2d, v2.2d 00000000000000000000000000000000
+  movi v2.16b, #65ushl v0.16b, v1.16b, v2.16b 00000000000000000000000000000000
+  movi v2.16b, #65ushl v0.4s, v1.4s, v2.4s 00000000000000000000000000000000
+  movi v2.16b, #127ushl v0.16b, v1.16b, v2.16b 00000000000000000000000000000000
+  movi v2.16b, #127sshl v0.8h, v1.8h, v2.8h 00000000000000000000000000000000
+  movi v2.16b, #0xc0ushl v0.16b, v1.16b, v2.16b 00000000000000000000000000000000
+  movi v2.16b, #0xc0sshl v0.16b, v1.16b, v2.16b 0000ffff00ff00ff00000000ffffffff
+  movi v2.16b, #0xc0ushl v0.2d, v1.2d, v2.2d 00000000000000000000000000000000
+  movi v2.16b, #0xc0sshl v0.2d, v1.2d, v2.2d ffffffffffffffffffffffffffffffff
+  movi v2.16b, #0xf8ushl v0.16b, v1.16b, v2.16b 00000000000000000000000000000000
+  movi v2.16b, #0xf8sshl v0.16b, v1.16b, v2.16b 0000ffff00ff00ff00000000ffffffff
+  movi v2.16b, #0xf8urshl v0.16b, v1.16b, v2.16b 00000101000100010000000001010101
+  movi v2.16b, #0xf8uqshl v0.16b, v1.16b, v2.16b 00000000000000000000000000000000
+  movi v2.16b, #0x80ushl v0.16b, v1.16b, v2.16b 00000000000000000000000000000000
+  movi v2.16b, #0x80sshl v0.16b, v1.16b, v2.16b 0000ffff00ff00ff00000000ffffffff
+  movi v2.16b, #0x80ushl v0.4s, v1.4s, v2.4s 00000000000000000000000000000000
+  movi v2.16b, #0x80sshl v0.2d, v1.2d, v2.2d ffffffffffffffffffffffffffffffff
+########## single-element loads, every lane ##########
+  ld1 {{v0.b}}[0], [{a}]             002233445566778899aabbccddeeff00
+  ld1 {{v0.b}}[5], [{a}]             112233445500778899aabbccddeeff00
+  ld1 {{v0.b}}[15], [{a}]            112233445566778899aabbccddeeff00
+  ld1 {{v0.h}}[0], [{a}]             007f33445566778899aabbccddeeff00
+  ld1 {{v0.h}}[1], [{a}]             1122007f5566778899aabbccddeeff00
+  ld1 {{v0.h}}[2], [{a}]             11223344007f778899aabbccddeeff00
+  ld1 {{v0.h}}[3], [{a}]             112233445566007f99aabbccddeeff00
+  ld1 {{v0.h}}[4], [{a}]             1122334455667788007fbbccddeeff00
+  ld1 {{v0.h}}[5], [{a}]             112233445566778899aa007fddeeff00
+  ld1 {{v0.h}}[6], [{a}]             112233445566778899aabbcc007fff00
+  ld1 {{v0.h}}[7], [{a}]             112233445566778899aabbccddee007f
+  ld1 {{v0.s}}[0], [{a}]             007f80ff5566778899aabbccddeeff00
+  ld1 {{v0.s}}[1], [{a}]             11223344007f80ff99aabbccddeeff00
+  ld1 {{v0.s}}[2], [{a}]             1122334455667788007f80ffddeeff00
+  ld1 {{v0.s}}[3], [{a}]             112233445566778899aabbcc007f80ff
+  ld1 {{v0.d}}[0], [{a}]             007f80ff01fe40c099aabbccddeeff00
+  ld1 {{v0.d}}[1], [{a}]             1122334455667788007f80ff01fe40c0
+  ld2 {{v0.h, v1.h}}[3], [{a}]       112233445566007f99aabbccddeeff00
+  ld3 {{v0.h, v1.h, v2.h}}[5], [{a}] 112233445566778899aa007fddeeff00
+  ld4 {{v0.h, v1.h, v2.h, v3.h}}[7], [{a}] 112233445566778899aabbccddee007f
+########## counting and reversing ##########
+  cnt v0.16b, v1.16b                 00070108010701020203040404050604
+  clz v0.16b, v1.16b                 08010000070001000302010100000000
+  cls v0.16b, v1.16b                 07000007060600010201000000000103
+  rbit v0.16b, v1.16b                00fe01ff807f0203482c6a1e593d7b0f
+  rev16 v0.16b, v1.16b               7f00ff80fe01c04034127856bc9af0de
+  rev32 v0.16b, v1.16b               ff807f00c040fe0178563412f0debc9a
+  rev64 v0.16b, v1.16b               c040fe01ff807f00f0debc9a78563412
+  rev32 v0.8h, v1.8h                 80ff007f40c001fe56781234def09abc
+  rev64 v0.4s, v1.4s                 01fe40c0007f80ff9abcdef012345678
+########## permute and move ##########
+  ext v0.16b, v1.16b, v2.16b, #5     fe40c0123456789abcdef0010101017f
+  ext v0.16b, v1.16b, v2.16b, #0     007f80ff01fe40c0123456789abcdef0
+  ext v0.16b, v1.16b, v2.16b, #15    f0010101017f7f8080ff0055aa0ff033
+  zip1 v0.16b, v1.16b, v2.16b        00017f018001ff01017ffe7f4080c080
+  zip2 v0.8h, v1.8h, v2.8h           1234ff00567855aa9abc0ff0def033cc
+  uzp1 v0.4s, v1.4s, v2.4s           007f80ff1234567801010101ff0055aa
+  uzp2 v0.2d, v1.2d, v2.2d           123456789abcdef0ff0055aa0ff033cc
+  trn1 v0.8h, v1.8h, v2.8h           007f010101fe7f7f1234ff009abc0ff0
+  trn2 v0.4s, v1.4s, v2.4s           01fe40c07f7f80809abcdef00ff033cc
+  dup v0.16b, v1.b[5]                fefefefefefefefefefefefefefefefe
+  dup v0.4s, v1.s[3]                 9abcdef09abcdef09abcdef09abcdef0
+  dup v0.2d, v1.d[1]                 123456789abcdef0123456789abcdef0
+  mov x9, #0x5adup v0.16b, w9        5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a
+  mov x9, #0x1234dup v0.8h, w9       34123412341234123412341234123412
+  ins v0.b[3], v1.b[7]               112233c05566778899aabbccddeeff00
+  ins v0.s[1], v1.s[2]               112233441234567899aabbccddeeff00
+  mov x9, #0xabins v0.b[9], w9       112233445566778899abbbccddeeff00
+  mov v0.16b, v1.16b                 007f80ff01fe40c0123456789abcdef0
+  umov {o:w}, v1.b[2]and {o}, {o}, #0xff 8000000000000000
+  umov {o:w}, v1.s[3]                9abcdef000000000
+  smov {o}, v1.b[2]                  80ffffffffffffff
+  smov {o}, v1.h[1]                  80ffffffffffffff
+  smov {o}, v1.s[1]                  01fe40c0ffffffff
+  smov {o:w}, v1.b[2]                80ffffff00000000
+  smov {o:w}, v1.h[1]                80ffffff00000000
+  umov {o:w}, v1.h[1]                80ff000000000000
+  fmov {o}, d1                       007f80ff01fe40c0
+  fmov {o:w}, s1                     007f80ff00000000
+  mov {o}, v1.d[1]                   123456789abcdef0
+  mov {o}, v1.d[0]                   007f80ff01fe40c0
+########## table lookup ##########
+  ldr q3, [{b}]tbl v0.16b, {{v1.16b}}, v3.16b 7f7f7f7f0000000000000000f0000000
+  ldr q3, [{b}]tbx v0.16b, {{v1.16b}}, v3.16b 7f7f7f7f556677889900bbccf0eeff00
+  ldr q3, [{b}]tbl v0.16b, {{v1.16b, v2.16b}}, v3.16b 7f7f7f7f0000000000000000f0000000
+  ldr q3, [{b}]tbx v0.16b, {{v1.16b, v2.16b}}, v3.16b 7f7f7f7f556677889900bbccf0eeff00
+  ldr q3, [{b}]tbl v0.8b, {{v1.16b}}, v3.8b 7f7f7f7f000000000000000000000000
+########## floating point ##########
+  scvtf v0.4s, v1.4s                 0002ffca08fc7ece68acf04e361472cd
+  ucvtf v0.4s, v1.4s                 7f807f4ffe40404f68acf04ebdde704f
+  scvtf v0.2d, v1.2d                 c03f00ff80dfcfc398530fcb8642aec3
+  fadd v0.4s, v1.4s, v2.4s           007fc0ff01fe40c0123456789abcdef0
+  fsub v0.4s, v1.4s, v2.4s           007fc0ff01fe40c0123456789abcdef0
+  fmul v0.4s, v1.4s, v2.4s           007fc0ff3dbe4101283a32e3be8e9c7d
+  fdiv v0.4s, v1.4s, v2.4s           007fc0ff843e407f000080ff04721e64
+  fabs v0.4s, v1.4s                  007f807f01fe4040123456789abcde70
+  fneg v0.4s, v1.4s                  007f807f01fe4040123456f89abcde70
+  fsqrt v0.4s, v1.4s                 007fc0ff0000c07fc82bea5b0000c07f
+  fmla v0.4s, v1.4s, v2.4s           007fc0ff4e637788283a32e3be8e9c7d
+  fmls v0.4s, v1.4s, v2.4s           007fc07f5c697788283a3263be8e9cfd
+  fmax v0.4s, v1.4s, v2.4s           007fc0ff7f7f8080123456780ff033cc
+  fmin v0.4s, v1.4s, v2.4s           007fc0ff01fe40c0ff0055aa9abcdef0
+  fmaxnm v0.4s, v1.4s, v2.4s         007fc0ff7f7f8080123456780ff033cc
+  fminnm v0.4s, v1.4s, v2.4s         007fc0ff01fe40c0ff0055aa9abcdef0
+  fabd v0.4s, v1.4s, v2.4s           007fc07f01fe4040123456789abcde70
+  fcmeq v0.4s, v1.4s, v2.4s          00000000000000000000000000000000
+  fcmge v0.4s, v1.4s, v2.4s          0000000000000000ffffffff00000000
+  fcmgt v0.4s, v1.4s, v2.4s          0000000000000000ffffffff00000000
+  fcmeq v0.4s, v1.4s, #0.0           00000000000000000000000000000000
+  frecpe v0.4s, v1.4s                007fc0ff0000aabe000099060000138e
+  frsqrte v0.4s, v1.4s               007fc0ff0000c07f00000c230000c07f
+  fmaxnmp v0.4s, v1.4s, v2.4s        007fc0ff1234567801010101ff0055aa
+  fminnmp v0.4s, v1.4s, v2.4s        007fc0ff9abcdef07f7f80800ff033cc
+  fmaxnmp v0.2d, v1.2d, v2.2d        007f80ff01fe40c0010101017f7f8080
+  fminnmp v0.2d, v1.2d, v2.2d        123456789abcdef0ff0055aa0ff033cc
+  urecpe v0.4s, v1.4s                00000080000080aaffffffff00000088
+  ursqrte v0.4s, v1.4s               0000008000008093000000bb00000084
+  urecpe v0.2s, v1.2s                00000080000080aa0000000000000000
+  ursqrte v0.2s, v1.2s               00000080000080930000000000000000
+  sqshl v0.16b, v1.16b, #3           007f80f808f07f807f7f7f7f80808080
+  sqshl v0.8h, v1.8h, #5             ff7f00f020c00080ff7fff7f00800080
+  sqshl v0.4s, v1.4s, #9             0000008000000080ffffff7f00000080
+  sqshl v0.2d, v1.2d, #17            00000000000000800000000000000080
+  uqshl v0.16b, v1.16b, #3           00ffffff08ffffff90ffffffffffffff
+  uqshl v0.8h, v1.8h, #5             ffffffffffffffffffffffffffffffff
+  uqshl v0.4s, v1.4s, #9             ffffffffffffffffffffffffffffffff
+  uqshl v0.2d, v1.2d, #17            ffffffffffffffffffffffffffffffff
+  sqshlu v0.16b, v1.16b, #3          00ff00000800ff0090ffffff00000000
+  sqshlu v0.8h, v1.8h, #5            ffff000000000000ffffffff00000000
+  sqshlu v0.4s, v1.4s, #9            0000000000000000ffffffff00000000
+  sqshlu v0.2d, v1.2d, #17           00000000000000000000000000000000
+  sqshlu v0.2s, v1.2s, #0            00000000000000000000000000000000
+  scvtf v0.4s, v1.4s, #7             00027fc708fcfeca68ac704b3614f2c9
+  ucvtf v0.4s, v1.4s, #7             7f80ff4bfe40c04b68ac704bbddef04b
+  scvtf v0.2s, v1.2s, #1             00027fca08fcfecd0000000000000000
+  scvtf v0.2d, v1.2d, #20            c03f00ff80df8fc298530fcb86426ec2
+  ucvtf v0.2d, v1.2d, #20            10f03fc01f08a842c70a4f93d71bae42
+  fcvtzs v0.4s, v1.4s, #3            00000000e8ffffffffffff7f00000080
+  fcvtzu v0.4s, v1.4s, #3            0000000000000000ffffffff00000000
+  fcvtzs v0.2d, v1.2d, #11           20f0feffffffffff0000000000000080
+  sqdmull v0.4s, v1.4h, v2.4h        00fefe0000fffefffe0203fe0040803f
+  sqdmull2 v0.4s, v1.8h, v2.8h       dcbb67001c2176af0cda640874c81f06
+  sqdmull v0.2d, v1.2s, v2.2s        00fefefdfdfffefffe02813d7e037f3f
+  sqdmull2 v0.2d, v1.4s, v2.4s       dcbbaf3732ff75af0cda1671c05f1f06
+  sqdmlal v0.4s, v1.4h, v2.4h        112032455565768897adbecadd2e8040
+  sqdmlal2 v0.4s, v1.8h, v2.8h       eddd9a4400000080a58420d551b71f07
+  sqdmlal v0.2d, v1.2s, v2.2s        112032425366768897ad3c0a5cf27e40
+  sqdmlsl v0.4s, v1.4h, v2.4h        11243443556778889ba7b8ceddae7fc1
+  sqdmlsl2 v0.2d, v1.4s, v2.4s       3566830c236701d98dd0a45b1d8fe0fa
+  sqadd b0, b1, b2                   01000000000000000000000000000000
+  sqadd h0, h1, h2                   ff7f0000000000000000000000000000
+  sqadd s0, s1, s2                   01808100000000000000000000000000
+  sqadd d0, d1, d2                   00000000000000800000000000000000
+  uqadd b0, b1, b2                   01000000000000000000000000000000
+  uqadd d0, d1, d2                   ffffffffffffffff0000000000000000
+  sqsub h0, h1, h2                   ff7d0000000000000000000000000000
+  uqsub s0, s1, s2                   ff7d7ffe000000000000000000000000
+  sqshl b0, b1, b2                   00000000000000000000000000000000
+  uqshl d0, d1, d2                   ffffffffffffffff0000000000000000
+  sqrshl s0, s1, s2                  00fe00ff000000000000000000000000
+  uqrshl h0, h1, h2                  00fe0000000000000000000000000000
+  srshl d0, d1, d2                   00fe00ff03fc81800000000000000000
+  urshl d0, d1, d2                   00fe00ff03fc81800000000000000000
+  cmtst d0, d1, d2                   ffffffffffffffff0000000000000000
+  sqdmulh h0, h1, h2                 fe000000000000000000000000000000
+  sqdmulh s0, s1, s2                 fdfffeff000000000000000000000000
+  sqrdmulh h0, h1, h2                ff000000000000000000000000000000
+  fmulx s0, s1, s2                   007fc0ff000000000000000000000000
+  fmulx d0, d1, d2                   0d589d106985d1000000000000000000
+  fcmeq s0, s1, s2                   00000000000000000000000000000000
+  fcmge d0, d1, d2                   00000000000000000000000000000000
+  fcmgt s0, s1, s2                   00000000000000000000000000000000
+  facge s0, s1, s2                   00000000000000000000000000000000
+  facgt d0, d1, d2                   ffffffffffffffff0000000000000000
+  frecps s0, s1, s2                  007fc07f000000000000000000000000
+  frsqrts d0, d1, d2                 000000000000f83f0000000000000000
+  suqadd b0, b1                      11000000000000000000000000000000
+  suqadd d0, d1                      11a1b3435764b8480000000000000000
+  usqadd s0, s1                      11a1b343000000000000000000000000
+  sqabs h0, h1                       007f0000000000000000000000000000
+  sqabs d0, d1                       00817f00fe01bf3f0000000000000000
+  sqneg b0, b1                       00000000000000000000000000000000
+  sqxtn b0, h1                       7f000000000000000000000000000000
+  sqxtn h0, s1                       00800000000000000000000000000000
+  sqxtn s0, d1                       00000080000000000000000000000000
+  uqxtn b0, h1                       ff000000000000000000000000000000
+  sqxtun s0, d1                      00000000000000000000000000000000
+  fcvtxn s0, d1                      0ff007c2000000000000000000000000
+  fcvtns s0, s1                      00000000000000000000000000000000
+  fcvtnu d0, d1                      00000000000000000000000000000000
+  fcvtms s0, s1                      00000000000000000000000000000000
+  fcvtmu d0, d1                      00000000000000000000000000000000
+  fcvtas s0, s1                      00000000000000000000000000000000
+  fcvtau d0, d1                      00000000000000000000000000000000
+  fcvtps s0, s1                      00000000000000000000000000000000
+  fcvtpu d0, d1                      00000000000000000000000000000000
+  frecpe s0, s1                      007fc0ff000000000000000000000000
+  frsqrte d0, d1                     000000000000f87f0000000000000000
+  frecpx s0, s1                      007fc0ff000000000000000000000000
+  srshr d0, d1, #7                   fe00ff03fc8180ff0000000000000000
+  urshr d0, d1, #63                  02000000000000000000000000000000
+  srsra d0, d1, #3                   f131238415867f800000000000000000
+  ursra d0, d1, #64                  12223344556677880000000000000000
+  sri d0, d1, #1                     803fc0ff007f20e00000000000000000
+  sri d0, d1, #64                    11223344556677880000000000000000
+  sli d0, d1, #0                     007f80ff01fe40c00000000000000000
+  sli d0, d1, #63                    11223344556677080000000000000000
+  sqshl b0, b1, #3                   00000000000000000000000000000000
+  sqshl d0, d1, #40                  00000000000000800000000000000000
+  uqshl h0, h1, #5                   ffff0000000000000000000000000000
+  sqshlu s0, s1, #9                  00000000000000000000000000000000
+  sqshlu d0, d1, #0                  00000000000000000000000000000000
+  sqshrn b0, h1, #3                  7f000000000000000000000000000000
+  sqshrn h0, s1, #9                  3fc00000000000000000000000000000
+  sqshrn s0, d1, #17                 00000080000000000000000000000000
+  uqshrn b0, h1, #3                  ff000000000000000000000000000000
+  sqrshrn h0, s1, #9                 40c00000000000000000000000000000
+  uqrshrn s0, d1, #17                ffffffff000000000000000000000000
+  sqshrun b0, h1, #3                 ff000000000000000000000000000000
+  sqrshrun s0, d1, #17               00000000000000000000000000000000
+  fmulx v0.4s, v1.4s, v2.s[1]        007fc0ff3dbe41016e0957b9769adf31
+  fmulx v0.2d, v1.2d, v2.d[1]        7e196820952c854c68b8fd499126237d
+  fmulx s0, s1, v2.s[2]              007fc0ff000000000000000000000000
+  sqdmulh h0, h1, v2.h[5]            00ab0000000000000000000000000000
+  sqdmulh s0, s1, v2.s[3]            ab983300000000000000000000000000
+  sqrdmulh h0, h1, v2.h[2]           807e0000000000000000000000000000
+  sqdmull s0, h1, v2.h[7]            009a9acc000000000000000000000000
+  sqdmull d0, s1, v2.s[1]            000280ffff007f000000000000000000
+  sqdmlal s0, h1, v2.h[3]            1122b2c5000000000000000000000000
+  sqdmlsl d0, s1, v2.s[2]            112036ec551022880000000000000000
+  shadd v0.4s, v1.4s, v2.4s          00c04000c0be60a0889a5511545689de
+  uhadd v0.4s, v1.4s, v2.4s          00c04080c0be60a0889a5591545689de
+  srhadd v0.8h, v1.8h, v2.8h         01404100c03e60a0891a561155d689de
+  umaxp v0.4s, v1.4s, v2.4s          007f80ff9abcdef07f7f80800ff033cc
+  uminp v0.4s, v1.4s, v2.4s          01fe40c01234567801010101ff0055aa
+  frecps v0.4s, v1.4s, v2.4s         007fc07f00000040283a3263be8e9cfd
+  frsqrts v0.4s, v1.4s, v2.4s        007fc07f0000c03f283ab262be8e1cfd
+  frintn v0.4s, v1.4s                007fc0ff000040c0123456789abcdef0
+  frintp v0.4s, v1.4s                007fc0ff000040c0123456789abcdef0
+  frintm v0.4s, v1.4s                007fc0ff000080c0123456789abcdef0
+  frintz v0.4s, v1.4s                007fc0ff000040c0123456789abcdef0
+  frinta v0.4s, v1.4s                007fc0ff000040c0123456789abcdef0
+  fcvtzs v0.4s, v1.4s                00000000fdffffffffffff7f00000080
+  fcvtzu v0.4s, v1.4s                0000000000000000ffffffff00000000
+  fcvtns v0.4s, v1.4s                00000000fdffffffffffff7f00000080
+  fcvtms v0.4s, v1.4s                00000000fcffffffffffff7f00000080
+  fcvtps v0.4s, v1.4s                00000000fdffffffffffff7f00000080
+  fcvtas v0.4s, v1.4s                00000000fdffffffffffff7f00000080
+  fcvtl v0.2d, v1.2s                 00000000e00ff8ff00000020c01f08c0
+  fcvtn v0.2s, v1.2d                 10f007c2000080ff0000000000000000
+  fcvtxn v0.2s, v1.2d                0ff007c2ffff7fff0000000000000000
+  faddp v0.4s, v1.4s, v2.4s          007fc0ff55325678838281000ff033cc
+  faddp s0, v1.2s                    007fc0ff000000000000000000000000
+  fmaxv s0, v1.4s                    007fc0ff000000000000000000000000
+  fminnmv s0, v1.4s                  9abcdef0000000000000000000000000
+  fadd s0, s1, s2                    007fc0ff000000000000000000000000
+  fmul d0, d1, d2                    0d589d106985d1000000000000000000
+  fdiv d0, d1, d2                    32472451b17ab07f0000000000000000
+  fmadd s0, s1, s2, s0               007fc0ff000000000000000000000000
+  fnmsub d0, d1, d2, d0              11223344556677080000000000000000
+  fcvt d0, s1                        00000000e00ff8ff0000000000000000
+  fcvt s0, d1                        10f007c2000000000000000000000000
+  mul v0.4s, v1.4s, v2.s[2]          0081feabff021281eeddd71b66ddffd0
+  mla v0.4s, v1.4s, v2.s[1]          1123f343d4e737a7876d544c43e50f4c
+  fmul v0.4s, v1.4s, v2.s[3]         007fc0ff94a6074d000080ffbe8e9c7d
+  fmla v0.4s, v1.4s, v2.s[0]         007fc0ff696c778899aabbccd27b60b2
+  umull v0.4s, v1.4h, v2.h[3]        0080bf3f00c03f8080807f7f00208060
+  sqdmulh v0.4s, v1.4s, v2.4s        fdfffeff7e037f3f32ff75afc05f1f06
+  sqrdmulh v0.8h, v1.8h, v2.8h       ff00ffff03fe803f680076af65082006
+########## immediates ##########
+  movi v0.16b, #0x5a                 5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a
+  movi v0.4s, #0x12, lsl #8          00120000001200000012000000120000
+  movi v0.4s, #0xff, msl #8          ffff0000ffff0000ffff0000ffff0000
+  movi d0, #0xff00ff00ff00ff00       00ff00ff00ff00ff0000000000000000
+  mvni v0.4s, #0x12, lsl #16         ffffedffffffedffffffedffffffedff
+  movi v0.2d, #0xffffffffffffffff    ffffffffffffffffffffffffffffffff
+  fmov v0.4s, #1.5                   0000c03f0000c03f0000c03f0000c03f
+  fmov v0.2d, #-2.0                  00000000000000c000000000000000c0
+  orr v0.4s, #0x0f, lsl #8           112f3344556f778899afbbccddefff00
+  bic v0.4s, #0xf0, lsl #16          112203445566078899aa0bccddee0f00
+########## loads and stores ##########
+  ld1/st1 x1                         01080f161d242b323940474e555c636a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+  ld1/st1 x4                         01080f161d242b323940474e555c636a71787f868d949ba2a9b0b7bec5ccd3dae1e8eff6fd040b121920272e353c434a51585f666d747b828990979ea5acb3ba
+  ld2/st2                            01080f161d242b323940474e555c636a71787f868d949ba2a9b0b7bec5ccd3da0000000000000000000000000000000000000000000000000000000000000000
+  ld3/st3                            01080f161d242b323940474e555c636a71787f868d949ba2a9b0b7bec5ccd3dae1e8eff6fd040b121920272e353c434a00000000000000000000000000000000
+  ld4/st4                            01080f161d242b323940474e555c636a71787f868d949ba2a9b0b7bec5ccd3dae1e8eff6fd040b121920272e353c434a51585f666d747b828990979ea5acb3ba
+  ld1r                               01010101010101010101010101010101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+  ld2r                               010801080108010801080108010801080f160f160f160f160f160f160f160f160000000000000000000000000000000000000000000000000000000000000000
+  ld1 single lane                    00000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+  ld1 post-increment                 01080f161d242b323940474e555c636a71787f868d949ba2a9b0b7bec5ccd3da0000000000000000000000000000000000000000000000000000000000000000
+  ldp/stp q                          01080f161d242b323940474e555c636a71787f868d949ba2a9b0b7bec5ccd3da0000000000000000000000000000000000000000000000000000000000000000
+  ldr/str d                          01080f161d242b320000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+  ldur/stur q unaligned              00161d242b323940474e555c636a71787f0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

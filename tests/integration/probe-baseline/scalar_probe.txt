@@ -1,0 +1,170 @@
+########## flag setting ##########
+  adds x0, x1, x2                          0000000000000000  -ZC-
+  subs x0, x1, x2                          0000000000000002  --CV
+  adds x0, x2, x1                          0000000000000000  -ZC-
+  subs x0, x2, x1                          fffffffffffffffe  N--V
+  adds w0, w1, w2                          0000000000000000  -ZC-
+  subs w0, w1, w2                          0000000000000002  ----
+  ands x0, x1, x2                          0000000000000001  ----
+  bics x0, x1, x2                          8000000000000000  N---
+  adds x0, x1, #1                          8000000000000002  N---
+  subs x0, x1, #1                          8000000000000000  N-C-
+  mov x1, #0subs x0, x1, #0                0000000000000000  -ZC-
+  mov x1, #0subs x0, x1, #1                ffffffffffffffff  N---
+  movn x1, #0adds x0, x1, #1               0000000000000000  -ZC-
+  mov x1, xzradds x0, x1, xzr              0000000000000000  -Z--
+  cmp x1, x2                               0000000000000000  --CV
+  cmn x1, x2                               0000000000000000  -ZC-
+  cmp w1, w2                               0000000000000000  ----
+  tst x1, x2                               0000000000000000  ----
+  cmp x1, x1adc x0, x1, x2                 0000000000000001  -ZC-
+  cmp x1, x2adc x0, x1, x2                 0000000000000001  --CV
+  cmp x1, x1sbc x0, x1, x2                 0000000000000002  -ZC-
+  cmp x1, x2sbc x0, x1, x2                 0000000000000002  --CV
+  cmp x1, x1adcs x0, x1, x2                0000000000000001  --C-
+  cmp x1, x2sbcs x0, x1, x2                0000000000000002  --CV
+  adds x0, x1, w2, uxtb                    8000000000000100  N---
+  adds x0, x1, w2, sxtb                    8000000000000000  N-C-
+  adds x0, x1, w2, sxth #2                 7ffffffffffffffd  --CV
+  adds x0, x1, w2, uxtw #3                 80000007fffffff9  N---
+  adds x0, x1, x2, lsl #4                  7ffffffffffffff1  --CV
+  adds x0, x1, x2, lsr #4                  8800000000000000  N---
+  adds x0, x1, x2, asr #4                  8800000000000000  N---
+  subs x0, x1, x2, asr #63                 8000000000000001  N-C-
+########## conditional compare ##########
+  cmp x1, x2ccmp x1, x2, #0, eq            0000000000000000  ----
+  cmp x1, x2ccmp x1, x2, #0, ne            0000000000000000  --CV
+  cmp x1, x2ccmp x1, x2, #15, eq           0000000000000000  NZCV
+  cmp x1, x2ccmp x1, x2, #15, ne           0000000000000000  --CV
+  cmp x1, x1ccmp x1, x2, #4, eq            0000000000000000  --CV
+  cmp x1, x1ccmn x1, x2, #4, eq            0000000000000000  -ZC-
+  cmp x1, x2ccmp x1, #31, #0, lt           0000000000000000  --CV
+  cmp x1, x2ccmp w1, w2, #0, hi            0000000000000000  ----
+########## conditional select ##########
+  cmp x1, x2csel x0, x1, x2, eq            7fffffffffffffff  --CV
+  cmp x1, x2csel x0, x1, x2, ne            8000000000000001  --CV
+  cmp x1, x2csel x0, x1, x2, cs            8000000000000001  --CV
+  cmp x1, x2csel x0, x1, x2, cc            7fffffffffffffff  --CV
+  cmp x1, x2csel x0, x1, x2, mi            7fffffffffffffff  --CV
+  cmp x1, x2csel x0, x1, x2, pl            8000000000000001  --CV
+  cmp x1, x2csel x0, x1, x2, vs            8000000000000001  --CV
+  cmp x1, x2csel x0, x1, x2, vc            7fffffffffffffff  --CV
+  cmp x1, x2csel x0, x1, x2, hi            8000000000000001  --CV
+  cmp x1, x2csel x0, x1, x2, ls            7fffffffffffffff  --CV
+  cmp x1, x2csel x0, x1, x2, ge            7fffffffffffffff  --CV
+  cmp x1, x2csel x0, x1, x2, lt            8000000000000001  --CV
+  cmp x1, x2csel x0, x1, x2, gt            7fffffffffffffff  --CV
+  cmp x1, x2csel x0, x1, x2, le            8000000000000001  --CV
+  cmp x1, x2csinc x0, x1, x2, eq           8000000000000000  --CV
+  cmp x1, x2csinv x0, x1, x2, eq           8000000000000000  --CV
+  cmp x1, x2csneg x0, x1, x2, eq           8000000000000001  --CV
+  cmp x1, x2cset x0, eq                    0000000000000000  --CV
+  cmp x1, x2csetm x0, lt                   ffffffffffffffff  --CV
+  cmp x1, x2cinc x0, x1, eq                8000000000000001  --CV
+  cmp x1, x2cneg x0, x1, lt                7fffffffffffffff  --CV
+########## multiply and divide ##########
+  mul x0, x1, x2                           ffffffffffffffff  ----
+  madd x0, x1, x2, x1                      8000000000000000  ----
+  msub x0, x1, x2, x1                      8000000000000002  ----
+  mneg x0, x1, x2                          0000000000000001  ----
+  smulh x0, x1, x2                         c000000000000000  ----
+  umulh x0, x1, x2                         3fffffffffffffff  ----
+  smull x0, w1, w2                         ffffffffffffffff  ----
+  umull x0, w1, w2                         00000000ffffffff  ----
+  smaddl x0, w1, w2, x1                    8000000000000000  ----
+  umsubl x0, w1, w2, x1                    7fffffff00000002  ----
+  udiv x0, x1, x2                          0000000000000001  ----
+  sdiv x0, x1, x2                          ffffffffffffffff  ----
+  udiv w0, w1, w2                          0000000000000000  ----
+  sdiv w0, w1, w2                          00000000ffffffff  ----
+  mov x2, xzrudiv x0, x1, x2               0000000000000000  ----
+  mov x2, xzrsdiv x0, x1, x2               0000000000000000  ----
+  mov w2, wzrsdiv w0, w1, w2               0000000000000000  ----
+  movn x2, #0sdiv x0, x1, x2               7fffffffffffffff  ----
+  mov w1, #0x80000000movn w2, #0sdiv w0, w1, w2 0000000080000000  ----
+########## shifts by a register ##########
+  mov x2, #0lslv x0, x1, x2                8000000000000001  ----
+  mov x2, #0rorv x0, x1, x2                8000000000000001  ----
+  mov x2, #1lslv x0, x1, x2                0000000000000002  ----
+  mov x2, #1asrv x0, x1, x2                c000000000000000  ----
+  mov x2, #63lsrv x0, x1, x2               0000000000000001  ----
+  mov x2, #63asrv x0, x1, x2               ffffffffffffffff  ----
+  mov x2, #64lslv x0, x1, x2               8000000000000001  ----
+  mov x2, #64lsrv x0, x1, x2               8000000000000001  ----
+  mov x2, #64asrv x0, x1, x2               8000000000000001  ----
+  mov x2, #64rorv x0, x1, x2               8000000000000001  ----
+  mov x2, #65lslv x0, x1, x2               0000000000000002  ----
+  mov w2, #65lslv w0, w1, w2               0000000000000002  ----
+  mov w2, #65asrv w0, w1, w2               0000000000000000  ----
+  mov x2, #127lslv x0, x1, x2              8000000000000000  ----
+  mov w2, #127rorv w0, w1, w2              0000000000000002  ----
+########## bitfield ##########
+  ubfx x0, x1, #4, #8                      0000000000000000  ----
+  sbfx x0, x1, #4, #8                      0000000000000000  ----
+  ubfx x0, x1, #56, #8                     0000000000000080  ----
+  sbfx x0, x1, #56, #8                     ffffffffffffff80  ----
+  ubfx x0, x1, #0, #64                     8000000000000001  ----
+  mov x0, x2bfi x0, x1, #8, #16            7fffffffff0001ff  ----
+  mov x0, x2bfxil x0, x1, #8, #16          7fffffffffff0000  ----
+  mov x0, x2bfc x0, #8, #16                7fffffffff0000ff  ----
+  ubfiz x0, x1, #8, #16                    0000000000000100  ----
+  sbfiz x0, x1, #8, #16                    0000000000000100  ----
+  ubfx w0, w1, #4, #8                      0000000000000000  ----
+  sbfx w0, w1, #28, #4                     0000000000000000  ----
+  extr x0, x1, x2, #17                     0000bfffffffffff  ----
+  extr x0, x1, x2, #0                      7fffffffffffffff  ----
+  extr w0, w1, w2, #31                     0000000000000003  ----
+  sxtb x0, w1                              0000000000000001  ----
+  sxth x0, w1                              0000000000000001  ----
+  sxtw x0, w1                              0000000000000001  ----
+  uxtb x0, w1                              0000000000000001  ----
+  uxth x0, w1                              0000000000000001  ----
+########## counting and reversing ##########
+  clz x0, x1                               0000000000000000  ----
+  cls x0, x1                               0000000000000000  ----
+  rbit x0, x1                              8000000000000001  ----
+  rev x0, x1                               0100000000000080  ----
+  rev16 x0, x1                             0080000000000100  ----
+  rev32 x0, x1                             0000008001000000  ----
+  rev w0, w1                               0000000001000000  ----
+  rev16 w0, w1                             0000000000000100  ----
+  clz w0, w1                               000000000000001f  ----
+  mov x1, xzrclz x0, x1                    0000000000000040  ----
+  mov x1, xzrcls x0, x1                    000000000000003f  ----
+########## logical immediates ##########
+  and x0, x1, #0xff                        0000000000000001  ----
+  and x0, x1, #0xffffffff                  0000000000000001  ----
+  orr x0, x1, #0x5555555555555555          d555555555555555  ----
+  eor x0, x1, #0xf0f0f0f0f0f0f0f0          70f0f0f0f0f0f0f1  ----
+  and x0, x1, #0x8000000000000000          8000000000000000  ----
+  and w0, w1, #0xffff0000                  0000000000000000  ----
+  orr w0, w1, #0x1                         0000000000000001  ----
+  movz x0, #0x1234, lsl #48                1234000000000000  ----
+  movn x0, #0x1234, lsl #16                ffffffffedcbffff  ----
+  mov x0, x1movk x0, #0xabcd, lsl #32      8000abcd00000001  ----
+########## addressing modes ##########
+  ldr unsigned offset                      6a635c554e474039  base+0
+  ldr post-index                           322b241d160f0801  base+8
+  ldr pre-index                            6a635c554e474039  base+8
+  ldur negative offset                     6a635c554e474039  base+16
+  ldr register offset                      6a635c554e474039  base+0
+  ldr register lsl                         6a635c554e474039  base+0
+  ldr register sxtw                        6a635c554e474039  base+16
+  ldrb                                     0000000000000016  base+0
+  ldrsb                                    0000000000000016  base+0
+  ldrh                                     000000000000241d  base+0
+  ldrsh                                    000000000000241d  base+0
+  ldrsw                                    00000000322b241d  base+0
+  ldp                                      6a635c554e474039  base+0
+  ldp post-index                           322b241d160f0801  base+16
+  ldp pre-index                            a29b948d867f7871  base+16
+  ldpsw                                    000000004e474039  base+0
+  ldr pre-index zero                       322b241d160f0801  base+0
+########## pc-relative ##########
+  adr difference                           8
+  adr is not page aligned                  true
+  adrp low bits                            0
+  adrp names adr's page                    true
+########## branch on condition and bit ##########
+  every condition against cmp(A,B)         10100101100110
+  tbz/tbnz/cbz/cbnz                        11001

@@ -1,0 +1,271 @@
+########## the size argument ##########
+size 0                                                       -> EINVAL
+size 23, one short of VER0                                   -> EINVAL
+size 24, VER0                                                -> ok: f
+size 32, zero tail                                           -> ok: f
+size 4096, zero tail                                         -> ok: f
+size 4097, one past a page                                   -> E2BIG
+size 32, a nonzero byte in the tail                          -> E2BIG
+size 4096, the last byte nonzero                             -> E2BIG
+how = NULL                                                   -> EFAULT
+how = NULL, size 4097                                        -> E2BIG
+how = NULL, size 0                                           -> EINVAL
+path = NULL                                                  -> EFAULT
+path = NULL and a bad flag                                   -> EINVAL
+path = NULL and BENEATH|IN_ROOT                              -> EINVAL
+empty path                                                   -> ENOENT
+a closed dirfd, relative                                     -> EBADF
+a closed dirfd, absolute                                     -> ok: f
+a closed dirfd, absolute, IN_ROOT                            -> EBADF
+a closed dirfd, absolute, BENEATH                            -> EXDEV
+a file as dirfd                                              -> ENOTDIR
+########## flags ##########
+flags bit 0 (0o1) on a new name                              -> ENOENT
+flags bit 1 (0o2) on a new name                              -> ENOENT
+flags bit 2 (0o4) on a new name                              -> EINVAL
+flags bit 3 (0o10) on a new name                             -> EINVAL
+flags bit 4 (0o20) on a new name                             -> EINVAL
+flags bit 5 (0o40) on a new name                             -> EINVAL
+flags bit 6 (0o100) on a new name                            -> ok: something else (mode 100000)
+flags bit 7 (0o200) on a new name                            -> ENOENT
+flags bit 8 (0o400) on a new name                            -> ENOENT
+flags bit 9 (0o1000) on a new name                           -> ENOENT
+flags bit 10 (0o2000) on a new name                          -> ENOENT
+flags bit 11 (0o4000) on a new name                          -> ENOENT
+flags bit 12 (0o10000) on a new name                         -> ENOENT
+flags bit 13 (0o20000) on a new name                         -> ENOENT
+flags bit 14 (0o40000) on a new name                         -> ENOENT
+flags bit 15 (0o100000) on a new name                        -> ENOENT
+flags bit 16 (0o200000) on a new name                        -> ENOENT
+flags bit 17 (0o400000) on a new name                        -> ENOENT
+flags bit 18 (0o1000000) on a new name                       -> ENOENT
+flags bit 19 (0o2000000) on a new name                       -> ENOENT
+flags bit 20 (0o4000000) on a new name                       -> ENOENT
+flags bit 21 (0o10000000) on a new name                      -> ENOENT
+flags bit 22 (0o20000000) on a new name                      -> EINVAL
+flags bit 23 (0o40000000) on a new name                      -> EINVAL
+flags bit 24 (0o100000000) on a new name                     -> EINVAL
+flags bit 25 (0o200000000) on a new name                     -> EINVAL
+flags bit 26 (0o400000000) on a new name                     -> ENOENT
+flags bit 27 (0o1000000000) on a new name                    -> EINVAL
+flags bit 28 (0o2000000000) on a new name                    -> EINVAL
+flags bit 29 (0o4000000000) on a new name                    -> EINVAL
+flags bit 30 (0o10000000000) on a new name                   -> EINVAL
+flags bit 31 (0o20000000000) on a new name                   -> EINVAL
+flags bit 0 (0o1) on f                                       -> ok: f
+flags bit 1 (0o2) on f                                       -> ok: f
+flags bit 2 (0o4) on f                                       -> EINVAL
+flags bit 3 (0o10) on f                                      -> EINVAL
+flags bit 4 (0o20) on f                                      -> EINVAL
+flags bit 5 (0o40) on f                                      -> EINVAL
+flags bit 6 (0o100) on f                                     -> ok: f
+flags bit 7 (0o200) on f                                     -> ok: f
+flags bit 8 (0o400) on f                                     -> ok: f
+flags bit 9 (0o1000) on f                                    -> ok: f
+flags bit 10 (0o2000) on f                                   -> ok: f
+flags bit 11 (0o4000) on f                                   -> ok: f
+flags bit 12 (0o10000) on f                                  -> ok: f
+flags bit 13 (0o20000) on f                                  -> ok: f
+flags bit 14 (0o40000) on f                                  -> ENOTDIR
+flags bit 15 (0o100000) on f                                 -> ok: f
+flags bit 16 (0o200000) on f                                 -> ok: f
+flags bit 17 (0o400000) on f                                 -> ok: f
+flags bit 18 (0o1000000) on f                                -> ok: f
+flags bit 19 (0o2000000) on f                                -> ok: f
+flags bit 20 (0o4000000) on f                                -> ok: f
+flags bit 21 (0o10000000) on f                               -> ok: f
+flags bit 22 (0o20000000) on f                               -> EINVAL
+flags bit 23 (0o40000000) on f                               -> EINVAL
+flags bit 24 (0o100000000) on f                              -> EINVAL
+flags bit 25 (0o200000000) on f                              -> EINVAL
+flags bit 26 (0o400000000) on f                              -> ok: f
+flags bit 27 (0o1000000000) on f                             -> EINVAL
+flags bit 28 (0o2000000000) on f                             -> EINVAL
+flags bit 29 (0o4000000000) on f                             -> EINVAL
+flags bit 30 (0o10000000000) on f                            -> EINVAL
+flags bit 31 (0o20000000000) on f                            -> EINVAL
+flags bit 32                                                 -> ok: f
+flags bit 63                                                 -> EINVAL
+O_WRONLY|O_RDWR                                              -> ok: f
+O_DIRECTORY|O_CREAT on a new name                            -> EINVAL
+O_DIRECTORY|O_CREAT on sub                                   -> EINVAL
+O_TMPFILE|O_RDWR in sub                                      -> ok: something else (mode 100000)
+O_TMPFILE read-only in sub                                   -> EINVAL
+O_PATH                                                       -> ok: f
+O_PATH|O_CLOEXEC|O_NOFOLLOW                                  -> ok: f
+O_PATH|O_DIRECTORY on sub                                    -> ok: sub
+O_PATH|O_RDWR                                                -> EINVAL
+O_PATH|O_LARGEFILE                                           -> EINVAL
+O_PATH|O_NONBLOCK                                            -> EINVAL
+O_PATH|O_CREAT                                               -> EINVAL
+O_PATH|O_NOFOLLOW on the symlink rel                         -> ok: the symlink rel
+O_NOFOLLOW on the symlink rel                                -> ELOOP
+O_CLOEXEC sets FD_CLOEXEC                                    -> 1
+F_GETFL of a plain open                                      -> 0o400000
+F_GETFL of an O_PATH open                                    -> 0o10000000
+openat(O_DIRECTORY|O_CREAT) on a new name                    -> EINVAL
+openat with a bit above 31                                   -> ok: f
+########## mode ##########
+mode without O_CREAT                                         -> EINVAL
+mode 07777 with O_CREAT                                      -> ok: something else (mode 100000)
+mode 010000 with O_CREAT                                     -> EINVAL
+mode 1<<40 with O_CREAT                                      -> EINVAL
+mode 010000 with O_TMPFILE                                   -> EINVAL
+O_CREAT 0777 under umask 022                                 -> 755
+########## resolve ##########
+resolve 0x40, a bit nothing defines                          -> EINVAL
+resolve 1<<63                                                -> EINVAL
+BENEATH|IN_ROOT                                              -> EINVAL
+every defined flag but IN_ROOT                               -> ok: f
+########## RESOLVE_BENEATH ##########
+f                                                            -> ok: f
+sub/g                                                        -> ok: sub/g
+sub/../f                                                     -> ok: f
+.                                                            -> ok: the root dir
+sub/..                                                       -> ok: the root dir
+..                                                           -> EXDEV
+sub/../..                                                    -> EXDEV
+../<dir>/f, out and back in                                  -> EXDEV
+an absolute path                                             -> EXDEV
+/                                                            -> EXDEV
+abs, an absolute symlink                                     -> EXDEV
+abs with O_PATH|O_NOFOLLOW                                   -> ok: the symlink abs
+abs/passwd                                                   -> EXDEV
+rel/g, a relative symlink inside                             -> ok: sub/g
+up/f, a relative symlink to ..                               -> EXDEV
+sub/upup/f, a symlink two levels up                          -> EXDEV
+sub/back, ../f from sub                                      -> ok: f
+loop                                                         -> ELOOP
+dangling                                                     -> ENOENT
+missing/..                                                   -> ENOENT
+f/..                                                         -> ENOTDIR
+/proc's self/status                                          -> ok: something else (mode 100000)
+/proc's self/fd/<n>, a magic link                            -> EXDEV
+/proc's self/fd/<n> with O_PATH|O_NOFOLLOW                   -> ok: something else (mode 120000)
+/proc's self/cwd                                             -> EXDEV
+/proc's self/root                                            -> EXDEV
+/proc's self/exe                                             -> EXDEV
+O_CREAT of a new name                                        -> ok: something else (mode 100000)
+O_CREAT of ../escape                                         -> EXDEV
+O_CREAT through up/                                          -> EXDEV
+AT_FDCWD, f                                                  -> ok: f
+AT_FDCWD, ..                                                 -> EXDEV
+AT_FDCWD, up/f                                               -> EXDEV
+the root as dirfd, ..                                        -> EXDEV
+the root as dirfd, etc/passwd                                -> ok: /etc/passwd
+########## RESOLVE_IN_ROOT ##########
+f                                                            -> ok: f
+/f                                                           -> ok: f
+/                                                            -> ok: the root dir
+..                                                           -> ok: the root dir
+../../f                                                      -> ok: f
+/../sub/g                                                    -> ok: sub/g
+abs, -> /etc                                                 -> ENOENT
+abs_in_root, -> /sub/g                                       -> ok: sub/g
+up/f                                                         -> ok: f
+sub/upup/f                                                   -> ok: f
+/etc/passwd                                                  -> ENOENT
+/proc's self/fd/<n>                                          -> EXDEV
+/proc's /self/status                                         -> ok: something else (mode 100000)
+O_CREAT of /../made                                          -> ok: something else (mode 100000)
+  ... and it is inside the root                              -> true
+########## RESOLVE_NO_SYMLINKS ##########
+f                                                            -> ok: f
+rel/g                                                        -> ELOOP
+rel                                                          -> ELOOP
+rel with O_PATH|O_NOFOLLOW                                   -> ok: the symlink rel
+rel with O_NOFOLLOW                                          -> ELOOP
+rel/ with O_PATH|O_NOFOLLOW                                  -> ELOOP
+abs                                                          -> ELOOP
+dangling                                                     -> ELOOP
+dangling with O_CREAT                                        -> ELOOP
+/proc/self/status                                            -> ELOOP
+/proc/<fd>                                                   -> ELOOP
+########## RESOLVE_NO_MAGICLINKS ##########
+/proc/self/fd/<n>                                            -> ELOOP
+/proc/self/fd/<n> with O_PATH|O_NOFOLLOW                     -> ok: something else (mode 120000)
+/proc/self/status                                            -> ok: something else (mode 100000)
+/proc/self/cwd                                               -> ELOOP
+/proc/self/exe                                               -> ELOOP
+/proc/self/root                                              -> ELOOP
+/proc/self/fd/0                                              -> ELOOP
+/proc/self/fd/<n>/, through it                               -> ELOOP
+/proc/self/cwd/f, through a magic dir                        -> ELOOP
+rel/g, an ordinary symlink                                   -> ok: sub/g
+/proc/self/fd/<n>, no flag                                   -> ok: f
+########## RESOLVE_NO_XDEV ##########
+f                                                            -> ok: f
+the root as dirfd, proc                                      -> EXDEV
+the root as dirfd, proc/self/status                          -> EXDEV
+the root as dirfd, etc/passwd                                -> ok: /etc/passwd
+the root as dirfd, .                                         -> ok: something else (mode 40000)
+/proc as dirfd, self/status                                  -> ok: something else (mode 100000)
+/proc as dirfd, .                                            -> ok: /proc
+/proc as dirfd, ..                                           -> EXDEV
+/proc as dirfd, an absolute /etc/passwd                      -> ok: /etc/passwd
+/proc as dirfd, an absolute /proc/self/status                -> EXDEV
+/proc as dirfd, self/fd/<n>, a magic link out                -> EXDEV
+AT_FDCWD, /proc                                              -> EXDEV
+AT_FDCWD, /                                                  -> ok: something else (mode 40000)
+abs, a symlink staying on this mount                         -> EXDEV
+rel/g                                                        -> ok: sub/g
+sub/../abs, a `..` first                                     -> ok: /etc
+an absolute <dir>/abs                                        -> ok: /etc
+toproc, -> /proc/self                                        -> EXDEV
+toproc with O_PATH|O_NOFOLLOW                                -> ok: something else (mode 120000)
+########## RESOLVE_CACHED ##########
+f, just written                                              -> ok: f
+O_CREAT                                                      -> EAGAIN
+O_CREAT of an existing f                                     -> EAGAIN
+O_TRUNC                                                      -> EAGAIN
+O_TMPFILE                                                    -> EAGAIN
+rel/g, through a symlink                                     -> EAGAIN
+/proc/self/status                                            -> ok: something else (mode 100000)
+/proc/self/fd/<n>                                            -> EAGAIN
+missing                                                      -> ENOENT
+CACHED|BENEATH, ..                                           -> EAGAIN
+########## O_EMPTYPATH and OPENAT2_REGULAR ##########
+O_EMPTYPATH on an O_PATH fd of f                             -> ok: f
+O_EMPTYPATH|O_RDWR on an O_PATH fd of f                      -> ok: f
+O_EMPTYPATH on the dirfd                                     -> ok: the root dir
+O_EMPTYPATH|O_DIRECTORY on f                                 -> ENOTDIR
+O_EMPTYPATH on AT_FDCWD                                      -> ok: something else (mode 40000)
+O_EMPTYPATH on a closed fd                                   -> EBADF
+O_EMPTYPATH with a name                                      -> ok: f
+O_EMPTYPATH|O_CREAT                                          -> EISDIR
+O_EMPTYPATH|O_PATH                                           -> ok: f
+O_EMPTYPATH with BENEATH                                     -> ok: f
+O_EMPTYPATH on the symlink rel's O_PATH fd                   -> ELOOP
+openat: O_EMPTYPATH on an O_PATH fd of f                     -> ok: f
+openat: empty path without O_EMPTYPATH                       -> ENOENT
+openat: empty path, a closed dirfd                           -> ENOENT
+empty path, a closed dirfd                                   -> ENOENT
+F_GETFL after an O_EMPTYPATH open                            -> 0o400400000
+O_CREAT of the existing directory sub                        -> EISDIR
+openat: O_CREAT of the existing directory sub                -> EISDIR
+openat: O_PATH|O_CREAT of a new name                         -> ENOENT
+openat: O_PATH|O_RDWR|O_WRONLY                               -> ok: f
+OPENAT2_REGULAR on f                                         -> ok: f
+OPENAT2_REGULAR on sub                                       -> EFTYPE
+OPENAT2_REGULAR|O_PATH on sub                                -> EINVAL
+OPENAT2_REGULAR|O_DIRECTORY on sub                           -> EINVAL
+OPENAT2_REGULAR on /dev/null                                 -> EFTYPE
+OPENAT2_REGULAR|O_CREAT of a new name                        -> ok: something else (mode 100000)
+OPENAT2_REGULAR|O_PATH|O_NOFOLLOW on rel                     -> EINVAL
+OPENAT2_REGULAR on rel/g                                     -> ok: sub/g
+OPENAT2_REGULAR|O_TMPFILE                                    -> EINVAL
+bit 33                                                       -> EINVAL
+openat: bit 32 is not OPENAT2_REGULAR there                  -> ok: f
+openat: bit 32 on sub                                        -> ok: sub
+########## combinations ##########
+BENEATH|NO_SYMLINKS, rel/g                                   -> ELOOP
+BENEATH|NO_SYMLINKS, abs                                     -> ELOOP
+IN_ROOT|NO_SYMLINKS, abs_in_root                             -> ELOOP
+IN_ROOT|NO_XDEV, /proc's /..                                 -> ok: /proc
+BENEATH|NO_MAGICLINKS, /proc's self/fd/<n>                   -> ELOOP
+NO_SYMLINKS|NO_MAGICLINKS, /proc/self/fd/<n>                 -> ELOOP
+BENEATH, a trailing slash on f                               -> ENOTDIR
+BENEATH, sub/                                                -> ok: sub
+no flag, missing/../f                                        -> ENOENT
+no flag, f/../f                                              -> ENOTDIR
+no flag, dangling/../f                                       -> ENOENT

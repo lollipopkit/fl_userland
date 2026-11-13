@@ -1,0 +1,16 @@
+[package]
+name = "ldisc"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "ldisc"
+crate-type = ["rlib"]
+
+[dependencies]
+# `Plain` for the two termios wire formats, which an ioctl carries.
+util-ioctlarg = { path = "../../util/ioctlarg" }
+util-plain = { path = "../../util/plain" }
+libc.workspace = true

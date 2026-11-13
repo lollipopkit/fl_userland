@@ -1,0 +1,18 @@
+[package]
+name = "fs-fakeschema"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fakeschema"
+crate-type = ["rlib"]
+
+# A leaf, and the same reason `fs/fake-schema.c` was a translation unit of its
+# own: the schema has exactly one definition, and both consumers -- the kernel's
+# `crates/fs/fakedb` and the `crates/tools/fakefsify` tool -- must reach it
+# without dragging the other's world in. The C file's own comment said so.
+[dependencies]
+util-errno = { path = "../../util/errno" }
+rusqlite = { workspace = true }

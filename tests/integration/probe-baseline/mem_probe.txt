@@ -1,0 +1,141 @@
+## brk
+brk(0) returned something                              -> 1
+brk(current + 4096) moved it                           -> 1
+  and the new page is writable                         -> 171
+brk(back to the start) moved it back                   -> 1
+brk(1) left it alone                                   -> 1
+brk(~0) left it alone                                  -> 1
+## mremap
+mremap(2 pages -> 1, no flags) stayed put              -> 1
+  the first byte survived                              -> 17
+mremap(grow without MAYMOVE into a hole) succeeded     -> 1
+mremap(grow without MAYMOVE into its own next page)    -> ENOMEM
+mremap(grow with MAYMOVE) succeeded                    -> 1
+  the contents came with it                            -> 51
+  the new pages are zero                               -> 0
+mremap(new_size=0)                                     -> ok
+mremap(unaligned old address)                          -> EINVAL
+mremap(an address that is not mapped)                  -> EFAULT
+mremap(MREMAP_FIXED without MAYMOVE)                   -> EINVAL
+mremap(an undefined flag 0x100)                        -> EINVAL
+mremap(MREMAP_DONTUNMAP without MAYMOVE)               -> EINVAL
+mremap(old_size=0 on a private mapping)                -> EINVAL
+## mremap of a file-backed mapping
+mremap(grow a MAP_SHARED file mapping by a page)       -> ok
+  the first byte came with it                          -> 170
+  the grown page reads the file's byte                 -> 204
+  a write to the grown page reached the file           -> 187
+mremap(grow a MAP_PRIVATE file mapping by a page)      -> ok
+  the first byte came with it                          -> 170
+  the grown page reads the file's byte                 -> 204
+  a write to the grown page reached the file           -> 204
+mremap(24 MB shared file mapping -> 25 MB, MAYMOVE)    -> ok
+  it moved                                             -> 1
+mremap(grow a private mapping half copied after fork)  -> ok
+  a copied page came with it                           -> 34
+  an uncopied page came with it                        -> 17
+## madvise: what it does, not what it accepts
+madvise(MADV_DONTNEED)                                 -> ok
+  the byte that was 0xcd now reads                     -> 0
+  ...and one page in                                   -> 0
+  and it is still writable                             -> 119
+madvise(MADV_FREE)                                     -> ok
+  the page is still readable                           -> 1
+madvise(MADV_NORMAL)                                   -> ok
+madvise(MADV_RANDOM)                                   -> ok
+madvise(MADV_SEQUENTIAL)                               -> ok
+madvise(MADV_WILLNEED)                                 -> ok
+madvise(MADV_DONTFORK)                                 -> ok
+madvise(MADV_DOFORK)                                   -> ok
+madvise(MADV_WIPEONFORK)                               -> ok
+madvise(9999 (undefined))                              -> EINVAL
+madvise(-1)                                            -> EINVAL
+madvise(advice=0)                                      -> ok
+madvise(advice=1)                                      -> ok
+madvise(advice=2)                                      -> ok
+madvise(advice=3)                                      -> ok
+madvise(advice=4)                                      -> ok
+madvise(advice=5)                                      -> EINVAL
+madvise(advice=6)                                      -> EINVAL
+madvise(advice=7)                                      -> EINVAL
+madvise(advice=8)                                      -> ok
+madvise(advice=9)                                      -> EINVAL
+madvise(advice=10)                                     -> ok
+madvise(advice=11)                                     -> ok
+madvise(advice=12)                                     -> EINVAL
+madvise(advice=13)                                     -> EINVAL
+madvise(advice=14)                                     -> ok
+madvise(advice=15)                                     -> ok
+madvise(advice=16)                                     -> ok
+madvise(advice=17)                                     -> ok
+madvise(advice=18)                                     -> ok
+madvise(advice=19)                                     -> ok
+madvise(advice=20)                                     -> ok
+madvise(advice=21)                                     -> ok
+madvise(advice=22)                                     -> ok
+madvise(advice=23)                                     -> ok
+madvise(advice=24)                                     -> ok
+madvise(advice=25)                                     -> EINVAL
+madvise(advice=26)                                     -> EINVAL
+madvise(advice=27)                                     -> EINVAL
+madvise(advice=28)                                     -> EINVAL
+madvise(advice=29)                                     -> EINVAL
+madvise(advice=30)                                     -> EINVAL
+madvise(advice=31)                                     -> EINVAL
+madvise(advice=100)                                    -> EINVAL
+madvise(advice=101)                                    -> EINVAL
+madvise(advice=102)                                    -> ok
+madvise(len=0)                                         -> ok
+madvise(unaligned address)                             -> EINVAL
+madvise(a range that is not mapped)                    -> ENOMEM
+madvise(DONTNEED on a range that is not mapped)        -> ENOMEM
+madvise(len rounds past the end)                       -> ok
+## msync
+msync(MS_SYNC)                                         -> ok
+msync(MS_ASYNC)                                        -> ok
+msync(MS_INVALIDATE)                                   -> ok
+msync(MS_SYNC|MS_INVALIDATE)                           -> ok
+msync(MS_SYNC|MS_ASYNC (contradictory))                -> EINVAL
+msync(0)                                               -> ok
+msync(an undefined bit (0x8))                          -> EINVAL
+msync(unaligned address)                               -> EINVAL
+msync(a range that is not mapped)                      -> ENOMEM
+msync(len=0)                                           -> ok
+## mlock and friends
+mlock                                                  -> ok
+munlock                                                -> ok
+mlock(len=0)                                           -> ok
+mlock(a range that is not mapped)                      -> ENOMEM
+munlock(never locked)                                  -> ok
+mlock2(flags=0)                                        -> ok
+mlock2(MLOCK_ONFAULT)                                  -> ok
+mlock2(an undefined flag)                              -> EINVAL
+mlockall(MCL_CURRENT)                                  -> ok
+mlockall(MCL_FUTURE)                                   -> ok
+mlockall(MCL_CURRENT|MCL_FUTURE)                       -> ok
+mlockall(MCL_ONFAULT alone)                            -> EINVAL
+mlockall(0)                                            -> EINVAL
+mlockall(an undefined bit (0x8))                       -> EINVAL
+munlockall                                             -> ok
+## mincore
+mincore(2 mapped pages)                                -> ok
+  page 0 is resident                                   -> 1
+  page 1 is resident                                   -> 1
+  no bit above bit 0 is set                            -> 1
+an untouched page reports resident                     -> 0
+after touching page 1, page 1 says                     -> 1
+mincore(unaligned address)                             -> EINVAL
+mincore(a range that is not mapped)                    -> ENOMEM
+mincore(the vector is not writable)                    -> EFAULT
+mincore(len=0)                                         -> ok
+## what mprotect actually changes
+mprotect(PROT_READ)                                    -> ok
+  it is still readable                                 -> 1
+mprotect(PROT_READ|PROT_WRITE) again                   -> ok
+  and writable again                                   -> 2
+mprotect(PROT_READ|PROT_WRITE|PROT_EXEC)               -> ok
+## a mapping that outlives its descriptor
+mmap(MAP_SHARED of a file)                             -> ok
+  writable after the descriptor closed                 -> 126
+msync(MS_SYNC) on it                                   -> ok
+  and the byte reached the file                        -> 126

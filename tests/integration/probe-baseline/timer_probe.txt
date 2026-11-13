@@ -1,0 +1,91 @@
+## timerfd_create
+  CLOCK_REALTIME                                     -> a descriptor
+  CLOCK_MONOTONIC                                    -> a descriptor
+  CLOCK_BOOTTIME                                     -> a descriptor
+  CLOCK_PROCESS_CPUTIME_ID                           -> EINVAL
+  CLOCK_THREAD_CPUTIME_ID                            -> EINVAL
+  clock 99                                           -> EINVAL
+  TFD_NONBLOCK|TFD_CLOEXEC                           -> a descriptor
+    FD_CLOEXEC set                                   -> true
+  a flag that means nothing                          -> EINVAL
+## timerfd_settime
+  gettime before any arm                             -> 0 disarmed
+  settime(10s, no interval)                          -> 0 old disarmed
+    gettime after                                    -> 0 armed, at or below what was asked
+  settime(20s, interval 5s)                          -> 0 old armed, at or below what was asked
+    gettime after                                    -> 0 armed, at or below what was asked, interval kept
+  settime(0), disarming                              -> 0 old armed, at or below what was asked, interval kept
+    gettime after                                    -> 0 disarmed
+  settime(value 0, interval 1s)                      -> 0
+    gettime after                                    -> 0 disarmed, interval kept
+## timerfd_settime, refused
+  nsec = 1_000_000_000                               -> EINVAL
+  nsec negative                                      -> EINVAL
+  sec negative                                       -> EINVAL
+  interval nsec out of range                         -> EINVAL
+  a flag that means nothing                          -> EINVAL
+  a null new value                                   -> EFAULT
+  gettime into null                                  -> EFAULT
+  ABSTIME with a deadline in the past                -> 0
+    reads                                            -> 8 count 1
+  ABSTIME 10.5s in the past, interval 1s             -> 0
+    reads                                            -> 8 count 11
+  ABSTIME with a zero value                          -> 0
+    gettime after                                    -> 0 disarmed
+    reads                                            -> EAGAIN count 0
+  settime on a pipe                                  -> EINVAL
+  gettime on a pipe                                  -> EINVAL
+  settime on -1                                      -> EBADF
+## reading a timerfd
+  read of an unarmed timer                           -> EAGAIN
+  a four-byte read                                   -> EINVAL
+  after one expiry                                   -> 8 count 1
+  and again, having taken it                         -> EAGAIN
+  after an interval ran a few times                  -> 8 counted at least 3 true
+  and again, disarmed first                          -> EAGAIN
+  read after disarming                               -> EAGAIN
+  CANCEL_ON_SET on a monotonic timer                 -> 0
+## setitimer
+  ITIMER_REAL armed for 10s                          -> 0
+  ITIMER_REAL getitimer after                        -> 0 armed, at or below what was asked
+  ITIMER_REAL disarming answers the old              -> 0 armed, at or below what was asked
+  ITIMER_VIRTUAL armed for 10s                       -> 0
+  ITIMER_VIRTUAL getitimer after                     -> 0 armed, above
+  ITIMER_VIRTUAL disarming answers the old           -> 0 armed, above
+  ITIMER_PROF armed for 10s                          -> 0
+  ITIMER_PROF getitimer after                        -> 0 armed, above
+  ITIMER_PROF disarming answers the old              -> 0 armed, above
+  which = 9                                          -> EINVAL
+  getitimer(9)                                       -> EINVAL
+  usec = 1_000_000                                   -> EINVAL
+  usec negative                                      -> EINVAL
+  a null new value, which means disarm               -> 0
+  getitimer into null                                -> EFAULT
+  alarm(60) after setitimer(30s) answers             -> true
+  alarm(0) cancels and answers                       -> true
+    getitimer after alarm(0)                         -> 0 disarmed
+## POSIX timers
+  timer_create(SIGEV_NONE)                           -> 0
+    gettime before arming                            -> 0 disarmed
+    settime(10s)                                     -> 0
+    gettime after                                    -> 0 armed, at or below what was asked
+    getoverrun on a timer that has not fired         -> 0
+    timer_delete                                     -> 0
+    gettime after deleting                           -> EINVAL
+    deleting twice                                   -> EINVAL
+  timer_create(SIGEV_SIGNAL, SIGUSR1)                -> 0
+    SIGUSR1 pending after it fired                   -> true
+    sigtimedwait takes it                            -> 10
+      si_code is SI_TIMER                            -> true
+  timer_create with sigev_notify 99                  -> EINVAL
+  timer_create with signal 99                        -> EINVAL
+  timer_create with clock 99                         -> EINVAL
+## sleeping
+  nanosleep(nsec = 1_000_000_000)                    -> EINVAL
+  nanosleep(sec = -1)                                -> EINVAL
+  nanosleep(0)                                       -> 0
+  clock_nanosleep(1ms)                               -> 0
+  clock_nanosleep(nsec = -1)                         -> EINVAL
+  clock_nanosleep(clock 99)                          -> EINVAL
+  clock_nanosleep(ABSTIME, already past)             -> 0
+  clock_nanosleep(CLOCK_THREAD_CPUTIME_ID)           -> EINVAL

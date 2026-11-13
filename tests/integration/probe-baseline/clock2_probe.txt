@@ -1,0 +1,288 @@
+## adjtimex and clock_adjtime, reading
+  adjtimex(modes 0)                                          a clock state
+    the return is TIME_ERROR exactly when STA_UNSYNC is set  true
+    the return is TIME_OK or TIME_ERROR                      true
+    modes                                                    0x0
+    offset                                                   0
+    freq within +-500 ppm                                    true
+    maxerror within 0..=16 s                                 true
+    esterror within 0..=16 s                                 true
+    status bits outside the NTP set                          0x0
+    status STA_NANO                                          false
+    constant within 0..=10                                   true
+    precision                                                1
+    tolerance                                                32768000
+    time within a second of CLOCK_REALTIME                   true
+    time.tv_usec below a million                             true
+    tick                                                     10000
+    ppsfreq                                                  0
+    jitter                                                   0
+    shift                                                    0
+    stabil                                                   0
+    jitcnt                                                   0
+    calcnt                                                   0
+    errcnt                                                   0
+    stbcnt                                                   0
+    tai                                                      0
+    the padding is left alone                                true
+  clock_adjtime(CLOCK_REALTIME, modes 0)                     a clock state
+    the return is TIME_ERROR exactly when STA_UNSYNC is set  true
+    the return is TIME_OK or TIME_ERROR                      true
+    modes                                                    0x0
+    offset                                                   0
+    freq within +-500 ppm                                    true
+    maxerror within 0..=16 s                                 true
+    esterror within 0..=16 s                                 true
+    status bits outside the NTP set                          0x0
+    status STA_NANO                                          false
+    constant within 0..=10                                   true
+    precision                                                1
+    tolerance                                                32768000
+    time within a second of CLOCK_REALTIME                   true
+    time.tv_usec below a million                             true
+    tick                                                     10000
+    ppsfreq                                                  0
+    jitter                                                   0
+    shift                                                    0
+    stabil                                                   0
+    jitcnt                                                   0
+    calcnt                                                   0
+    errcnt                                                   0
+    stbcnt                                                   0
+    tai                                                      0
+    the padding is left alone                                true
+  adjtimex(ADJ_OFFSET_SS_READ)                               a clock state
+    modes after                                              0xa001
+    offset after (12345 before)                              0
+  adjtimex(ADJ_OFFSET_SS_READ | ADJ_FREQUENCY)               a clock state
+    freq after (1<<20 before) within +-500 ppm               true
+  adjtimex(NULL)                                             -EFAULT
+  adjtimex(unmapped)                                         -EFAULT
+  clock_adjtime(CLOCK_REALTIME, NULL)                        -EFAULT
+  clock_adjtime(99, NULL)                                    -EFAULT
+  clock_adjtime(CLOCK_MONOTONIC, NULL)                       -EFAULT
+## clock_gettime and clock_getres
+  REALTIME                                                   gettime ok getres 0s 1ns
+  MONOTONIC                                                  gettime ok getres 0s 1ns
+  PROCESS_CPUTIME_ID                                         gettime ok getres 0s 1ns
+  THREAD_CPUTIME_ID                                          gettime ok getres 0s 1ns
+  MONOTONIC_RAW                                              gettime ok getres 0s 1ns
+  REALTIME_COARSE                                            gettime ok getres 0s 1000000ns
+  MONOTONIC_COARSE                                           gettime ok getres 0s 1000000ns
+  BOOTTIME                                                   gettime ok getres 0s 1ns
+  REALTIME_ALARM                                             gettime ok getres 0s 1ns
+  BOOTTIME_ALARM                                             gettime ok getres 0s 1ns
+  SGI_CYCLE (10)                                             gettime -EINVAL getres -EINVAL
+  TAI                                                        gettime ok getres 0s 1ns
+  12                                                         gettime -EINVAL getres -EINVAL
+  AUX0 (16)                                                  gettime -EINVAL getres -EINVAL
+  AUX7 (23)                                                  gettime -EINVAL getres -EINVAL
+  24                                                         gettime -EINVAL getres -EINVAL
+  -1                                                         gettime -EINVAL getres -EINVAL
+  own process, PROF                                          gettime ok getres 0s 1000000ns
+  own process, VIRT                                          gettime ok getres 0s 1000000ns
+  own process, SCHED                                         gettime ok getres 0s 1ns
+  pid 0, SCHED                                               gettime ok getres 0s 1ns
+  own thread, PROF                                           gettime ok getres 0s 1000000ns
+  own thread, SCHED                                          gettime ok getres 0s 1ns
+  tid 0, SCHED                                               gettime ok getres 0s 1ns
+  own process, kind 3 and per-thread (7)                     gettime -EINVAL getres -EINVAL
+  a pid that does not exist, SCHED                           gettime -EINVAL getres -EINVAL
+  dynamic clock on /dev/null                                 gettime -EINVAL getres -EINVAL
+  dynamic clock on a closed fd                               gettime -EINVAL getres -EINVAL
+## clock_adjtime by clock
+  REALTIME                                                   a state
+  MONOTONIC                                                  -EOPNOTSUPP
+  PROCESS_CPUTIME_ID                                         -EOPNOTSUPP
+  THREAD_CPUTIME_ID                                          -EOPNOTSUPP
+  MONOTONIC_RAW                                              -EOPNOTSUPP
+  REALTIME_COARSE                                            -EOPNOTSUPP
+  MONOTONIC_COARSE                                           -EOPNOTSUPP
+  BOOTTIME                                                   -EOPNOTSUPP
+  REALTIME_ALARM                                             -EOPNOTSUPP
+  BOOTTIME_ALARM                                             -EOPNOTSUPP
+  SGI_CYCLE (10)                                             -EINVAL
+  TAI                                                        -EOPNOTSUPP
+  12                                                         -EINVAL
+  AUX0 (16)                                                  -EINVAL
+  AUX7 (23)                                                  -EINVAL
+  24                                                         -EINVAL
+  -1                                                         -EOPNOTSUPP
+  own process, PROF                                          -EOPNOTSUPP
+  own process, VIRT                                          -EOPNOTSUPP
+  own process, SCHED                                         -EOPNOTSUPP
+  pid 0, SCHED                                               -EOPNOTSUPP
+  own thread, PROF                                           -EOPNOTSUPP
+  own thread, SCHED                                          -EOPNOTSUPP
+  tid 0, SCHED                                               -EOPNOTSUPP
+  own process, kind 3 and per-thread (7)                     -EOPNOTSUPP
+  a pid that does not exist, SCHED                           -EOPNOTSUPP
+  dynamic clock on /dev/null                                 -EINVAL
+  dynamic clock on a closed fd                               -EINVAL
+## clock_nanosleep by clock, absolute 0
+  REALTIME                                                   absolute 0 0
+  MONOTONIC                                                  absolute 0 0
+  PROCESS_CPUTIME_ID                                         absolute 0 0
+  THREAD_CPUTIME_ID                                          absolute 0 -EOPNOTSUPP
+  MONOTONIC_RAW                                              absolute 0 -EOPNOTSUPP
+  REALTIME_COARSE                                            absolute 0 -EOPNOTSUPP
+  MONOTONIC_COARSE                                           absolute 0 -EOPNOTSUPP
+  BOOTTIME                                                   absolute 0 0
+  REALTIME_ALARM                                             absolute 0 -EPERM
+  BOOTTIME_ALARM                                             absolute 0 -EPERM
+  SGI_CYCLE (10)                                             absolute 0 -EINVAL
+  TAI                                                        absolute 0 0
+  12                                                         absolute 0 -EINVAL
+  AUX0 (16)                                                  absolute 0 -EINVAL
+  AUX7 (23)                                                  absolute 0 -EINVAL
+  24                                                         absolute 0 -EINVAL
+  -1                                                         absolute 0 -EINVAL
+  own process, PROF                                          absolute 0 0
+  own process, VIRT                                          absolute 0 0
+  own process, SCHED                                         absolute 0 0
+  pid 0, SCHED                                               absolute 0 0
+  own thread, PROF                                           absolute 0 -EINVAL
+  own thread, SCHED                                          absolute 0 -EINVAL
+  tid 0, SCHED                                               absolute 0 -EINVAL
+  own process, kind 3 and per-thread (7)                     absolute 0 -EINVAL
+  a pid that does not exist, SCHED                           absolute 0 -EINVAL
+  dynamic clock on /dev/null                                 absolute 0 -EOPNOTSUPP
+  dynamic clock on a closed fd                               absolute 0 -EOPNOTSUPP
+## clock_nanosleep, relative 1 ms on the wall clocks
+  REALTIME                                                   0
+  MONOTONIC                                                  0
+  MONOTONIC_RAW                                              -EOPNOTSUPP
+  REALTIME_COARSE                                            -EOPNOTSUPP
+  MONOTONIC_COARSE                                           -EOPNOTSUPP
+  BOOTTIME                                                   0
+  REALTIME_ALARM                                             -EPERM
+  BOOTTIME_ALARM                                             -EPERM
+  TAI                                                        0
+## timer_create by clock, SIGEV_NONE
+  REALTIME                                                   0
+  MONOTONIC                                                  0
+  PROCESS_CPUTIME_ID                                         0
+  THREAD_CPUTIME_ID                                          0
+  MONOTONIC_RAW                                              -EOPNOTSUPP
+  REALTIME_COARSE                                            -EOPNOTSUPP
+  MONOTONIC_COARSE                                           -EOPNOTSUPP
+  BOOTTIME                                                   0
+  REALTIME_ALARM                                             -EPERM
+  BOOTTIME_ALARM                                             -EPERM
+  SGI_CYCLE (10)                                             -EINVAL
+  TAI                                                        0
+  12                                                         -EINVAL
+  AUX0 (16)                                                  -EINVAL
+  AUX7 (23)                                                  -EINVAL
+  24                                                         -EINVAL
+  -1                                                         -EINVAL
+  own process, PROF                                          0
+  own process, VIRT                                          0
+  own process, SCHED                                         0
+  pid 0, SCHED                                               0
+  own thread, PROF                                           0
+  own thread, SCHED                                          0
+  tid 0, SCHED                                               0
+  own process, kind 3 and per-thread (7)                     -EINVAL
+  a pid that does not exist, SCHED                           -EINVAL
+  dynamic clock on /dev/null                                 -EOPNOTSUPP
+  dynamic clock on a closed fd                               -EOPNOTSUPP
+## timerfd_create by clock
+  REALTIME                                                   a descriptor
+  MONOTONIC                                                  a descriptor
+  PROCESS_CPUTIME_ID                                         -EINVAL
+  THREAD_CPUTIME_ID                                          -EINVAL
+  MONOTONIC_RAW                                              -EINVAL
+  REALTIME_COARSE                                            -EINVAL
+  MONOTONIC_COARSE                                           -EINVAL
+  BOOTTIME                                                   a descriptor
+  REALTIME_ALARM                                             -EPERM
+  BOOTTIME_ALARM                                             -EPERM
+  SGI_CYCLE (10)                                             -EINVAL
+  TAI                                                        -EINVAL
+  12                                                         -EINVAL
+  AUX0 (16)                                                  -EINVAL
+  AUX7 (23)                                                  -EINVAL
+  24                                                         -EINVAL
+  -1                                                         -EINVAL
+  own process, PROF                                          -EINVAL
+  own process, VIRT                                          -EINVAL
+  own process, SCHED                                         -EINVAL
+  pid 0, SCHED                                               -EINVAL
+  own thread, PROF                                           -EINVAL
+  own thread, SCHED                                          -EINVAL
+  tid 0, SCHED                                               -EINVAL
+  own process, kind 3 and per-thread (7)                     -EINVAL
+  a pid that does not exist, SCHED                           -EINVAL
+  dynamic clock on /dev/null                                 -EINVAL
+  dynamic clock on a closed fd                               -EINVAL
+## timer_create(SIGEV_THREAD_ID)
+  own tid, SIGUSR1                                           0
+  another live thread                                        0
+  a thread that has exited                                   -EINVAL
+  tid 0                                                      -EINVAL
+  own tid, signal 0                                          -EINVAL
+  own tid, signal 65                                         -EINVAL
+  SIGEV_SIGNAL, signal 0                                     -EINVAL
+  SIGEV_SIGNAL, SIGUSR1                                      0
+  SIGEV_THREAD (2), SIGUSR1                                  0
+  SIGEV_THREAD (2), signal 0                                 -EINVAL
+  SIGEV_NONE, signal 99                                      0
+  method 3                                                   -EINVAL
+  clock_gettime(another live thread, SCHED)                  0
+## setting, without CAP_SYS_TIME
+  ADJ_FREQUENCY, the current value                           adjtimex -EPERM REALTIME -EPERM MONOTONIC -EOPNOTSUPP
+  ADJ_FREQUENCY, past LLONG_MAX/PPM_SCALE                    adjtimex -EPERM REALTIME -EPERM MONOTONIC -EOPNOTSUPP
+  ADJ_TICK 10000                                             adjtimex -EPERM REALTIME -EPERM MONOTONIC -EOPNOTSUPP
+  ADJ_TICK 1                                                 adjtimex -EPERM REALTIME -EPERM MONOTONIC -EOPNOTSUPP
+  ADJ_OFFSET_SINGLESHOT 0                                    adjtimex -EPERM REALTIME -EPERM MONOTONIC -EOPNOTSUPP
+  ADJ_ADJTIME (0x8000) alone                                 adjtimex -EINVAL REALTIME -EINVAL MONOTONIC -EOPNOTSUPP
+  ADJ_SETOFFSET {0, 0}                                       adjtimex -EPERM REALTIME -EPERM MONOTONIC -EOPNOTSUPP
+  ADJ_SETOFFSET usec -1                                      adjtimex -EPERM REALTIME -EPERM MONOTONIC -EOPNOTSUPP
+  ADJ_OFFSET 0                                               adjtimex -EPERM REALTIME -EPERM MONOTONIC -EOPNOTSUPP
+  ADJ_MAXERROR                                               adjtimex -EPERM REALTIME -EPERM MONOTONIC -EOPNOTSUPP
+  ADJ_STATUS STA_UNSYNC                                      adjtimex -EPERM REALTIME -EPERM MONOTONIC -EOPNOTSUPP
+  ADJ_TAI 0                                                  adjtimex -EPERM REALTIME -EPERM MONOTONIC -EOPNOTSUPP
+  ADJ_MICRO                                                  adjtimex -EPERM REALTIME -EPERM MONOTONIC -EOPNOTSUPP
+  ADJ_NANO                                                   adjtimex -EPERM REALTIME -EPERM MONOTONIC -EOPNOTSUPP
+  an unallocated bit (0x40000000)                            adjtimex -EPERM REALTIME -EPERM MONOTONIC -EOPNOTSUPP
+  adjtimex(ADJ_FREQUENCY) into NULL                          -EFAULT
+## clock_settime and settimeofday, without CAP_SYS_TIME
+  clock_settime(REALTIME, now)                               -EPERM
+  clock_settime(REALTIME, nsec -1)                           -EPERM
+  clock_settime(REALTIME, nsec 1e9)                          -EPERM
+  clock_settime(REALTIME, sec -1)                            -EPERM
+  clock_settime(REALTIME, sec LLONG_MAX)                     -EPERM
+  clock_settime(REALTIME, NULL)                              -EPERM
+  clock_settime(MONOTONIC, now)                              -EPERM
+  clock_settime(MONOTONIC, NULL)                             -EPERM
+  clock_settime(PROCESS_CPUTIME_ID, 0)                       -EPERM
+  clock_settime(BOOTTIME, now)                               -EPERM
+  clock_settime(TAI, now)                                    -EPERM
+  clock_settime(99, now)                                     -EPERM
+  clock_settime(99, NULL)                                    -EPERM
+  settimeofday(NULL, NULL)                                   -EPERM
+  settimeofday(now, NULL)                                    -EPERM
+  settimeofday(usec 1e6, NULL)                               -EPERM
+  settimeofday(usec -1, NULL)                                -EPERM
+  settimeofday(sec -1, NULL)                                 -EPERM
+  settimeofday(NULL, tz {0, 0})                              -EPERM
+  settimeofday(NULL, tz minuteswest 1000)                    -EPERM
+  settimeofday(unmapped, NULL)                               -EPERM
+  settimeofday(NULL, unmapped)                               -EPERM
+## TFD_IOC_SET_TICKS
+  ticks 5                                                    0
+    read                                                     8 count 5
+  ticks 0                                                    -EINVAL
+  ticks NULL                                                 -EFAULT
+  ticks 3 on an armed timer                                  0
+    read                                                     8 count 3
+  ticks on an eventfd                                        -ENOTTY
+## ppoll and pselect6, the timeout written back
+  ppoll(0 fds, 10 ms)                                        0
+    the timeout after                                        0s 0ns
+  ppoll(a ready fd, 5 s)                                     1
+    the timeout after is below 5 s and above 4 s             true
+  pselect6(0, 10 ms)                                         0
+    the timeout after                                        0s 0ns
+  ppoll, a mask with sigsetsize 1<<32 | 8                    -EINVAL

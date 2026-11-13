@@ -1,0 +1,52 @@
+[package]
+name = "kernel-syscalldispatch"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "syscalldispatch"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-tgroup = { path = "../tgroup" }
+kernel-sighand = { path = "../sighand" }
+kernel-pids = { path = "../pids" }
+util-logline = { path = "../../util/logline" }
+util-signpost = { path = "../../util/signpost" }
+proc = { path = "../../fs/proc" }
+kernel-groupstop = { path = "../../kernel/groupstop" }
+kernel-exitcalls = { path = "../../kernel/exitcalls" }
+kernel-mmapcalls = { path = "../../kernel/mmapcalls" }
+kernel-pagetable = { path = "../../kernel/pagetable" }
+kernel-signaldeliver = { path = "../../kernel/signaldeliver" }
+kernel-syscallrestart = { path = "../../kernel/syscallrestart" }
+kernel-procattr = { path = "../../kernel/procattr" }
+kernel-groupexit = { path = "../../kernel/groupexit" }
+kernel-creds = { path = "../../kernel/creds" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+kernel-proctree = { path = "../../kernel/proctree" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+# The IUL_* settings as a safe read; see crates/util/iulenv.
+util-iulenv = { path = "../../util/iulenv" }
+kernel-syscalltable = { path = "../syscalltable" }
+libc.workspace = true
+kernel-usercopy = { path = "../usercopy" }
+asbestos-diag = { path = "../../asbestos/diag" }
+util-strace = { path = "../../util/strace" }
+util-timeabi = { path = "../../util/timeabi" }
+# `Ptrace::stops_at_syscalls`, asked twice per syscall. A Rust dependency
+# rather than the C ABI so that the two atomic loads inline: a call there is on
+# the most-executed path in the tree, and every task has a ptrace state whether
+# or not anything traces it, so a null check does not short-circuit it.
+kernel-ptrace = { path = "../ptrace" }
+# The seccomp gate on every syscall.
+kernel-seccomp = { path = "../seccomp" }
+kernel-sigqueue = { path = "../sigqueue" }
+
+[dev-dependencies]

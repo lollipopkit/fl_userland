@@ -1,0 +1,33 @@
+[package]
+name = "fs-fdobj"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fs_fdobj"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+util-locks = { path = "../../util/locks" }
+kernel-rlimit = { path = "../../kernel/rlimit" }
+kernel-syscallrefs = { path = "../../kernel/syscallrefs" }
+fs-inode = { path = "../../fs/inode" }
+fs-pollset = { path = "../../fs/pollset" }
+util-waitfor = { path = "../../util/waitfor" }
+fdtable = { path = "../../fs/fdtable" }
+fs-mounttable = { path = "../../fs/mounttable" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true
+
+# The `IN_*` event bits, which are Rust constants in the crate that
+# defines the events. `kernel/inotify.h` had a second copy.
+inotify = { path = "../inotify" }
+
+# `[dev-dependencies] fs-locks` and `fs-poll` were here until 2026-09-09, so
+# that a test creating a descriptor could resolve `_poll_cleanup_fd`,
+# `_flock_release` and `_file_locks_destroy`. Those are a hook and a direct
+# `fs-pollset` call now; nothing here needs a symbol from either crate.

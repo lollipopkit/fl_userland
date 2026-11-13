@@ -1,0 +1,67 @@
+## ppoll counts
+  nfds 0, null array -> 0
+  nfds at RLIMIT_NOFILE, null array -> -EFAULT
+  nfds one past RLIMIT_NOFILE, null array -> -EINVAL
+  nfds a megabyte of entries, null array -> -EINVAL
+  nfds a hundred million, null array -> -EINVAL
+  nfds -1 -> -EINVAL
+  a count past the address space -> -EFAULT
+  a sigmask of 0 bytes -> -EINVAL
+  a sigmask of 4 bytes -> -EINVAL
+  a sigmask of 8 bytes -> 0
+  a sigmask of 16 bytes -> -EINVAL
+  a null sigmask with a size of 99 -> 0
+## ppoll revents
+  a negative fd -> 0 ready, revents none
+  a closed fd -> 1 ready, revents NVAL
+  a closed fd with events 0 -> 1 ready, revents NVAL
+  output-only bits in events -> 0 ready, revents none
+  a readable pipe -> 1 ready, revents IN
+  a writable pipe -> 1 ready, revents OUT
+  the writer closed -> 1 ready, revents IN|HUP
+  ...and drained -> 1 ready, revents HUP
+  the reader closed -> 1 ready, revents OUT|ERR
+  one fd listed twice -> 2 ready, IN and IN
+## ppoll timeouts
+  zero -> 1
+  one millisecond -> 1
+  a nsec of exactly one second -> -EINVAL
+  a nsec above one second -> -EINVAL
+  a negative nsec -> -EINVAL
+  a negative sec -> -EINVAL
+  a sec of LLONG_MAX -> 1
+  a sum that saturates -> 1
+  a timeout past the address space -> -EFAULT
+## pselect6 counts
+  nfds 0, all sets null -> 0
+  nfds -1 -> -EINVAL
+  nfds at RLIMIT_NOFILE, null sets -> 0
+  nfds one past RLIMIT_NOFILE, null sets -> 0
+  nfds a megabyte of bits, null sets -> 0
+  nfds a billion, null sets -> 0
+  a read set past the address space -> -EFAULT
+  a sigmask of 0 bytes -> -EINVAL
+  a sigmask of 4 bytes -> -EINVAL
+  a sigmask of 8 bytes -> 0
+  a sigmask of 16 bytes -> -EINVAL
+  a null mask with a size of 99 -> 0
+## pselect6 sets
+  a readable and a writable pipe -> 2, read true write true
+  a bit at nfds itself -> 0, still set false
+  a closed descriptor in the set -> 0
+## pselect6 timeouts
+  zero -> 1
+  one millisecond -> 1
+  a nsec of exactly one second -> -EINVAL
+  a negative nsec -> -EINVAL
+  a negative sec -> -EINVAL
+  a sec of LLONG_MAX -> 1
+  the timeout is left alone: true
+## a poll already in progress
+  pipe, written by a child -> woke with revents 0x1
+  eventfd, written by a child -> woke with revents 0x1
+  signalfd, signalled by a child -> woke with revents 0x1
+  timerfd, on expiry -> woke with revents 0x1
+  unix socket, written by a child -> woke with revents 0x1
+  pidfd, on the process exiting -> woke with revents 0x1
+  inotify, on a file appearing -> woke with revents 0x1

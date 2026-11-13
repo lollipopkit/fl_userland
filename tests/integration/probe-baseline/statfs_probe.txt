@@ -1,0 +1,23 @@
+## statfs of a mount
+  the root                                         -> OVERLAYFS, bsize plausible, namelen 255, flags VALID|RELATIME
+  the scratch directory                            -> OVERLAYFS, bsize plausible, namelen 255, flags VALID|RELATIME
+  /proc                                            -> PROC, bsize plausible, namelen 255, flags NOSUID|NODEV|NOEXEC|VALID|RELATIME
+  /proc/self/stat, a file on it                    -> PROC, bsize plausible, namelen 255, flags NOSUID|NODEV|NOEXEC|VALID|RELATIME
+  /dev                                             -> TMPFS, bsize plausible, namelen 255, flags NOSUID|VALID
+  /proc and / differ                               -> true
+  a directory and its parent agree                 -> true
+  the root has blocks                              -> true
+## fstatfs of a descriptor
+  a regular file                                   -> OVERLAYFS, bsize plausible, namelen 255, flags VALID|RELATIME
+  by path and by descriptor agree                  -> true
+  a pipe                                           -> an unknown magic, bsize plausible, namelen 255, flags VALID
+  a socket                                         -> an unknown magic, bsize plausible, namelen 255, flags VALID
+  an eventfd                                       -> an unknown magic, bsize plausible, namelen 255, flags VALID
+  a pipe and a socket differ                       -> true
+## refusals
+  statfs of a path that is not there               -> ENOENT
+  statfs through a file                            -> ENOTDIR
+  statfs of the empty path                         -> ENOENT
+  fstatfs of -1                                    -> EBADF
+  statfs into a null buffer                        -> EFAULT
+  fstatfs(0) into a null buffer                    -> EFAULT

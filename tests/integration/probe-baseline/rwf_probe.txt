@@ -1,0 +1,110 @@
+########## a regular file ##########
+file preadv2(RWF_HIPRI)                              -> 4
+file pwritev2(offset 0, RWF_HIPRI)                   -> 3
+  the file is now this long                          -> 10
+file preadv2(RWF_DSYNC)                              -> 4
+file pwritev2(offset 0, RWF_DSYNC)                   -> 3
+  the file is now this long                          -> 10
+file preadv2(RWF_SYNC)                               -> 4
+file pwritev2(offset 0, RWF_SYNC)                    -> 3
+  the file is now this long                          -> 10
+file preadv2(RWF_APPEND)                             -> 4
+file pwritev2(offset 0, RWF_APPEND)                  -> 3
+  the file is now this long                          -> 13
+file preadv2(RWF_NOAPPEND)                           -> 4
+file pwritev2(offset 0, RWF_NOAPPEND)                -> 3
+  the file is now this long                          -> 10
+file preadv2(RWF_ATOMIC)                             -> EOPNOTSUPP
+file pwritev2(offset 0, RWF_ATOMIC)                  -> EOPNOTSUPP
+  the file is now this long                          -> 10
+file preadv2(RWF_DONTCACHE)                          -> EOPNOTSUPP
+file pwritev2(offset 0, RWF_DONTCACHE)               -> EOPNOTSUPP
+  the file is now this long                          -> 10
+file preadv2(RWF_NOSIGNAL)                           -> 4
+file pwritev2(offset 0, RWF_NOSIGNAL)                -> 3
+  the file is now this long                          -> 10
+file preadv2(0x200)                                  -> EOPNOTSUPP
+file pwritev2(offset 0, 0x200)                       -> EOPNOTSUPP
+  the file is now this long                          -> 10
+file preadv2(RWF_APPEND|RWF_NOAPPEND)                -> EINVAL
+file pwritev2(offset 0, RWF_APPEND|RWF_NOAPPEND)     -> EINVAL
+  the file is now this long                          -> 10
+########## O_APPEND and RWF_NOAPPEND ##########
+O_APPEND pwritev2(offset 2, 0)                       -> 3
+  the file is now this long                          -> 13
+  and holds                                          -> 0123456789xyz
+O_APPEND pwritev2(offset 2, RWF_NOAPPEND)            -> 3
+  the file is now this long                          -> 10
+  and holds                                          -> 01xyz56789
+O_APPEND pwritev2(offset 2, RWF_APPEND)              -> 3
+  the file is now this long                          -> 13
+  and holds                                          -> 0123456789xyz
+O_APPEND pwrite(offset 2)                            -> 3
+  the file is now this long                          -> 13
+  the file offset is now                             -> 10
+O_APPEND pwritev2(offset -1, RWF_NOAPPEND)           -> 3
+  the file is now this long                          -> 10
+  the file offset is now                             -> 5
+O_APPEND pwritev2(offset -1, 0)                      -> 3
+  the file is now this long                          -> 13
+  the file offset is now                             -> 13
+pwritev2(offset -1, RWF_APPEND)                      -> 3
+  the file is now this long                          -> 13
+  the file offset is now                             -> 13
+########## a pipe ##########
+pipe preadv2(offset -1, RWF_HIPRI)                   -> 4
+pipe pwritev2(offset -1, RWF_HIPRI)                  -> 3
+pipe preadv2(offset -1, RWF_DSYNC)                   -> 4
+pipe pwritev2(offset -1, RWF_DSYNC)                  -> 3
+pipe preadv2(offset -1, RWF_SYNC)                    -> 4
+pipe pwritev2(offset -1, RWF_SYNC)                   -> 3
+pipe preadv2(offset -1, RWF_NOWAIT)                  -> 4
+pipe pwritev2(offset -1, RWF_NOWAIT)                 -> 3
+pipe preadv2(offset -1, RWF_APPEND)                  -> 4
+pipe pwritev2(offset -1, RWF_APPEND)                 -> 3
+pipe preadv2(offset -1, RWF_NOAPPEND)                -> 4
+pipe pwritev2(offset -1, RWF_NOAPPEND)               -> 3
+pipe preadv2(offset -1, RWF_ATOMIC)                  -> EOPNOTSUPP
+pipe pwritev2(offset -1, RWF_ATOMIC)                 -> EOPNOTSUPP
+pipe preadv2(offset -1, RWF_DONTCACHE)               -> EOPNOTSUPP
+pipe pwritev2(offset -1, RWF_DONTCACHE)              -> EOPNOTSUPP
+pipe preadv2(offset -1, RWF_NOSIGNAL)                -> 4
+pipe pwritev2(offset -1, RWF_NOSIGNAL)               -> 3
+pipe preadv2(offset -1, 0x200)                       -> EOPNOTSUPP
+pipe pwritev2(offset -1, 0x200)                      -> EOPNOTSUPP
+pipe preadv2(offset -1, RWF_APPEND|RWF_NOAPPEND)     -> EINVAL
+pipe pwritev2(offset -1, RWF_APPEND|RWF_NOAPPEND)    -> EINVAL
+pipe preadv2(RWF_NOWAIT), nothing waiting            -> EAGAIN
+########## a socket ##########
+socket preadv2(offset -1, RWF_HIPRI)                 -> 4
+socket pwritev2(offset -1, RWF_HIPRI)                -> 3
+socket preadv2(offset -1, RWF_DSYNC)                 -> 4
+socket pwritev2(offset -1, RWF_DSYNC)                -> 3
+socket preadv2(offset -1, RWF_SYNC)                  -> 4
+socket pwritev2(offset -1, RWF_SYNC)                 -> 3
+socket preadv2(offset -1, RWF_NOWAIT)                -> 4
+socket pwritev2(offset -1, RWF_NOWAIT)               -> 3
+socket preadv2(offset -1, RWF_APPEND)                -> 4
+socket pwritev2(offset -1, RWF_APPEND)               -> 3
+socket preadv2(offset -1, RWF_NOAPPEND)              -> 4
+socket pwritev2(offset -1, RWF_NOAPPEND)             -> 3
+socket preadv2(offset -1, RWF_ATOMIC)                -> EOPNOTSUPP
+socket pwritev2(offset -1, RWF_ATOMIC)               -> EOPNOTSUPP
+socket preadv2(offset -1, RWF_DONTCACHE)             -> EOPNOTSUPP
+socket pwritev2(offset -1, RWF_DONTCACHE)            -> EOPNOTSUPP
+socket preadv2(offset -1, RWF_NOSIGNAL)              -> 4
+socket pwritev2(offset -1, RWF_NOSIGNAL)             -> 3
+socket preadv2(offset -1, 0x200)                     -> EOPNOTSUPP
+socket pwritev2(offset -1, 0x200)                    -> EOPNOTSUPP
+socket preadv2(offset -1, RWF_APPEND|RWF_NOAPPEND)   -> EINVAL
+socket pwritev2(offset -1, RWF_APPEND|RWF_NOAPPEND)  -> EINVAL
+socket preadv2(RWF_NOWAIT), nothing waiting          -> EAGAIN
+########## RWF_NOSIGNAL ##########
+pipe with no reader, pwritev2(0)                     -> EPIPE
+  SIGPIPE delivered                                  -> 1
+pipe with no reader, pwritev2(RWF_NOSIGNAL)          -> EPIPE
+  SIGPIPE delivered                                  -> 0
+socket with no reader, pwritev2(0)                   -> EPIPE
+  SIGPIPE delivered                                  -> 1
+socket with no reader, pwritev2(RWF_NOSIGNAL)        -> EPIPE
+  SIGPIPE delivered                                  -> 0

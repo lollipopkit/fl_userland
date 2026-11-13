@@ -1,0 +1,81 @@
+########## every mask bit alone ##########
+mask=STATX_TYPE                                          -> every asked-for field
+mask=STATX_MODE                                          -> every asked-for field
+mask=STATX_NLINK                                         -> every asked-for field
+mask=STATX_UID                                           -> every asked-for field
+mask=STATX_GID                                           -> every asked-for field
+mask=STATX_ATIME                                         -> every asked-for field
+mask=STATX_MTIME                                         -> every asked-for field
+mask=STATX_CTIME                                         -> every asked-for field
+mask=STATX_INO                                           -> every asked-for field
+mask=STATX_SIZE                                          -> every asked-for field
+mask=STATX_BLOCKS                                        -> every asked-for field
+mask=STATX_BTIME                                         -> every asked-for field
+mask=STATX_MNT_ID                                        -> every asked-for field
+mask=STATX_DIOALIGN                                      -> missing DIOALIGN
+
+########## masks that are not a single bit ##########
+mask=0                                                   -> every asked-for field
+mask=STATX_BASIC_STATS                                   -> every asked-for field
+mask=STATX_ALL                                           -> every asked-for field
+mask=0xffffffff (includes RESERVED)                      -> EINVAL
+mask=STATX_RESERVED alone                                -> EINVAL
+mask=STATX_RESERVED|BASIC                                -> EINVAL
+mask=STATX_MNT_ID_UNIQUE (6.10)                          -> every asked-for field
+mask=0x7fff0000 (all undefined)                          -> missing +0x7fff0000
+
+########## flags ##########
+flags=0                                                  -> every asked-for field
+flags=AT_SYMLINK_NOFOLLOW                                -> every asked-for field
+flags=AT_NO_AUTOMOUNT                                    -> every asked-for field
+flags=AT_STATX_SYNC_AS_STAT                              -> every asked-for field
+flags=AT_STATX_FORCE_SYNC                                -> every asked-for field
+flags=AT_STATX_DONT_SYNC                                 -> every asked-for field
+flags=both sync bits                                     -> EINVAL
+flags=NOFOLLOW|NO_AUTOMOUNT                              -> every asked-for field
+flags=AT_SYMLINK_FOLLOW (not a statx flag)               -> EINVAL
+flags=AT_REMOVEDIR (not a statx flag)                    -> EINVAL
+flags=a bit nothing defines                              -> EINVAL
+flags=every bit                                          -> EINVAL
+
+########## the symlink, followed and not ##########
+symlink, flags=0                                         -> every asked-for field
+symlink, AT_SYMLINK_NOFOLLOW                             -> every asked-for field
+symlink, asking for BTIME                                -> every asked-for field
+symlink followed: S_IFMT                                 -> 0o100000
+symlink not followed: S_IFMT                             -> 0o120000
+
+########## AT_EMPTY_PATH ##########
+AT_EMPTY_PATH on a file descriptor                       -> every asked-for field
+  its size                                               -> 10
+empty path without AT_EMPTY_PATH                         -> ENOENT
+
+########## the whole mask, once, for the record ##########
+stx_mask for STATX_ALL, raw                              -> TYPE|MODE|NLINK|UID|GID|ATIME|MTIME|CTIME|INO|SIZE|BLOCKS|BTIME|MNT_ID|+0x8000
+
+########## the values that must agree ##########
+stx_size of a ten-byte file                              -> 10
+stx_mode & 07777                                         -> 0o644
+stx_mode & S_IFMT                                        -> 0o100000
+stx_nlink                                                -> 1
+stx_attributes                                           -> 0x0
+stx_attributes_mask                                      -> 0x203074
+STATX_BTIME reported                                     -> true
+  btime is after the epoch                               -> true
+  btime <= mtime of a file just written                  -> true
+  btime <= ctime                                         -> true
+  btime within an hour of mtime                          -> true
+
+########## the directory and a missing name ##########
+the directory itself                                     -> every asked-for field
+a name that is not there                                 -> ENOENT
+a path through a non-directory                           -> ENOTDIR
+
+########## a bad buffer ##########
+statx into address 1                                     -> EFAULT
+bad buffer AND reserved mask                             -> EINVAL
+reserved mask AND a missing path                         -> EINVAL
+
+########## a bad descriptor ##########
+statx(9999, "/tmp/...") -- an absolute path              -> 0
+statx(9999, "f") -- a relative path                      -> EBADF

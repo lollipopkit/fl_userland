@@ -1,0 +1,19 @@
+[package]
+name = "kernel-vforkhandoff"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_vforkhandoff"
+crate-type = ["rlib"]
+
+[dependencies]
+util-guestlock = { path = "../../util/guestlock" }
+
+[dev-dependencies]
+# The real signal state, so a test runs the real `wait_for`. It ran
+# `crates/util/guestlock-teststub`'s parallel one until 2026-09-08.
+kernel-sighand = { path = "../sighand" }
+kernel-sigqueue = { path = "../sigqueue" }

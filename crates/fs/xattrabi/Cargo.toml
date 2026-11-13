@@ -1,0 +1,15 @@
+[package]
+name = "fs-xattrabi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "xattrabi"
+crate-type = ["rlib"]
+
+# Nothing. The rules are arithmetic over a name, a size and a mode; a
+# dependency here would be a dependency in every filesystem that applies them.
+[dependencies]
+util-errno = { path = "../../util/errno" }

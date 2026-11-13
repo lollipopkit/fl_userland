@@ -1,0 +1,49 @@
+[package]
+name = "fs-sock"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fs_sock"
+# rlib: crates/iul is the one staticlib in the product. See CLAUDE.md.
+crate-type = ["rlib"]
+
+[dependencies]
+util-timeabi = { path = "../../util/timeabi" }
+util-errno = { path = "../../util/errno" }
+# AF_NETLINK, which the host does not have: see crates/fs/netlink.
+fs-netlink = { path = "../netlink" }
+util-logchan = { path = "../../util/logchan" }
+fs-generic = { path = "../generic" }
+kernel-fdcalls = { path = "../../kernel/fdcalls" }
+kernel-sighand = { path = "../../kernel/sighand" }
+fs-inode = { path = "../../fs/inode" }
+fs-adhoc = { path = "../../fs/adhoc" }
+kernel-fsinfo = { path = "../../kernel/fsinfo" }
+fs-mounttable = { path = "../../fs/mounttable" }
+kernel-procattr = { path = "../../kernel/procattr" }
+kernel-creds = { path = "../../kernel/creds" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+kernel-taskview = { path = "../../kernel/taskview" }
+# Whether an interrupted socket wait restarts is the socket's to say.
+kernel-syscallrestart = { path = "../../kernel/syscallrestart" }
+# errno_map and err_map as Rust calls; through bindgen until 2026-09-04.
+kernel-errno = { path = "../../kernel/errno" }
+libc.workspace = true
+rustix.workspace = true
+sockabi = { path = "../sockabi" }
+fs-sockaddr = { path = "../sockaddr" }
+fs-unixpeer = { path = "../unixpeer" }
+cmsg = { path = "../cmsg" }
+realfs = { path = "../realfs" }
+fs-unixname = { path = "../unixname" }
+msghdr = { path = "../msghdr" }
+kernel-usercopy = { path = "../../kernel/usercopy" }
+rwabi = { path = "../../kernel/rwabi" }
+util-strace = { path = "../../util/strace" }
+
+fs-sockrestart = { path = "../sockrestart" }

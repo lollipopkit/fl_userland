@@ -1,0 +1,37 @@
+[package]
+name = "fs-poll"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fs_poll"
+crate-type = ["rlib"]
+
+[dependencies]
+util-timeabi = { path = "../../util/timeabi" }
+util-errno = { path = "../../util/errno" }
+kernel-epoll = { path = "../../kernel/epoll" }
+kernel-pids = { path = "../../kernel/pids" }
+util-logline = { path = "../../util/logline" }
+kernel-sighand = { path = "../../kernel/sighand" }
+realfs = { path = "../../fs/realfs" }
+fs-pollset = { path = "../../fs/pollset" }
+kernel-ctty = { path = "../../kernel/ctty" }
+kernel-groupexit = { path = "../../kernel/groupexit" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+kernel-proctree = { path = "../../kernel/proctree" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+# The IUL_* settings as a safe read; through this crate's own bindgen and an
+# unsafe block per field until 2026-09-04.
+util-iulenv = { path = "../../util/iulenv" }
+# errno_map as a Rust call and as the fd_ops entry; through bindgen until
+# 2026-09-04.
+kernel-errno = { path = "../../kernel/errno" }
+libc.workspace = true
+
+fs-sockrestart = { path = "../sockrestart" }

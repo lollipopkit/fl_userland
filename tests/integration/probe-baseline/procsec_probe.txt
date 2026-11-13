@@ -1,0 +1,294 @@
+########## kcmp ##########
+FILE, fd and its dup                                         -> equal
+FILE, two opens of one file                                  -> ordered, not equal
+FILE, a closed descriptor                                    -> EBADF
+VM, self and self                                            -> equal
+FILES, self and self                                         -> equal
+FS, self and self                                            -> equal
+SIGHAND, self and self                                       -> equal
+IO, self and self                                            -> equal
+SYSVSEM, self and self                                       -> equal
+type 8                                                       -> EINVAL
+type -1                                                      -> EINVAL
+a pid that is not there                                      -> ESRCH
+VM, self and own thread                                      -> equal
+FILES, self and own thread                                   -> equal
+FS, self and own thread                                      -> equal
+SIGHAND, self and own thread                                 -> equal
+FILE, the same fd through a thread                           -> equal
+VM, self and a forked child                                  -> ordered, not equal
+FILES, self and a forked child                               -> ordered, not equal
+FS, self and a forked child                                  -> ordered, not equal
+SIGHAND, self and a forked child                             -> ordered, not equal
+FILE, an inherited descriptor                                -> equal
+FILE, inherited vs another open                              -> ordered, not equal
+epoll_ctl(ADD, a pipe)                                       -> ok
+EPOLL_TFD, a registered target                               -> equal
+EPOLL_TFD, registered, compared with another file            -> ordered, not equal
+EPOLL_TFD, an unregistered target                            -> ENOENT
+EPOLL_TFD, a registered target, toff 1                       -> ENOENT
+EPOLL_TFD, not an epoll descriptor                           -> EINVAL
+EPOLL_TFD, an unreadable slot                                -> EFAULT
+VM, self and a reaped child                                  -> ESRCH
+
+########## sched_getattr / sched_setattr ##########
+getattr(56)                                                  -> ok
+  size policy flags nice prio                                -> 56 0 0 0 0
+  util_min util_max                                          -> 0 0
+getattr(48), SCHED_ATTR_SIZE_VER0                            -> ok, size 48
+getattr(72), bigger than the kernel's                        -> ok, size 56, tail [0, 0]
+getattr(47)                                                  -> EINVAL
+getattr(0)                                                   -> EINVAL
+getattr(56, flags 1)                                         -> EINVAL
+getattr(NULL)                                                -> EINVAL
+getattr(pid 999999)                                          -> ESRCH
+getattr(pid -1)                                              -> EINVAL
+setattr(OTHER, nice 5)                                       -> ok
+  getpriority after                                          -> 5
+  getattr nice                                               -> 5
+setattr(OTHER, nice -3)                                      -> ok
+setattr(OTHER, nice 40), clamped                             -> ok
+  getattr nice                                               -> 19
+setattr(BATCH)                                               -> ok
+  sched_getscheduler                                         -> 3
+setattr(IDLE)                                                -> ok
+  sched_getscheduler                                         -> 5
+setattr(OTHER, priority 1)                                   -> EINVAL
+setattr(policy 99)                                           -> EINVAL
+setattr(RESET_ON_FORK)                                       -> ok
+  getattr flags policy                                       -> 1 0
+setattr(KEEP_POLICY|KEEP_PARAMS, BATCH)                      -> ok
+  sched_getscheduler                                         -> 1073741824
+setattr(flag 0x80)                                           -> EINVAL
+setattr(UTIL_CLAMP_MIN, 100)                                 -> EOPNOTSUPP
+setattr(UTIL_CLAMP_MAX, 2000)                                -> EOPNOTSUPP
+setattr(size 0)                                              -> ok
+setattr(size 47)                                             -> E2BIG
+setattr(size 72, zero tail)                                  -> ok
+setattr(size 72, non-zero tail)                              -> E2BIG
+  size written back                                          -> 56
+setattr(syscall flags 1)                                     -> EINVAL
+setattr(NULL)                                                -> EINVAL
+setattr(DEADLINE, zero runtime)                              -> EINVAL
+  the child                                                  -> exit 0
+
+########## seccomp ##########
+GET_ACTION_AVAIL(KILL_PROCESS)                               -> ok
+GET_ACTION_AVAIL(KILL_THREAD)                                -> ok
+GET_ACTION_AVAIL(TRAP)                                       -> ok
+GET_ACTION_AVAIL(ERRNO)                                      -> ok
+GET_ACTION_AVAIL(USER_NOTIF)                                 -> ok
+GET_ACTION_AVAIL(TRACE)                                      -> ok
+GET_ACTION_AVAIL(LOG)                                        -> ok
+GET_ACTION_AVAIL(ALLOW)                                      -> ok
+GET_ACTION_AVAIL(0x12340000)                                 -> EOPNOTSUPP
+GET_ACTION_AVAIL, flags 1                                    -> EINVAL
+GET_NOTIF_SIZES                                              -> ok [80, 24, 64]
+seccomp(99)                                                  -> EINVAL
+SET_MODE_STRICT with flags                                   -> EINVAL
+PR_GET_SECCOMP                                               -> 0
+Seccomp: in status                                           -> 0
+in a child: SET_MODE_FILTER without no_new_privs, as root    -> EACCES
+  the child                                                  -> exit 0
+filter: getppid -> ERRNO(EPERM)                              -> ok
+  getppid                                                    -> EPERM
+  getpid still works                                         -> true
+  PR_GET_SECCOMP                                             -> 2
+  Seccomp:                                                   -> 2
+  Seccomp_filters:                                           -> 1
+  NoNewPrivs:                                                -> 1
+second filter: gettid -> ERRNO(EACCES)                       -> ok
+  gettid                                                     -> EACCES
+  getppid, the first filter still applies                    -> EPERM
+  Seccomp_filters:                                           -> 2
+  SET_MODE_STRICT on top of a filter                         -> EINVAL
+  getppid in a grandchild                                    -> EPERM
+ERRNO(0) data                                                -> 0
+ERRNO(4096), clamped                                         -> errno 4095
+  the child                                                  -> exit 0
+filter with 0 instructions                                   -> EINVAL
+filter with an invalid opcode                                -> EINVAL
+filter that does not end in a return                         -> EINVAL
+filter loading past seccomp_data                             -> EINVAL
+filter loading an unaligned word                             -> EINVAL
+filter jumping past its end                                  -> EINVAL
+filter with 4097 instructions                                -> EINVAL
+unreadable fprog                                             -> EFAULT
+flag 0x100                                                   -> EINVAL
+TSYNC with one thread                                        -> 0
+LOG flag                                                     -> ok
+SPEC_ALLOW flag                                              -> ok
+filter: refuse every syscall unless arch is AUDIT_ARCH_AARCH64 -> ok
+  getpid after it                                            -> true
+filter: dup(1000) -> E2BIG                                   -> ok
+  dup(1000)                                                  -> E2BIG
+  dup(1001)                                                  -> EBADF
+  the child                                                  -> exit 0
+filter: getppid -> TRAP                                      -> ok
+  the child                                                  -> killed by signal 31
+filter: getppid -> KILL_PROCESS                              -> ok
+  the child                                                  -> killed by signal 31
+filter: getppid -> TRACE, no tracer                          -> ok
+  getppid                                                    -> ENOSYS
+filter: getuid -> LOG                                        -> ok
+  getuid                                                     -> 0
+filter: gettid -> USER_NOTIF, no listener                    -> ok
+  gettid                                                     -> ENOSYS
+  the child                                                  -> exit 0
+filter: getppid -> TRAP|42, with a handler                   -> ok
+  getppid returned                                           -> 0
+  si_code (SYS_SECCOMP is 1)                                 -> 1
+  si_syscall                                                 -> 173
+  si_errno, the filter's data                                -> 42
+  si_arch is AUDIT_ARCH_AARCH64                              -> true
+  the child                                                  -> exit 0
+PR_SET_SECCOMP(STRICT)                                       -> next line
+  prctl returned                                             -> ok
+  the child                                                  -> killed by signal 9
+
+########## unshare ##########
+unshare(0)                                                   -> ok
+unshare(CLONE_FILES)                                         -> ok
+unshare(CLONE_FS)                                            -> ok
+unshare(CLONE_SYSVSEM)                                       -> ok
+unshare(CLONE_VM), single-threaded                           -> ok
+unshare(CLONE_SIGHAND), single-threaded                      -> ok
+unshare(CLONE_THREAD), single-threaded                       -> ok
+unshare(SIGCHLD), not an unshare flag                        -> EINVAL
+unshare(CLONE_PARENT)                                        -> EINVAL
+unshare(CLONE_NEWNS)                                         -> EPERM
+unshare(CLONE_NEWUTS)                                        -> EPERM
+unshare(CLONE_NEWIPC)                                        -> EPERM
+unshare(CLONE_NEWNET)                                        -> EPERM
+unshare(CLONE_NEWPID)                                        -> EPERM
+unshare(CLONE_NEWCGROUP)                                     -> EPERM
+unshare(CLONE_NEWTIME)                                       -> EPERM
+  the child                                                  -> exit 0
+a thread sees a descriptor opened before                     -> open
+unshare(CLONE_FILES) with a thread sharing the table         -> ok
+  the thread sees one opened after                           -> EBADF
+unshare(CLONE_VM) with two threads                           -> EINVAL
+unshare(CLONE_SIGHAND) with two threads                      -> EINVAL
+unshare(CLONE_THREAD) with two threads                       -> EINVAL
+unshare(CLONE_FS) in a thread                                -> ok
+  the thread's chdir did not move the process                -> true
+  the child                                                  -> exit 0
+
+########## setns ##########
+setns(/dev/null, 0)                                          -> EINVAL
+setns(9999, 0)                                               -> EBADF
+setns(-1, 0)                                                 -> EBADF
+setns(pidfd of self, 0)                                      -> EINVAL
+setns(pidfd of self, CLONE_NEWUTS)                           -> EPERM
+setns(pidfd of self, CLONE_VM)                               -> EINVAL
+open /proc/self/ns/uts                                       -> a descriptor
+setns(own uts ns, CLONE_NEWUTS)                              -> EPERM
+setns(own uts ns, CLONE_NEWNET)                              -> EINVAL
+
+########## listns ##########
+listns(all types, 64 slots)                                  -> a count
+listns(flags 1)                                              -> EINVAL
+listns(size 8)                                               -> EINVAL
+listns(NULL req)                                             -> EFAULT
+listns(0 slots)                                              -> ok
+
+########## the LSM calls ##########
+lsm_list_modules                                             -> a count
+  capability is listed                                       -> true
+lsm_list_modules(flags 1)                                    -> EINVAL
+lsm_list_modules(size 0)                                     -> E2BIG, size became a multiple of 8: true
+lsm_get_self_attr(LSM_ATTR_CURRENT)                          -> EOPNOTSUPP
+lsm_get_self_attr(999)                                       -> EOPNOTSUPP
+lsm_get_self_attr(flags 2)                                   -> EINVAL
+lsm_set_self_attr(CURRENT, capability)                       -> EOPNOTSUPP
+lsm_set_self_attr(flags 1)                                   -> EINVAL
+
+########## landlock ##########
+landlock_create_ruleset(VERSION)                             -> an ABI version
+landlock_create_ruleset(ERRATA)                              -> an errata mask
+landlock_create_ruleset(fs EXECUTE)                          -> a descriptor
+landlock_add_rule(-1)                                        -> EBADF
+landlock_restrict_self(-1)                                   -> EPERM
+
+########## bpf, perf_event_open, userfaultfd ##########
+bpf(BPF_MAP_CREATE, NULL, 0)                                 -> EINVAL
+bpf(BPF_MAP_CREATE, zeroed, 128)                             -> EINVAL
+bpf(999)                                                     -> EINVAL
+perf_event_open(NULL)                                        -> EFAULT
+perf_event_open(SW_TASK_CLOCK, self)                         -> EACCES
+userfaultfd(0)                                               -> EPERM
+userfaultfd(UFFD_USER_MODE_ONLY)                             -> ok
+userfaultfd(0x100)                                           -> EPERM
+open /dev/userfaultfd                                        -> ENOENT
+
+########## the keyring calls ##########
+keyctl(GET_KEYRING_ID, SESSION, 0)                           -> an id
+keyctl(99)                                                   -> EOPNOTSUPP
+add_key(user, probe, PROCESS keyring)                        -> an id
+request_key(user, an absent key)                             -> ENOKEY
+
+########## PR_SET_VMA ##########
+PR_SET_VMA_ANON_NAME("probe")                                -> EINVAL
+  /proc/self/maps names it                                   -> 
+  smaps too                                                  -> false
+PR_SET_VMA_ANON_NAME(NULL), clearing                         -> EINVAL
+  /proc/self/maps after                                      -> 
+PR_SET_VMA_ANON_NAME(with a \x01)                            -> EINVAL
+PR_SET_VMA_ANON_NAME(with a [)                               -> EINVAL
+PR_SET_VMA_ANON_NAME(with a $)                               -> EINVAL
+PR_SET_VMA_ANON_NAME(with a space)                           -> EINVAL
+PR_SET_VMA_ANON_NAME(80 bytes)                               -> EINVAL
+PR_SET_VMA_ANON_NAME(79 bytes)                               -> EINVAL
+PR_SET_VMA_ANON_NAME(unaligned start)                        -> EINVAL
+PR_SET_VMA_ANON_NAME(unmapped)                               -> EINVAL
+PR_SET_VMA_ANON_NAME(unreadable name)                        -> EINVAL
+PR_SET_VMA(1), not ANON_NAME                                 -> EINVAL
+  naming one page of two splits the line                     -> 
+PR_SET_VMA_ANON_NAME on a file mapping                       -> EINVAL
+PR_SET_VMA_ANON_NAME on shared anon                          -> EINVAL
+
+########## /proc/sys files that say what is allowed ##########
+/proc/sys/kernel/ostype                                      -> Linux
+/proc/sys/kernel/osrelease                                   -> starts with a digit: true
+/proc/sys/kernel/cap_last_cap                                -> 40
+/proc/sys/kernel/ngroups_max                                 -> 65536
+/proc/sys/kernel/overflowuid                                 -> 65534
+/proc/sys/kernel/overflowgid                                 -> 65534
+/proc/sys/kernel/pid_max                                     -> readable
+/proc/sys/kernel/threads-max                                 -> readable
+/proc/sys/kernel/random/boot_id                              -> a uuid: true
+/proc/sys/kernel/random/uuid                                 -> a uuid: true
+/proc/sys/kernel/random/entropy_avail                        -> readable
+/proc/sys/kernel/random/poolsize                             -> 256
+/proc/sys/kernel/yama/ptrace_scope                           -> readable
+/proc/sys/kernel/perf_event_paranoid                         -> readable
+/proc/sys/kernel/unprivileged_bpf_disabled                   -> readable
+/proc/sys/kernel/seccomp/actions_avail                       -> kill_process kill_thread trap errno user_notif trace log allow
+/proc/sys/kernel/keys/maxkeys                                -> readable
+/proc/sys/kernel/kptr_restrict                               -> readable
+/proc/sys/kernel/dmesg_restrict                              -> readable
+/proc/sys/kernel/randomize_va_space                          -> readable
+/proc/sys/kernel/shmmax                                      -> readable
+/proc/sys/kernel/shmall                                      -> readable
+/proc/sys/kernel/shmmni                                      -> readable
+/proc/sys/kernel/msgmax                                      -> readable
+/proc/sys/kernel/msgmnb                                      -> readable
+/proc/sys/kernel/msgmni                                      -> readable
+/proc/sys/kernel/sem                                         -> readable
+/proc/sys/kernel/core_pattern                                -> readable
+/proc/sys/kernel/hostname                                    -> readable
+/proc/sys/kernel/domainname                                  -> readable
+/proc/sys/kernel/tainted                                     -> readable
+/proc/sys/kernel/printk                                      -> readable
+/proc/sys/kernel/sched_child_runs_first                      -> ENOENT
+/proc/sys/kernel/unprivileged_userns_clone                   -> ENOENT
+/proc/sys/user/max_user_namespaces                           -> readable
+/proc/sys/vm/overcommit_memory                               -> readable
+/proc/sys/vm/max_map_count                                   -> readable
+/proc/sys/vm/mmap_min_addr                                   -> 4096
+/proc/sys/vm/unprivileged_userfaultfd                        -> readable
+/proc/sys/fs/file-max                                        -> readable
+/proc/sys/fs/nr_open                                         -> 1073741816
+/proc/sys/fs/pipe-max-size                                   -> readable
+/proc/sys/fs/inotify/max_user_watches                        -> readable
+/proc/sys/fs/protected_symlinks                              -> readable

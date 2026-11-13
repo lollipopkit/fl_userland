@@ -1,0 +1,18 @@
+[package]
+name = "fakefs-redirect"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fakefs_redirect"
+# A staticlib, and the *second* one in this tree — which the note in CLAUDE.md
+# warns against. The reason that rule exists is that two Rust staticlibs in
+# **one link** are two copies of the standard library, whose symbols are strong
+# globals under LTO. This one is linked into `libfakefs_redirect.dylib` and
+# nothing else; `libiul.a` is still the only staticlib in the product.
+crate-type = ["staticlib"]
+
+[dependencies]
+libc.workspace = true

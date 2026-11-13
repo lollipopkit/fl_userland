@@ -1,0 +1,21 @@
+[package]
+name = "fs-sockrestart"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "sockrestart"
+crate-type = ["rlib"]
+
+[dependencies]
+kernel-taskcalls = { path = "../../kernel/taskcalls" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true
+rustix.workspace = true
+util-logline = { path = "../../util/logline" }

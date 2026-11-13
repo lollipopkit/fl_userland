@@ -1,0 +1,84 @@
+# The host CLI.
+#
+# It is the one Rust target in the tree that **links** -- every other is a
+# staticlib or an rlib that something else links -- and what it links is the
+# subject of the dependency list below rather than of a link line somewhere
+# else. `tools/build-cli.sh` runs `cargo build -p iul-cli` and copies the
+# result; it passes no flags, names no archive and sets no variable.
+#
+# It had a `build.rs` until 2026-09-11, which read `IUL_CLI_BUILD_DIR` -- set
+# only by meson's wrapper -- and used it to put meson's build directory on the
+# link search path and name `libish_emu.a`, `libfakefs.a` and `-lsqlite3` there.
+# The first two were empty by then, so what that bought was the third,
+# which `libsqlite3-sys` emits anyway. A plain `cargo build -p iul-cli` had
+# linked correctly since 2026-09-08 without any of it.
+#
+# It does not link `libiul.a`, the archive an embedder gets. `libiul.a` is
+# the Rust staticlib and this binary already has the Rust half as an rlib
+# through `iul`; linking both would put two copies of the standard library
+# in one image, which under the release profile's LTO is a duplicate-symbol
+# error rather than merely wasteful.
+[package]
+name = "iul-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "iul"
+path = "src/main.rs"
+
+[features]
+# Forwarded to crates/iul, which owns the optional dependencies.
+offload-test-symbol = ["iul/offload-test-symbol"]
+offload-test-prebuilt = ["iul/offload-test-prebuilt"]
+
+[dependencies]
+util-hostsig = { path = "../../util/hostsig" }
+rustix.workspace = true
+fs-devices = { path = "../../fs/devices" }
+util-errno = { path = "../../util/errno" }
+# The gadgets, assembled by that crate's build script -- which is what made
+# `cargo build -p iul-cli` link at all, on 2026-09-08. Before it, every crate
+# compiled and the product could still only be built one way.
+# See crates/asbestos/gadgets.
+asbestos-gadgets = { path = "../../asbestos/gadgets" }
+
+# The seven objects `boot` reaches for by name. They were `extern` statics
+# generated from six headers until 2026-09-08, which needs no dependency edge --
+# so nothing recorded that this binary is what wires realfs, fakefs, procfs and
+# devpts into the mount table, and the console driver into `tty_drivers`.
+realfs = { path = "../../fs/realfs" }
+devpts = { path = "../../fs/devpts" }
+proc = { path = "../../fs/proc" }
+fs-ttydev = { path = "../../fs/ttydev" }
+fs-fake = { path = "../../fs/fake" }
+fs-generic = { path = "../../fs/generic" }
+kernel-exitcalls = { path = "../../kernel/exitcalls" }
+asbestos-jitstate = { path = "../../asbestos/jitstate" }
+kernel-execcalls = { path = "../../kernel/execcalls" }
+fs-ttyreal = { path = "../../fs/ttyreal" }
+kernel-boot = { path = "../../kernel/boot" }
+kernel-offloadexec = { path = "../../kernel/offloadexec" }
+fs-mount = { path = "../../fs/mount" }
+kernel-taskcalls = { path = "../../kernel/taskcalls" }
+kernel-pids = { path = "../../kernel/pids" }
+kernel-fsinfo = { path = "../../kernel/fsinfo" }
+fs-fdobj = { path = "../../fs/fdobj" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+kernel-proctree = { path = "../../kernel/proctree" }
+# The whole Rust half of the kernel, as an rlib. Depending on it rather than
+# linking `libiul.a` is what keeps one copy of the standard library in this
+# binary: `libiul.a` carries the staticlib's, and under the release profile's
+# LTO those symbols are strong globals.
+iul = { path = "../../iul" }
+libc.workspace = true
+util-iulenv = { path = "../../util/iulenv" }
+# Called directly rather than through the C ABI: `main.c` was their only C
+# caller and it is gone, so a `#[no_mangle]` on them would be an export nobody
+# on the C side can reach -- which is what `tools/dead-exports.py` reports.
+asbestos-diag = { path = "../../asbestos/diag" }
+kernel-pagetable = { path = "../../kernel/pagetable" }
+

@@ -1,0 +1,13 @@
+[package]
+name = "util-hostdir"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "util_hostdir"
+crate-type = ["rlib"]
+
+[dependencies]
+libc.workspace = true

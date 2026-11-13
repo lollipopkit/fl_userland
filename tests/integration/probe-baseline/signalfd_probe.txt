@@ -1,0 +1,50 @@
+## signalfd4 creation
+  a new one -> a descriptor
+  updating it -> 3
+  updating a pipe -> -EINVAL
+  updating a closed number -> -EBADF
+  flags 0 -> a descriptor
+  flags SFD_CLOEXEC -> a descriptor
+  flags SFD_NONBLOCK -> a descriptor
+  flags both -> a descriptor
+  flags an unallocated flag -> -EINVAL
+  flags another unallocated flag -> -EINVAL
+  a mask of 0 bytes -> -EINVAL
+  a mask of 4 bytes -> -EINVAL
+  a mask of 8 bytes -> a descriptor
+  a mask of 16 bytes -> -EINVAL
+  a mask of 128 bytes -> -EINVAL
+  a null mask -> -EFAULT
+## the mask
+  SIGKILL and SIGSTOP in the mask -> accepted
+  an empty mask -> accepted
+  ...and reads -> -EAGAIN
+  every bit set -> accepted
+## reading
+  an empty queue -> -EAGAIN
+  a 127-byte buffer -> -EINVAL
+  a zero-length read -> -EINVAL
+  then a 128-byte read -> 128
+  room for three, one queued -> 128
+  a buffer past the address space -> -EFAULT
+  a signal outside the mask -> -EAGAIN
+  ...and is still pending: true
+## the record
+  tkill: signo 10 errno 0 code -6
+  tkill: pid is ours true uid is ours true
+  tkill: fd 0 tid 0 band 0 overrun 0
+  tkill: status 0 int 0 ptr 0
+  tkill: utime 0 stime 0 addr 0
+  tkill: addr_lsb 0 syscall 0 arch 0
+  rt_sigqueueinfo -> 0
+  queued: signo 36 code -1 int 0x0
+  queued: pid is ours false uid is ours false
+## queueing
+  two different signals, room for four -> 256
+  ...in order: 10 then 12
+  the same standard signal twice -> 128 bytes
+  the same real-time signal twice -> 256 bytes
+## in an event loop
+  poll, signalled by a child -> readable
+  epoll, signalled by a child -> readable
+  epoll, already pending -> readable

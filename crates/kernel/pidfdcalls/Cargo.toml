@@ -1,0 +1,31 @@
+[package]
+name = "kernel-pidfdcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "pidfdcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+fs-adhoc = { path = "../../fs/adhoc" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+# The IUL_* settings as a safe read; see crates/util/iulenv.
+kernel-pidfd = { path = "../pidfd" }
+kernel-pids = { path = "../pids" }
+kernel-creds = { path = "../creds" }
+kernel-signalcalls = { path = "../signalcalls" }
+util-strace = { path = "../../util/strace" }
+# The `si_signo` of a caller's siginfo, read before the signal is sent.
+kernel-usercopy = { path = "../usercopy" }
+
+# The `POLL_*` bits, which are Rust constants in the crate that owns the
+# readiness model. `fs/poll.h` had them as `#define`s no C read.
+fs-poll = { path = "../../fs/poll" }

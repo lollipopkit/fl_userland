@@ -1,0 +1,24 @@
+[package]
+name = "kernel-mqueue"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_mqueue"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+util-guestlock = { path = "../../util/guestlock" }
+util-identity = { path = "../../util/identity" }
+util-timeabi = { path = "../../util/timeabi" }
+fs-pollset = { path = "../../fs/pollset" }
+libc.workspace = true
+
+[dev-dependencies]
+# The real signal state, so a test runs the real `wait_for`, as
+# `crates/kernel/eventfd` does.
+kernel-sighand = { path = "../sighand" }
+kernel-sigqueue = { path = "../sigqueue" }

@@ -1,0 +1,39 @@
+## connect
+unbound socket to 127.0.0.1                        -> 0
+  and it was given a port                          -> true
+bound to 0.0.0.0, to 127.0.0.1                     -> 0
+bound to 127.0.0.1, to 127.0.0.1                   -> 0
+connect again, elsewhere                           -> 0
+connect again, back                                -> 0
+to 0.0.0.0                                         -> 0
+## a connected socket
+send without an address                            -> 1
+it arrives                                         -> 1
+getpeername                                        -> port matches true
+shutdown(SHUT_WR) on a connected socket            -> 0
+  then poll(IN|OUT) reports                        -> 1 0x4
+## disconnect
+connect AF_UNSPEC                                  -> 0
+getpeername after                                  -> ENOTCONN
+send without an address after                      -> EDESTADDRREQ
+## an IPv6 socket on ::, as nc -l makes one
+setsockopt IPPROTO_IP IP_PKTINFO                   -> 0
+setsockopt IPPROTO_IPV6 IPV6_RECVPKTINFO           -> 0
+bind ::                                            -> 0
+recvmsg MSG_PEEK on an empty socket, 300ms timeout -> EAGAIN
+  the same with a zero-length buffer               -> EAGAIN
+sendto 127.0.0.1 from IPv4                         -> 3
+recvmsg MSG_PEEK                                   -> 3
+  the source is ::ffff:127.0.0.1                   -> true
+  the source's port is the sender's                -> true
+  a control message came with it                   -> true
+connect back to the source                         -> 0
+recv after connect, the peeked datagram            -> 3
+## control messages on a received datagram
+IPv4, nothing asked                                -> none
+IPv4, IP_PKTINFO                                   -> 0/8/12(if>0 true, addr [127, 0, 0, 1])
+IPv4, IP_RECVTTL and IP_RECVTOS                    -> 0/2/4(first byte nonzero true) 0/1/1(first byte nonzero true)
+IPv4, SO_TIMESTAMP                                 -> 1/29/16
+IPv6 on ::, IPV6_RECVPKTINFO, from IPv4            -> 41/50/20(if>0 true, addr [255, 255, 127, 0, 0, 1])
+IPv6 on ::, IP_PKTINFO, from IPv4                  -> 0/8/12(if>0 true, addr [127, 0, 0, 1])
+IPv6 on ::, both, from IPv4                        -> 41/50/20(if>0 true, addr [255, 255, 127, 0, 0, 1]) 0/8/12(if>0 true, addr [127, 0, 0, 1])

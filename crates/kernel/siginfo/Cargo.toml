@@ -1,0 +1,16 @@
+[package]
+name = "kernel-siginfo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_siginfo"
+crate-type = ["rlib"]
+
+# The primitive guest types, which are `crates/emu/abi`'s. Nothing else: this is
+# a wire format, and the point of it being a crate of its own is that holding
+# one does not mean depending on every other shared kernel type.
+[dependencies]
+emu-abi = { path = "../../emu/abi" }

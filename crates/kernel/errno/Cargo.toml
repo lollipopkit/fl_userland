@@ -1,0 +1,17 @@
+[package]
+name = "kernel-errno"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_errno"
+crate-type = ["rlib"]
+
+[dependencies]
+libc.workspace = true
+# The guest's errno numbers. This crate maps a *host* errno onto one of them
+# and does not own them: `crates/util/errno` does, because three layer-0 crates
+# answer an errno and cannot depend on a `kernel` crate.
+util-errno = { path = "../../util/errno" }

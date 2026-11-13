@@ -1,0 +1,54 @@
+## prlimit64
+## which resources exist
+  get RLIMIT_CPU                                     ok, soft<=hard true
+  get RLIMIT_FSIZE                                   ok, soft<=hard true
+  get RLIMIT_DATA                                    ok, soft<=hard true
+  get RLIMIT_STACK                                   ok, soft<=hard true
+  get RLIMIT_CORE                                    ok, soft<=hard true
+  get RLIMIT_RSS                                     ok, soft<=hard true
+  get RLIMIT_NPROC                                   ok, soft<=hard true
+  get RLIMIT_NOFILE                                  ok, soft<=hard true
+  get RLIMIT_MEMLOCK                                 ok, soft<=hard true
+  get RLIMIT_AS                                      ok, soft<=hard true
+  get RLIMIT_LOCKS                                   ok, soft<=hard true
+  get RLIMIT_SIGPENDING                              ok, soft<=hard true
+  get RLIMIT_MSGQUEUE                                ok, soft<=hard true
+  get RLIMIT_NICE                                    ok, soft<=hard true
+  get RLIMIT_RTPRIO                                  ok, soft<=hard true
+  get RLIMIT_RTTIME                                  ok, soft<=hard true
+  get one past the last                              -EINVAL
+  get resource 99                                    -EINVAL
+  get resource -1                                    -EINVAL
+## the arguments
+  neither new nor old                                0
+  old is unmapped                                    -EFAULT
+  new is unmapped                                    -EFAULT
+  pid -1                                             -ESRCH
+  pid 999999                                         -ESRCH
+  this process by pid                                0
+## setting
+  lower the soft limit                               0
+    it reads back as 8                               true
+    the hard limit did not move                      true
+  raise the soft limit to what it was                0
+  soft above hard                                    0
+  both RLIM_INFINITY                                 0
+  lower the hard limit                               0
+  raise it back to infinity                          -EPERM
+  set resource 99                                    -EINVAL
+  set resource -1                                    -EINVAL
+## the other two doors
+  getrlimit(RLIMIT_LOCKS)                            0
+    it agrees with prlimit64                         true
+  getrlimit(resource 99)                             -EINVAL
+  getrlimit(NULL)                                    -EFAULT
+  getrlimit(unmapped)                                -EFAULT
+  setrlimit soft above hard                          -EINVAL
+  setrlimit(resource 99)                             -EINVAL
+  setrlimit(NULL)                                    -EFAULT
+  setrlimit lowers the soft limit                    0
+    prlimit64 sees it                                true
+## old and new together
+  set with old                                       0
+    old is what it was                               true
+    and the new value took                           true

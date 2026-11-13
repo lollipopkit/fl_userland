@@ -1,0 +1,15 @@
+[package]
+name = "fs-unixname"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "unixname"
+# rlib: crates/iul is the one staticlib in the product and links this in. See
+# the staticlib note in CLAUDE.md.
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }

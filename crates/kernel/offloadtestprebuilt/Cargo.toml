@@ -1,0 +1,31 @@
+[package]
+name = "kernel-offloadtestprebuilt"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "offloadtestprebuilt"
+crate-type = ["rlib"]
+# The `--lib` target's own (empty) test binary cannot link: the constructor
+# static keeps every spec_fn alive, and through them `prebuilt_call` and the
+# gadgets. `tests/register.rs` links the plain rlib beside `iul`, which
+# has them.
+test = false
+
+[dependencies]
+# The registry this registers into, and the nested-dispatch entry point a
+# spec_fn reaches a guest `bl` through.
+asbestos-offloadprebuilt = { path = "../../asbestos/offloadprebuilt" }
+asbestos-dispatch = { path = "../../asbestos/dispatch" }
+# `struct cpu_state`, and the guest memory a spec_fn reads through.
+kernel-taskview = { path = "../taskview" }
+emu-tlb = { path = "../../emu/tlb" }
+libc = "0.2"
+
+[dev-dependencies]
+# For the gadget symbols and `iul_printk`, which any binary linking this crate
+# needs. A dev-dependency cycle -- `crates/iul` optionally depends on this one
+# -- and cargo permits those; a normal one would not build.
+iul = { path = "../../iul" }

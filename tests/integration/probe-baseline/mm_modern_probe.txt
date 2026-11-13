@@ -1,0 +1,231 @@
+########## mseal: the call ##########
+mseal(1 page, 0)                                             -> ok
+mseal(again)                                                 -> ok
+mseal(flags 1)                                               -> EINVAL
+mseal(unaligned address)                                     -> EINVAL
+mseal(len 0)                                                 -> ok
+mseal(unaligned len)                                         -> ok
+mseal(len wraps)                                             -> EINVAL
+mseal(a range with a hole)                                   -> ENOMEM
+  the first page was not sealed                              -> ok
+mseal(a range that is not mapped)                            -> ENOMEM
+
+########## mseal: what a seal refuses ##########
+mseal(middle page)                                           -> ok
+smaps VmFlags of the sealed page has sl                      -> true
+smaps VmFlags of its neighbour has sl                        -> false
+mprotect(sealed, R)                                          -> EPERM
+mprotect(sealed, RW), the same protection                    -> EPERM
+mprotect(all three pages, R)                                 -> EPERM
+  the first page is still writable                           -> signal 11
+munmap(sealed)                                               -> EPERM
+munmap(all three)                                            -> EPERM
+  the first page is still mapped                             -> survived
+mremap(sealed, grow, MAYMOVE)                                -> EPERM
+mremap(sealed, shrink)                                       -> EPERM
+mremap(another page onto the sealed one)                     -> EPERM
+mmap(MAP_FIXED over the sealed page)                         -> EPERM
+madvise(sealed RW anon, DONTNEED)                            -> ok
+  the sealed page now reads                                  -> 0
+madvise(sealed RW anon, FREE)                                -> ok
+madvise(sealed, WILLNEED)                                    -> ok
+  the sealed page is still writable                          -> survived
+in a child: munmap(sealed)                                   -> EPERM
+madvise(sealed, DONTFORK)                                    -> ok
+  a child touching it                                        -> signal 11
+mseal(read-only anon)                                        -> ok
+madvise(sealed RO anon, DONTNEED)                            -> EPERM
+madvise(sealed RO anon, FREE)                                -> EPERM
+madvise(sealed RO anon, DONTNEED_LOCKED)                     -> EPERM
+madvise(sealed RO anon, REMOVE)                              -> EPERM
+madvise(sealed RO anon, WIPEONFORK)                          -> EPERM
+madvise(sealed RO anon, NORMAL)                              -> ok
+madvise(sealed RO anon, COLD)                                -> ok
+madvise(sealed RO anon, PAGEOUT)                             -> ok
+madvise(sealed RO anon, GUARD_INSTALL)                       -> EPERM
+madvise(sealed RO anon, POPULATE_READ)                       -> ok
+madvise(sealed RO anon, DONTFORK)                            -> EPERM
+madvise(sealed RO anon, DOFORK)                              -> ok
+  the read-only page still reads                             -> 51
+mseal(read-only shared anon)                                 -> ok
+madvise(sealed RO shared, DONTNEED)                          -> ok
+
+########## MADV_GUARD_INSTALL / REMOVE ##########
+GUARD_INSTALL(middle page)                                   -> ok
+  read the guard page                                        -> signal 11
+  write the guard page                                       -> signal 11
+  read its neighbour                                         -> survived
+  smaps VmFlags unchanged by a guard                         -> true
+  mincore                                                    -> ok [1, 0, 1]
+  MADV_POPULATE_READ over it                                 -> EFAULT
+  process_vm_readv of it                                     -> EFAULT
+GUARD_INSTALL again                                          -> ok
+GUARD_REMOVE                                                 -> ok
+  read it after removal                                      -> survived
+  it reads                                                   -> 0
+  the neighbour kept its bytes                               -> 68
+GUARD_REMOVE on a page with no guard                         -> ok
+  the page kept its bytes                                    -> 68
+GUARD_INSTALL on shared anon                                 -> ok
+GUARD_INSTALL on locked memory                               -> EINVAL
+MAP_FIXED over a guard                                       -> ok
+  the new page is touchable                                  -> survived
+
+########## MADV_POPULATE_* ##########
+POPULATE_READ(RW anon)                                       -> ok
+POPULATE_WRITE(RW anon)                                      -> ok
+POPULATE_READ(R anon)                                        -> ok
+POPULATE_WRITE(R anon)                                       -> EINVAL
+POPULATE_READ(PROT_NONE)                                     -> EINVAL
+POPULATE_WRITE(PROT_NONE)                                    -> EINVAL
+POPULATE_READ(unmapped)                                      -> ENOMEM
+
+########## MADV_DONTNEED_LOCKED, MADV_COLLAPSE ##########
+DONTNEED(locked)                                             -> EINVAL
+  reads                                                      -> 85
+DONTNEED_LOCKED(locked)                                      -> ok
+  reads                                                      -> 0
+  the other page kept its bytes                              -> 85
+DONTNEED_LOCKED(unlocked)                                    -> ok
+  reads                                                      -> 0
+COLLAPSE(two 4K pages)                                       -> EINVAL
+
+########## MAP_FIXED_NOREPLACE ##########
+NOREPLACE into a hole                                        -> at the hint: true
+NOREPLACE over a mapping                                     -> EEXIST
+  the old mapping kept its bytes                             -> 0
+NOREPLACE at an unaligned hint                               -> EINVAL
+
+########## MREMAP_DONTUNMAP ##########
+DONTUNMAP(private anon)                                      -> moved
+  the new address has the bytes                              -> 102
+  the old address is still mapped                            -> survived
+  and reads                                                  -> 0
+  a write there                                              -> survived
+DONTUNMAP, old != new size                                   -> EINVAL
+DONTUNMAP(shared anon)                                       -> moved
+DONTUNMAP|FIXED onto another mapping                         -> at dst: true
+
+########## process_madvise ##########
+process_madvise(self, 2 iovecs, COLD)                        -> 12288
+process_madvise(self, 2 iovecs, PAGEOUT)                     -> 12288
+process_madvise(self, 2 iovecs, WILLNEED)                    -> 12288
+process_madvise(self, 2 iovecs, COLLAPSE)                    -> EINVAL
+process_madvise(self, 2 iovecs, DONTNEED)                    -> 12288
+process_madvise(self, 2 iovecs, NORMAL)                      -> 12288
+process_madvise(self, 2 iovecs, FREE)                        -> 12288
+process_madvise(self, 2 iovecs, 999)                         -> EINVAL
+  after DONTNEED, the first page reads                       -> 0
+  and the second, not named                                  -> 119
+process_madvise(self, flags 1)                               -> EINVAL
+process_madvise(self, no iovecs)                             -> 0
+process_madvise(PIDFD_SELF_THREAD_GROUP)                     -> 12288
+process_madvise(PIDFD_SELF_THREAD)                           -> 12288
+process_madvise(/dev/null)                                   -> EBADF
+process_madvise(-1)                                          -> EBADF
+process_madvise(self, vlen 1025)                             -> EINVAL
+process_madvise(self, unreadable iovec)                      -> EFAULT
+process_madvise(self, unaligned base)                        -> EINVAL
+process_madvise(self, a range with a hole)                   -> ENOMEM
+process_madvise(child, COLD)                                 -> 4096
+process_madvise(child, WILLNEED)                             -> 4096
+process_madvise(child, DONTNEED)                             -> EINVAL
+process_mrelease(live child)                                 -> EINVAL
+process_mrelease(child, flags 1)                             -> EINVAL
+process_mrelease(killed child, a zombie)                     -> ESRCH
+process_madvise(zombie child, COLD)                          -> ESRCH
+process_mrelease(reaped child)                               -> ESRCH
+process_madvise(reaped child, COLD)                          -> ESRCH
+process_mrelease(/dev/null)                                  -> EBADF
+process_mrelease(-1)                                         -> EBADF
+process_mrelease(self)                                       -> EINVAL
+
+########## protection keys ##########
+pkey_alloc(0, 0)                                             -> ENOSYS
+pkey_alloc(1, 0)                                             -> ENOSYS
+pkey_alloc(0, 1)                                             -> ENOSYS
+pkey_free(0)                                                 -> ENOSYS
+pkey_free(1)                                                 -> ENOSYS
+pkey_free(-1)                                                -> ENOSYS
+pkey_mprotect(R, -1)                                         -> ENOSYS
+  a write after it                                           -> survived
+pkey_mprotect(RW, 0)                                         -> ENOSYS
+pkey_mprotect(RW, 1)                                         -> ENOSYS
+pkey_mprotect(RW, -2)                                        -> ENOSYS
+pkey_mprotect(unaligned, -1)                                 -> ENOSYS
+pkey_mprotect(prot 0x100, -1)                                -> ENOSYS
+
+########## map_shadow_stack ##########
+map_shadow_stack(0, 1 page, 0)                               -> ENOSYS
+map_shadow_stack(0, 1 page, SHADOW_STACK_SET_TOKEN)          -> ENOSYS
+map_shadow_stack(0, 0, 0)                                    -> ENOSYS
+map_shadow_stack(0, 1 page, 0x100)                           -> ENOSYS
+map_shadow_stack(unaligned, 1 page, 0)                       -> ENOSYS
+
+########## the NUMA policy calls ##########
+get_mempolicy()                                              -> ENOSYS, mode -1
+  mode, nodemask                                             -> ENOSYS -1 0x0
+get_mempolicy(MPOL_F_MEMS_ALLOWED)                           -> ENOSYS 0x0
+get_mempolicy(MPOL_F_NODE|MPOL_F_ADDR)                       -> ENOSYS node -1
+get_mempolicy(MPOL_F_ADDR)                                   -> ENOSYS mode -1
+get_mempolicy(MPOL_F_ADDR, NULL)                             -> ENOSYS
+get_mempolicy(flags 0x100)                                   -> ENOSYS
+get_mempolicy(maxnode 1)                                     -> ENOSYS
+set_mempolicy(MPOL_DEFAULT, NULL)                            -> ENOSYS
+set_mempolicy(MPOL_BIND, {0})                                -> ENOSYS
+  get_mempolicy after                                        -> ENOSYS -1 0x0
+set_mempolicy(MPOL_PREFERRED, {0})                           -> ENOSYS
+set_mempolicy(MPOL_INTERLEAVE, {0})                          -> ENOSYS
+set_mempolicy(MPOL_LOCAL)                                    -> ENOSYS
+set_mempolicy(MPOL_PREFERRED_MANY, {0})                      -> ENOSYS
+set_mempolicy(MPOL_WEIGHTED_INTERLEAVE, {0})                 -> ENOSYS
+set_mempolicy(7)                                             -> ENOSYS
+set_mempolicy(MPOL_BIND, {1}), no such node                  -> ENOSYS
+set_mempolicy(MPOL_BIND, {})                                 -> ENOSYS
+set_mempolicy(MPOL_DEFAULT, {0})                             -> ENOSYS
+set_mempolicy(MPOL_F_STATIC_NODES|MPOL_BIND)                 -> ENOSYS
+set_mempolicy(MPOL_DEFAULT)                                  -> ENOSYS
+set_mempolicy_home_node(1 page, node 0)                      -> ENOSYS
+set_mempolicy_home_node(flags 1)                             -> ENOSYS
+set_mempolicy_home_node(node 1)                              -> ENOSYS
+mbind(MPOL_BIND, {0})                                        -> ENOSYS
+set_mempolicy_home_node after mbind                          -> ENOSYS
+set_mempolicy_home_node(unmapped)                            -> ENOSYS
+migrate_pages(self, {0} -> {0})                              -> ENOSYS
+migrate_pages(999999)                                        -> ENOSYS
+move_pages(self, query)                                      -> ENOSYS status -99
+move_pages(self, to node 0, MPOL_MF_MOVE)                    -> ENOSYS status -99
+move_pages(self, to node 1)                                  -> ENOSYS
+move_pages(flags 0x10)                                       -> ENOSYS
+move_pages(an unmapped page)                                 -> ENOSYS status errno 99
+
+########## memfd_secret ##########
+memfd_secret(0)                                              -> a descriptor
+memfd_secret(O_CLOEXEC)                                      -> a descriptor
+memfd_secret(1)                                              -> EINVAL
+memfd_secret: st_mode, st_size                               -> 100600 0
+memfd_secret: readlink                                       -> /secretmem (deleted)
+memfd_secret: FD_CLOEXEC without the flag                    -> 0
+memfd_secret: ftruncate(4096)                                -> ok
+memfd_secret: mmap(MAP_PRIVATE)                              -> EINVAL
+memfd_secret: mmap(MAP_SHARED)                               -> mapped
+memfd_secret: a store and a load                             -> 90
+memfd_secret: a child reads it                               -> 90
+memfd_secret: process_vm_readv of it                         -> EFAULT
+memfd_secret: write(1) from it                               -> 0
+memfd_secret: write(/dev/null) from it                       -> 1
+memfd_secret: mincore                                        -> ok 1
+memfd_secret: smaps VmFlags has lo                           -> false
+memfd_secret: MADV_DONTNEED                                  -> ok
+memfd_secret: reads after it                                 -> 90
+memfd_secret: read(fd)                                       -> EINVAL
+memfd_secret: write(fd)                                      -> EINVAL
+memfd_secret: pread(fd)                                      -> errno 29
+memfd_secret: lseek(fd, 0, SEEK_END)                         -> errno 29
+memfd_secret: fallocate                                      -> EOPNOTSUPP
+memfd_secret: F_ADD_SEALS                                    -> EINVAL
+memfd_secret: ftruncate(8192), growing                       -> EINVAL
+memfd_secret: fstat st_size after                            -> 4096
+memfd_secret: mmap(MAP_SHARED, PROT_EXEC)                    -> EPERM
+memfd_secret: mmap of an empty one                           -> mapped
+memfd_secret: touching it                                    -> signal 7

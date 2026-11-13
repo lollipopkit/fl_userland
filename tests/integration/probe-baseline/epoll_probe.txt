@@ -1,0 +1,85 @@
+## epoll_create1
+  flags 0 -> a descriptor
+  EPOLL_CLOEXEC -> a descriptor
+  flags 0x1 -> -EINVAL
+  flags 0x2 -> -EINVAL
+  flags 0x80001 -> -EINVAL
+  flags 0xffffffffffffffff -> -EINVAL
+## epoll_ctl errnos
+  ADD a pipe -> 0
+  ADD it twice -> -EEXIST
+  MOD it -> 0
+  MOD one never added -> -ENOENT
+  DEL one never added -> -ENOENT
+  DEL it -> 0
+  DEL it twice -> -ENOENT
+  a closed descriptor -> -EBADF
+  a closed epoll -> -EBADF
+  an unallocated op -> -EINVAL
+  ADD the epoll to itself -> -EINVAL
+  ADD a regular file -> -EPERM
+  ADD a directory -> -EPERM
+  ADD with a null event -> -EFAULT
+  ADD again for the DEL below -> 0
+  MOD with a null event -> -EFAULT
+  DEL with a null event -> 0
+  ADD with EPOLLEXCLUSIVE -> 0
+  MOD to EPOLLEXCLUSIVE -> -EINVAL
+  ADD EPOLLEXCLUSIVE|EPOLLONESHOT -> -EINVAL
+  ADD EPOLLEXCLUSIVE|EPOLLET -> 0
+  ADD EPOLLEXCLUSIVE|EPOLLPRI -> -EINVAL
+  ADD EPOLLEXCLUSIVE|EPOLLRDHUP -> -EINVAL
+  ADD EPOLLEXCLUSIVE|EPOLLHUP -> 0
+  ADD an epoll with EPOLLEXCLUSIVE -> -EINVAL
+## level triggering
+  empty pipe, 0 ms -> 0
+  after a write -> 1 events, IN data 0x0
+  again without reading -> 1 events, IN
+  after a partial read -> 1 events, IN
+  after draining -> 0
+  the write end -> 1 events, OUT
+## edge triggering
+  after a write -> 1
+  again without reading -> 0
+  after a partial read -> 0
+  after a second write -> 1
+  after a MOD with data still buffered -> 1
+## EPOLLONESHOT
+  first wait -> 1 events, IN
+  second wait -> 0
+  MOD to rearm -> 0
+  after rearming -> 1 events, data 0x0
+## hangup
+  the write end closed -> 1 events, HUP
+  the read end closed -> 1 events, OUT|ERR
+  watching for no events at all -> 1 events, ERR
+## epoll_pwait arguments
+  maxevents 0 -> -EINVAL
+  maxevents negative -> -EINVAL
+  maxevents 134217727 is EINVAL: false
+  maxevents 134217728 is EINVAL: true
+  maxevents 178956970 is EINVAL: true
+  maxevents 1073741824 is EINVAL: true
+  maxevents 2147483647 is EINVAL: true
+  an event array past the address space -> -EFAULT
+  a null event array -> 0
+  a descriptor that is not an epoll -> -EINVAL
+  a closed descriptor -> -EBADF
+## nesting
+  ADD an epoll to an epoll -> 0
+  ADD a pipe to the inner one -> 0
+  nothing ready -> 0
+  the inner one has an event -> 1 events, IN
+  closing the cycle -> -ELOOP
+## closing a watched descriptor
+  after closing one of two descriptors -> 1 events, IN
+  DEL the closed number -> -EBADF
+  DEL the surviving number -> -ENOENT
+## a wait already in progress
+  pipe, written by a child -> woke with IN
+  eventfd, written by a child -> woke with IN
+  signalfd, signalled by a child -> woke with IN
+  timerfd, on expiry -> woke with IN
+  unix socket, written by a child -> woke with IN
+  pidfd, on the process exiting -> woke with IN
+  inotify, on a file appearing -> woke with IN

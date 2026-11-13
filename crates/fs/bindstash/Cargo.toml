@@ -1,0 +1,21 @@
+[package]
+name = "fs-bindstash"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "bindstash"
+# rlib: crates/iul is the one staticlib in the product and links this in. See
+# the staticlib note in CLAUDE.md.
+crate-type = ["rlib"]
+
+[dependencies]
+libc.workspace = true
+# The *at() syscalls, for the same reason crates/tools/fakefsify takes it: every
+# operation here is relative to the fakefs root descriptor, and getting a path
+# wrong writes outside the fakefs.
+rustix.workspace = true
+bindpath = { path = "../bindpath" }
+kernel-errno = { path = "../../kernel/errno" }

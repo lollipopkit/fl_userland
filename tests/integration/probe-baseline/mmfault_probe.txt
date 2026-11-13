@@ -1,0 +1,215 @@
+
+########## mprotect that stops partway ##########
+mprotect([aaaa], RW)                                             -> ok
+  [aaaa] afterwards                                              -> rw-p rw-p rw-p rw-p
+mprotect([a-aa], RW)                                             -> ENOMEM
+  [a-aa] afterwards                                              -> rw-p unmapped r--p r--p
+mprotect([-aaa], RW)                                             -> ENOMEM
+  [-aaa] afterwards                                              -> unmapped r--p r--p r--p
+mprotect([aaa-], RW)                                             -> ENOMEM
+  [aaa-] afterwards                                              -> rw-p rw-p rw-p unmapped
+mprotect([aafa], RW)                                             -> EACCES
+  [aafa] afterwards                                              -> rw-p rw-p r--s r--p
+mprotect([faaa], RW)                                             -> EACCES
+  [faaa] afterwards                                              -> r--s r--p r--p r--p
+mprotect([aafa], RX)                                             -> ok
+  [aafa] afterwards                                              -> r-xp r-xp r-xs r-xp
+mprotect([a-fa], RW)                                             -> ENOMEM
+  [a-fa] afterwards                                              -> rw-p unmapped r--s r--p
+mprotect([af-a], RW)                                             -> EACCES
+  [af-a] afterwards                                              -> rw-p r--s unmapped r--p
+mprotect([asaa], RW)                                             -> EPERM
+  [asaa] afterwards                                              -> rw-p r-xp r--p r--p
+mprotect([a-sa], RW)                                             -> ENOMEM
+  [a-sa] afterwards                                              -> rw-p unmapped r-xp r--p
+mprotect([afsa], RW)                                             -> EACCES
+  [afsa] afterwards                                              -> rw-p r--s r-xp r--p
+mprotect([asfa], RW)                                             -> EPERM
+  [asfa] afterwards                                              -> rw-p r-xp r--s r--p
+mprotect([aaas], RW)                                             -> EPERM
+  [aaas] afterwards                                              -> rw-p rw-p rw-p r-xp
+mprotect([agaa], RW)                                             -> EACCES
+  [agaa] afterwards                                              -> rw-p r--s r--p r--p
+mprotect([agaa], RX)                                             -> EPERM
+  [agaa] afterwards                                              -> r-xp r--s r--p r--p
+mmap(O_RDONLY file, shared R)                                    -> ok
+mmap(O_RDONLY file, shared RW)                                   -> EACCES
+mmap(O_RDONLY file, private RW)                                  -> ok
+mmap(O_WRONLY file, shared R)                                    -> EACCES
+mmap(O_WRONLY file, shared RW)                                   -> EACCES
+mmap(O_WRONLY file, private RW)                                  -> EACCES
+mmap(O_RDWR file, shared R)                                      -> ok
+mmap(O_RDWR file, shared RW)                                     -> ok
+mmap(O_RDWR file, private RW)                                    -> ok
+mmap a write-sealed memfd shared read-only                       -> ok
+mprotect([a m a], RW)                                            -> EACCES
+  [a m a] afterwards                                             -> rw-p r--s r--p
+
+########## regular file: pages past the end of the file ##########
+shared, 100-byte file: page 0 byte 50                            -> ok 'f'
+shared, 100-byte file: page 0 byte 4000                          -> ok 0x00
+shared, 100-byte file: read page 1                               -> SIGBUS BUS_ADRERR si_addr exact
+shared, 100-byte file: write page 1                              -> SIGBUS BUS_ADRERR si_addr exact
+shared, 100-byte file: read page 3 byte 8                        -> SIGBUS BUS_ADRERR si_addr exact
+shared, 100-byte file: write(2) from page 1                      -> EFAULT
+private, 100-byte file: page 0 byte 50                           -> ok 'f'
+private, 100-byte file: page 0 byte 4000                         -> ok 0x00
+private, 100-byte file: read page 1                              -> SIGBUS BUS_ADRERR si_addr exact
+private, 100-byte file: write page 1                             -> SIGBUS BUS_ADRERR si_addr exact
+private, 100-byte file: read page 3 byte 8                       -> SIGBUS BUS_ADRERR si_addr exact
+private, 100-byte file: write(2) from page 1                     -> EFAULT
+5000-byte file: page 1 byte 1000                                 -> ok 0x00
+5000-byte file: page 1 byte 2000                                 -> ok 0x00
+5000-byte file: page 2                                           -> SIGBUS BUS_ADRERR si_addr exact
+5000-byte file at offset 4096: page 0                            -> ok 'f'
+5000-byte file at offset 4096: page 1                            -> SIGBUS BUS_ADRERR si_addr exact
+shared, 4-page file: read page 3                                 -> ok 'f'
+shared, shrunk to 100: page 0 byte 50                            -> ok 'f'
+shared, shrunk to 100: page 0 byte 200                           -> ok 0x00
+shared, shrunk to 100: read page 1                               -> SIGBUS BUS_ADRERR si_addr exact
+shared, shrunk to 100: read page 2, written before               -> SIGBUS BUS_ADRERR si_addr exact
+shared, shrunk to 100: read page 3                               -> SIGBUS BUS_ADRERR si_addr exact
+shared, shrunk to 100: write(2) from page 3                      -> EFAULT
+shared, grown back: read page 2                                  -> ok 0x00
+shared, grown back: read page 3 after pwrite 'G'                 -> ok 'G'
+private, 4-page file: read page 3                                -> ok 'f'
+private, shrunk to 100: page 0 byte 50                           -> ok 'f'
+private, shrunk to 100: page 0 byte 200                          -> ok 0x00
+private, shrunk to 100: read page 1                              -> SIGBUS BUS_ADRERR si_addr exact
+private, shrunk to 100: read page 2, written before              -> SIGBUS BUS_ADRERR si_addr exact
+private, shrunk to 100: read page 3                              -> SIGBUS BUS_ADRERR si_addr exact
+private, shrunk to 100: write(2) from page 3                     -> EFAULT
+private, grown back: read page 2                                 -> ok 0x00
+private, grown back: read page 3 after pwrite 'G'                -> ok 'G'
+shared, 100 bytes grown to 2 pages: read page 1                  -> ok 'X'
+  a store to page 1 reaches the file                             -> Y
+
+########## memfd: pages past the end of the file ##########
+shared, 100-byte file: page 0 byte 50                            -> ok 'f'
+shared, 100-byte file: page 0 byte 4000                          -> ok 0x00
+shared, 100-byte file: read page 1                               -> SIGBUS BUS_ADRERR si_addr exact
+shared, 100-byte file: write page 1                              -> SIGBUS BUS_ADRERR si_addr exact
+shared, 100-byte file: read page 3 byte 8                        -> SIGBUS BUS_ADRERR si_addr exact
+shared, 100-byte file: write(2) from page 1                      -> EFAULT
+private, 100-byte file: page 0 byte 50                           -> ok 'f'
+private, 100-byte file: page 0 byte 4000                         -> ok 0x00
+private, 100-byte file: read page 1                              -> SIGBUS BUS_ADRERR si_addr exact
+private, 100-byte file: write page 1                             -> SIGBUS BUS_ADRERR si_addr exact
+private, 100-byte file: read page 3 byte 8                       -> SIGBUS BUS_ADRERR si_addr exact
+private, 100-byte file: write(2) from page 1                     -> EFAULT
+5000-byte file: page 1 byte 1000                                 -> ok 0x00
+5000-byte file: page 1 byte 2000                                 -> ok 0x00
+5000-byte file: page 2                                           -> SIGBUS BUS_ADRERR si_addr exact
+5000-byte file at offset 4096: page 0                            -> ok 'f'
+5000-byte file at offset 4096: page 1                            -> SIGBUS BUS_ADRERR si_addr exact
+shared, 4-page file: read page 3                                 -> ok 'f'
+shared, shrunk to 100: page 0 byte 50                            -> ok 'f'
+shared, shrunk to 100: page 0 byte 200                           -> ok 0x00
+shared, shrunk to 100: read page 1                               -> SIGBUS BUS_ADRERR si_addr exact
+shared, shrunk to 100: read page 2, written before               -> SIGBUS BUS_ADRERR si_addr exact
+shared, shrunk to 100: read page 3                               -> SIGBUS BUS_ADRERR si_addr exact
+shared, shrunk to 100: write(2) from page 3                      -> EFAULT
+shared, grown back: read page 2                                  -> ok 0x00
+shared, grown back: read page 3 after pwrite 'G'                 -> ok 'G'
+private, 4-page file: read page 3                                -> ok 'f'
+private, shrunk to 100: page 0 byte 50                           -> ok 'f'
+private, shrunk to 100: page 0 byte 200                          -> ok 0x00
+private, shrunk to 100: read page 1                              -> SIGBUS BUS_ADRERR si_addr exact
+private, shrunk to 100: read page 2, written before              -> SIGBUS BUS_ADRERR si_addr exact
+private, shrunk to 100: read page 3                              -> SIGBUS BUS_ADRERR si_addr exact
+private, shrunk to 100: write(2) from page 3                     -> EFAULT
+private, grown back: read page 2                                 -> ok 0x00
+private, grown back: read page 3 after pwrite 'G'                -> ok 'G'
+shared, 100 bytes grown to 2 pages: read page 1                  -> ok 'X'
+  a store to page 1 reaches the file                             -> Y
+
+########## regular file: a private mapping and the file under it ##########
+page 0 before anything                                           -> 'f'
+page 0 after pwrite 'P' (page 1 written before)                  -> 'P'
+page 1 after pwrite 'P' (page 1 written before)                  -> 'w'
+page 2 after pwrite 'P' (page 1 written before)                  -> 'P'
+page 3 after pwrite 'P' (page 1 written before)                  -> 'P'
+pread of page 1 after the store                                  -> 'P'
+madvise(page 1, MADV_DONTNEED)                                   -> ok
+page 1 after MADV_DONTNEED                                       -> 'P'
+page 3 read-only                                                 -> 'P'
+mprotect(page 3, RW) again                                       -> ok
+page 3 after a store                                             -> 'm'
+pread of page 3 after that store                                 -> 'P'
+fork: the child stored page 0, the parent pwrote 'Q' to 0 and 2  -> 
+  the child's pages 0 and 2                                      -> 'c' 'Q'
+  the parent's pages 0 and 2                                     -> 'Q' 'Q'
+
+########## memfd: a private mapping and the file under it ##########
+page 0 before anything                                           -> 'f'
+page 0 after pwrite 'P' (page 1 written before)                  -> 'P'
+page 1 after pwrite 'P' (page 1 written before)                  -> 'w'
+page 2 after pwrite 'P' (page 1 written before)                  -> 'P'
+page 3 after pwrite 'P' (page 1 written before)                  -> 'P'
+pread of page 1 after the store                                  -> 'P'
+madvise(page 1, MADV_DONTNEED)                                   -> ok
+page 1 after MADV_DONTNEED                                       -> 'P'
+page 3 read-only                                                 -> 'P'
+mprotect(page 3, RW) again                                       -> ok
+page 3 after a store                                             -> 'm'
+pread of page 3 after that store                                 -> 'P'
+fork: the child stored page 0, the parent pwrote 'Q' to 0 and 2  -> 
+  the child's pages 0 and 2                                      -> 'c' 'Q'
+  the parent's pages 0 and 2                                     -> 'Q' 'Q'
+mount a tmpfs                                                    -> ok
+
+########## tmpfs file: pages past the end of the file ##########
+shared, 100-byte file: page 0 byte 50                            -> ok 'f'
+shared, 100-byte file: page 0 byte 4000                          -> ok 0x00
+shared, 100-byte file: read page 1                               -> SIGBUS BUS_ADRERR si_addr exact
+shared, 100-byte file: write page 1                              -> SIGBUS BUS_ADRERR si_addr exact
+shared, 100-byte file: read page 3 byte 8                        -> SIGBUS BUS_ADRERR si_addr exact
+shared, 100-byte file: write(2) from page 1                      -> EFAULT
+private, 100-byte file: page 0 byte 50                           -> ok 'f'
+private, 100-byte file: page 0 byte 4000                         -> ok 0x00
+private, 100-byte file: read page 1                              -> SIGBUS BUS_ADRERR si_addr exact
+private, 100-byte file: write page 1                             -> SIGBUS BUS_ADRERR si_addr exact
+private, 100-byte file: read page 3 byte 8                       -> SIGBUS BUS_ADRERR si_addr exact
+private, 100-byte file: write(2) from page 1                     -> EFAULT
+5000-byte file: page 1 byte 1000                                 -> ok 0x00
+5000-byte file: page 1 byte 2000                                 -> ok 0x00
+5000-byte file: page 2                                           -> SIGBUS BUS_ADRERR si_addr exact
+5000-byte file at offset 4096: page 0                            -> ok 'f'
+5000-byte file at offset 4096: page 1                            -> SIGBUS BUS_ADRERR si_addr exact
+shared, 4-page file: read page 3                                 -> ok 'f'
+shared, shrunk to 100: page 0 byte 50                            -> ok 'f'
+shared, shrunk to 100: page 0 byte 200                           -> ok 0x00
+shared, shrunk to 100: read page 1                               -> SIGBUS BUS_ADRERR si_addr exact
+shared, shrunk to 100: read page 2, written before               -> SIGBUS BUS_ADRERR si_addr exact
+shared, shrunk to 100: read page 3                               -> SIGBUS BUS_ADRERR si_addr exact
+shared, shrunk to 100: write(2) from page 3                      -> EFAULT
+shared, grown back: read page 2                                  -> ok 0x00
+shared, grown back: read page 3 after pwrite 'G'                 -> ok 'G'
+private, 4-page file: read page 3                                -> ok 'f'
+private, shrunk to 100: page 0 byte 50                           -> ok 'f'
+private, shrunk to 100: page 0 byte 200                          -> ok 0x00
+private, shrunk to 100: read page 1                              -> SIGBUS BUS_ADRERR si_addr exact
+private, shrunk to 100: read page 2, written before              -> SIGBUS BUS_ADRERR si_addr exact
+private, shrunk to 100: read page 3                              -> SIGBUS BUS_ADRERR si_addr exact
+private, shrunk to 100: write(2) from page 3                     -> EFAULT
+private, grown back: read page 2                                 -> ok 0x00
+private, grown back: read page 3 after pwrite 'G'                -> ok 'G'
+shared, 100 bytes grown to 2 pages: read page 1                  -> ok 'X'
+  a store to page 1 reaches the file                             -> Y
+
+########## tmpfs file: a private mapping and the file under it ##########
+page 0 before anything                                           -> 'f'
+page 0 after pwrite 'P' (page 1 written before)                  -> 'P'
+page 1 after pwrite 'P' (page 1 written before)                  -> 'w'
+page 2 after pwrite 'P' (page 1 written before)                  -> 'P'
+page 3 after pwrite 'P' (page 1 written before)                  -> 'P'
+pread of page 1 after the store                                  -> 'P'
+madvise(page 1, MADV_DONTNEED)                                   -> ok
+page 1 after MADV_DONTNEED                                       -> 'P'
+page 3 read-only                                                 -> 'P'
+mprotect(page 3, RW) again                                       -> ok
+page 3 after a store                                             -> 'm'
+pread of page 3 after that store                                 -> 'P'
+fork: the child stored page 0, the parent pwrote 'Q' to 0 and 2  -> 
+  the child's pages 0 and 2                                      -> 'c' 'Q'
+  the parent's pages 0 and 2                                     -> 'Q' 'Q'

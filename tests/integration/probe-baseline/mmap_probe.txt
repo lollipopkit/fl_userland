@@ -1,0 +1,36 @@
+## length
+mmap(NULL, 0)                                        -> EINVAL (22)
+mmap(NULL, 1)                                        -> addr aligned=true low4g=false
+mmap(NULL, PAGE+1)                                   -> addr aligned=true low4g=false
+mmap(NULL, ~0)                                       -> ENOMEM (12)
+mmap(NULL, ~0 & ~0xfff)                              -> ENOMEM (12)
+mmap(NULL, 1<<47)                                    -> addr aligned=true low4g=false
+## a hint that is not page aligned
+mmap(0x1001, PAGE)                                   -> addr aligned=true low4g=true
+mmap(0x1001, PAGE, FIXED)                            -> EINVAL (22)
+## prot bits
+mmap(prot=0)                                         -> addr aligned=true low4g=false
+mmap(prot=0x1000)                                    -> addr aligned=true low4g=false
+mmap(prot=-1)                                        -> addr aligned=true low4g=false
+## flags
+mmap(anon, neither shared nor private)               -> EINVAL (22)
+mmap(anon, both)                                     -> EINVAL (22)
+mmap(flags=0)                                        -> EBADF (9)
+## munmap
+munmap(len=0)                                        -> EINVAL (22)
+munmap(unaligned addr)                               -> EINVAL (22)
+munmap(len rounds up past the end)                   -> ok
+munmap(never mapped)                                 -> ok
+munmap(len=~0)                                       -> EINVAL (22)
+## mprotect
+mprotect(len=0)                                      -> ok
+mprotect(unaligned addr)                             -> ok
+mprotect(never mapped)                               -> ENOMEM (12)
+mprotect(prot=0x1000)                                -> EINVAL (22)
+mprotect(half of a mapping)                          -> ok
+## a fixed mapping over an existing one
+mmap(FIXED over the middle)                          -> addr aligned=true low4g=false
+mmap(FIXED_NOREPLACE over the middle)                -> EEXIST (17)
+## brk
+brk(0) is nonzero                                    -> true
+brk(1)                                               -> unchanged=true

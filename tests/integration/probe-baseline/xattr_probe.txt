@@ -1,0 +1,86 @@
+########## does the filesystem have them at all ##########
+listxattr on a file with none                              -> 0
+getxattr for a name that is not set                        -> ENODATA
+removexattr for a name that is not set                     -> ENODATA
+
+########## the round trip ##########
+setxattr user.a = "one"                                    -> 0
+getxattr user.a                                            -> 3
+  and its value                                            -> one
+listxattr after one set                                    -> 7
+  user.a is in the list                                    -> true
+setxattr user.b = "two"                                    -> 0
+  both are in the list                                     -> true
+removexattr user.a                                         -> 0
+  user.a is gone and user.b is not                         -> true
+getxattr user.a after removing it                          -> ENODATA
+
+########## a size of 0 asks the length ##########
+getxattr user.b, size 0                                    -> 3
+listxattr, size 0                                          -> 7
+getxattr user.b into 1 byte                                -> ERANGE
+listxattr into 1 byte                                      -> ERANGE
+
+########## XATTR_CREATE and XATTR_REPLACE ##########
+setxattr user.b, XATTR_CREATE, already set                 -> EEXIST
+setxattr user.new, XATTR_CREATE                            -> 0
+setxattr user.gone, XATTR_REPLACE, not set                 -> ENODATA
+setxattr user.b, XATTR_REPLACE                             -> 0
+setxattr both flags at once                                -> EEXIST
+setxattr an unknown flag bit                               -> EINVAL
+setxattr both flags, name not set                          -> ENODATA
+
+########## the namespace rules ##########
+setxattr "nodots"                                          -> ENOTSUP/EOPNOTSUPP
+setxattr "bogus.a"                                         -> ENOTSUP/EOPNOTSUPP
+setxattr "userx.a"                                         -> ENOTSUP/EOPNOTSUPP
+setxattr "user"                                            -> ENOTSUP/EOPNOTSUPP
+setxattr "user."                                           -> EINVAL
+setxattr "."                                               -> ENOTSUP/EOPNOTSUPP
+setxattr ""                                                -> ERANGE
+setxattr trusted.a (needs CAP_SYS_ADMIN)                   -> EPERM
+getxattr trusted.a                                         -> ENODATA
+setxattr security.a                                        -> EPERM
+setxattr system.a                                          -> ENOTSUP/EOPNOTSUPP
+
+########## what a user.* attribute may be put on ##########
+setxattr user.a on a directory                             -> 0
+setxattr user.a on a fifo                                  -> EPERM
+setxattr user.a on a symlink (followed)                    -> 0
+
+########## the l* variants ##########
+lsetxattr on a symlink itself                              -> EPERM
+lgetxattr on a symlink itself                              -> ENODATA
+llistxattr on a symlink itself                             -> 0
+lremovexattr on a symlink itself                           -> EPERM
+the target's user.a after it                               -> 1
+
+########## the f* variants ##########
+fsetxattr user.f                                           -> 0
+fgetxattr user.f                                           -> 1
+flistxattr lists user.f                                    -> true
+fremovexattr user.f                                        -> 0
+fgetxattr on a closed descriptor                           -> EBADF
+
+########## the limits ##########
+setxattr a 255-byte name                                   -> 0
+setxattr a 256-byte name                                   -> ERANGE
+setxattr a 64 KiB value                                    -> ENOSPC
+setxattr a 64 KiB + 1 value                                -> E2BIG
+setxattr an empty value                                    -> 0
+getxattr an empty value                                    -> 0
+
+########## the size argument is a number, not a buffer ##########
+getxattr user.b, size 64 KiB + 1                           -> 1
+getxattr user.b, size 1 GiB                                -> 1
+getxattr user.b, size 256 TiB                              -> 1
+getxattr user.b, size SIZE_MAX                             -> 1
+getxattr a name not set, size SIZE_MAX                     -> ENODATA
+listxattr, size SIZE_MAX                                   -> a length
+fgetxattr user.b, size SIZE_MAX                            -> 1
+flistxattr, size SIZE_MAX                                  -> a length
+
+########## a name that is not there ##########
+setxattr on a missing path                                 -> ENOENT
+getxattr on a missing path                                 -> ENOENT
+listxattr on a missing path                                -> ENOENT

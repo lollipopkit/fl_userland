@@ -1,0 +1,15 @@
+[package]
+name = "emu-abi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "emu_abi"
+crate-type = ["rlib"]
+
+[dependencies]
+libc.workspace = true
+# `lock_t` and `wrlock_t`, which the block cache and the address space hold.
+util-synctypes = { path = "../../util/synctypes" }

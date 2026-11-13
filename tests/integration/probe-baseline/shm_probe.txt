@@ -1,0 +1,106 @@
+## shmget
+shmget(KEY, 4096, IPC_CREAT|IPC_EXCL|0600)                   -> ok
+the same again                                               -> EEXIST
+without IPC_EXCL                                             -> true
+without IPC_CREAT                                            -> true
+asking for size 0 of it                                      -> true
+asking for more than it holds                                -> EINVAL
+asking for more with IPC_CREAT                               -> EINVAL
+a key nobody made, no IPC_CREAT                              -> ENOENT
+IPC_PRIVATE, size 0                                          -> EINVAL
+IPC_PRIVATE, size 1                                          -> ok, segsz 1
+IPC_PRIVATE twice is two segments                            -> true
+IPC_PRIVATE without IPC_CREAT                                -> ok
+size 2^62                                                    -> ok
+size usize::MAX                                              -> EINVAL
+SHM_HUGETLB                                                  -> EINVAL
+## what IPC_STAT reports
+  shm_perm.__key                                             -> true
+  shm_perm.mode                                              -> 600
+  shm_perm.uid == getuid                                     -> true
+  shm_perm.cuid == uid                                       -> true
+  shm_segsz                                                  -> 4096
+  shm_nattch                                                 -> 0
+  shm_cpid == getpid                                         -> true
+  shm_lpid                                                   -> 0
+  shm_atime                                                  -> 0
+  shm_dtime                                                  -> 0
+  shm_ctime is recent                                        -> true
+IPC_STAT into NULL                                           -> EFAULT
+IPC_STAT of id + 1                                           -> EINVAL
+IPC_STAT of -1                                               -> EINVAL
+shmctl(99) an unknown command                                -> EINVAL
+SHM_STAT of index 0 answers an id                            -> true
+SHM_STAT of index 4096                                       -> EINVAL
+IPC_INFO                                                     -> shmmin 1 shmmni 4096 shmseg 4096
+SHM_INFO used_ids >= 1                                       -> true
+IPC_SET mode 0644                                            -> ok
+  mode after                                                 -> 644
+SHM_LOCK                                                     -> ok
+  mode after, SHM_LOCKED is 02000                            -> 2644
+SHM_UNLOCK                                                   -> ok
+  mode after                                                 -> 644
+## shmat and shmdt
+shmat(id, NULL, 0)                                           -> ok
+  nattch                                                     -> 1
+  shm_lpid == getpid                                         -> true
+  shm_atime is recent                                        -> true
+  a store and a load                                         -> 0xab
+  the page after it is not ours                              -> mapped
+  shmat a second time                                        -> ok
+  nattch                                                     -> 2
+  the second mapping sees the first's store                  -> 0xab
+  shmdt of the second                                        -> ok
+  nattch                                                     -> 1
+  shmdt of an address one page in                            -> EINVAL
+  shmdt of an unaligned address                              -> EINVAL
+  shmdt of the first                                         -> ok
+  nattch                                                     -> 0
+  shmdt of it again                                          -> EINVAL
+  shmdt of NULL                                              -> EINVAL
+  shmdt of a plain mmap                                      -> EINVAL
+  shm_dtime is recent                                        -> true
+shmat at a free page-aligned address                         -> ok
+  landed there                                               -> true
+shmat at the same address again                              -> EINVAL
+shmat at the same address with SHM_REMAP                     -> ok
+  shmdt                                                      -> ok
+  nattch after the remap and one shmdt                       -> 0
+  shmdt again                                                -> ok
+shmat at an unaligned address                                -> EINVAL
+shmat at an unaligned address with SHM_RND                   -> true
+shmat(NULL, SHM_REMAP)                                       -> EINVAL
+shmat(1, SHM_RND|SHM_REMAP), rounds to zero                  -> EINVAL
+shmat with SHM_RDONLY then a store                           -> signal 11
+shmat of id + 1                                              -> EINVAL
+shmat of -1                                                  -> EINVAL
+## two processes
+  the child sees the parent's store through the inherited attach -> 0x1
+  nattch in the child                                        -> 2
+  the parent sees the child's store                          -> 0xc0ffee
+  a fresh attach in a child sees it too                      -> 0xc0ffee
+  and the parent sees that                                   -> 0xbeef
+  nattch back in the parent                                  -> 1
+## IPC_RMID
+IPC_RMID with nothing attached                               -> ok
+  IPC_STAT afterwards                                        -> EINVAL
+  shmat afterwards                                           -> EINVAL
+  shmget(KEY) without IPC_CREAT afterwards                   -> ENOENT
+  IPC_RMID again                                             -> EINVAL
+IPC_RMID while attached                                      -> ok
+  IPC_STAT while marked                                      -> mode 1600 nattch 1
+  the key is free again                                      -> made a new one
+  a second attach of the marked one                          -> ok
+  the store still reads back                                 -> 7
+  shmdt of the last attach                                   -> ok
+  IPC_STAT once detached                                     -> EINVAL
+IPC_RMID of an id nobody has                                 -> EINVAL
+IPC_RMID of -1                                               -> EINVAL
+## /proc/self/maps
+a keyed segment: perms and name                              -> rw-s /SYSV53480001 (deleted)
+  once IPC_RMID marked it                                    -> rw-s /SYSV53480001 (deleted)
+a keyed segment: SHM_RDONLY                                  -> r--s /SYSV53480001 (deleted)
+IPC_PRIVATE: perms and name                                  -> rw-s /SYSV00000000 (deleted)
+IPC_PRIVATE: SHM_RDONLY                                      -> r--s /SYSV00000000 (deleted)
+a key with the top bit set: perms and name                   -> rw-s /SYSV87654321 (deleted)
+a key with the top bit set: SHM_RDONLY                       -> r--s /SYSV87654321 (deleted)

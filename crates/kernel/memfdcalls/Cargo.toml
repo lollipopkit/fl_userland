@@ -1,0 +1,29 @@
+[package]
+name = "kernel-memfdcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "memfdcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-pagetable = { path = "../../kernel/pagetable" }
+realfs = { path = "../../fs/realfs" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+fs-mounttable = { path = "../../fs/mounttable" }
+# The inode a memfd's locks hang off.
+fs-inode = { path = "../../fs/inode" }
+libc.workspace = true
+rustix.workspace = true
+kernel-usercopy = { path = "../usercopy" }
+# The creator's fs ids, which are the file's owner.
+kernel-taskview = { path = "../taskview" }
+util-strace = { path = "../../util/strace" }
+
+[dev-dependencies]

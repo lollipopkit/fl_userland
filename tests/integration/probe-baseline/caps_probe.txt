@@ -1,0 +1,267 @@
+cap_last_cap                                         -> 40
+initial capget                                       -> e=0x1ffffffffff p=0x1ffffffffff i=0x0
+initial status                                       -> CapInh: 0000000000000000 | CapPrm: 000001ffffffffff | CapEff: 000001ffffffffff | CapBnd: 000001ffffffffff | CapAmb: 0000000000000000 | NoNewPrivs: 0 | Seccomp: 0
+initial keepcaps                                     -> ok 0
+initial securebits                                   -> ok 0
+capget bad version, data NULL                        -> ok 0 header 0x20080522 0 second e=0x5a5a
+capget bad version, data                             -> EINVAL header 0x20080522 0 second e=0x5a5a
+capget v1, data NULL                                 -> ok 0 header 0x19980330 0 second e=0x5a5a
+capget v2, data NULL                                 -> ok 0 header 0x20071026 0 second e=0x5a5a
+capget v3, data NULL                                 -> ok 0 header 0x20080522 0 second e=0x5a5a
+capget v1                                            -> ok 0 header 0x19980330 0 second e=0x5a5a
+capget v2                                            -> ok 0 header 0x20071026 0 second e=0x1ff
+capget v3 pid -1                                     -> EINVAL header 0x20080522 -1 second e=0x5a5a
+capget v3 pid -1, data NULL                          -> ok 0 header 0x20080522 -1 second e=0x5a5a
+capget v3 missing pid                                -> ESRCH header 0x20080522 999999 second e=0x5a5a
+capget v3 missing pid, data NULL                     -> ok 0 header 0x20080522 999999 second e=0x5a5a
+capget v3 own pid                                    -> ok 0 header 0x20080522 1 second e=0x1ff
+capget header NULL                                   -> EFAULT
+capset bad version                                   -> EINVAL header 0x20080522
+capset data NULL                                     -> EFAULT header 0x20080522
+capset another pid                                   -> EPERM header 0x20080522
+capset own pid                                       -> ok 0 header 0x20080522
+capset v1 low word only                              -> ok 0 header 0x19980330
+  after                                              -> e=0xffffffff p=0xffffffff i=0x0
+capset bits past the last cap                        -> ok 0 header 0x20080522
+  after                                              -> e=0x1ffffffffff p=0x1ffffffffff i=0x0
+drop E only                                          -> ok 0
+  after                                              -> e=0x1fffffffbff p=0x1ffffffffff i=0x0
+raise E back (in P)                                  -> ok 0
+E beyond P                                           -> EPERM
+drop P                                               -> ok 0
+P back after drop                                    -> EPERM
+  after                                              -> e=0x1fffffffbff p=0x1fffffffbff i=0x0
+I outside P with SETPCAP                             -> ok 0
+  after                                              -> e=0x1fffffffbff p=0x1fffffffbff i=0x400
+I outside P without SETPCAP                          -> EPERM
+I inside P without SETPCAP                           -> ok 0
+bset drop                                            -> ok 0
+  after                                              -> e=0x1ffffffffff p=0x1ffffffffff i=0x0
+I outside bset, in P                                 -> EPERM
+ambient raise                                        -> ok 0
+  status                                             -> CapInh: 0000000000000400 | CapPrm: 000001ffffffffff | CapEff: 000001ffffffffff | CapBnd: 000001ffffffffff | CapAmb: 0000000000000400 | NoNewPrivs: 0 | Seccomp: 0
+capset drops I, ambient follows                      -> ok 0
+  status                                             -> CapInh: 0000000000000000 | CapPrm: 000001ffffffffff | CapEff: 000001ffffffffff | CapBnd: 000001ffffffffff | CapAmb: 0000000000000000 | NoNewPrivs: 0 | Seccomp: 0
+capset drops P, ambient follows                      -> ok 0
+  status                                             -> CapInh: 0000000000000400 | CapPrm: 000001fffffffbff | CapEff: 000001fffffffbff | CapBnd: 000001ffffffffff | CapAmb: 0000000000000000 | NoNewPrivs: 0 | Seccomp: 0
+CAPBSET_READ 0x0                                     -> ok 1
+CAPBSET_READ 0x28                                    -> ok 1
+CAPBSET_READ 0x29                                    -> EINVAL
+CAPBSET_READ 0x3f                                    -> EINVAL
+CAPBSET_READ 0x40                                    -> EINVAL
+CAPBSET_READ 0xffffffffffffffff                      -> EINVAL
+CAPBSET_READ junk in arg3                            -> ok 1
+CAPBSET_DROP 41                                      -> EINVAL
+CAPBSET_DROP without SETPCAP                         -> EPERM
+CAPBSET_DROP 41 without SETPCAP                      -> EPERM
+CAPBSET_DROP CHOWN                                   -> ok 0
+  read back                                          -> ok 0
+  sets                                               -> e=0x1ffffffffff p=0x1ffffffffff i=0x0
+  status                                             -> CapInh: 0000000000000000 | CapPrm: 000001ffffffffff | CapEff: 000001ffffffffff | CapBnd: 000001fffffffffe | CapAmb: 0000000000000000 | NoNewPrivs: 0 | Seccomp: 0
+AMBIENT IS_SET                                       -> ok 0
+AMBIENT IS_SET 41                                    -> EINVAL
+AMBIENT IS_SET arg4                                  -> EINVAL
+AMBIENT RAISE without I                              -> EPERM
+AMBIENT LOWER unset                                  -> ok 0
+AMBIENT op 0                                         -> EINVAL
+AMBIENT op 5                                         -> EINVAL
+AMBIENT CLEAR_ALL arg3                               -> EINVAL
+AMBIENT CLEAR_ALL                                    -> ok 0
+AMBIENT RAISE                                        -> ok 0
+AMBIENT RAISE 12                                     -> ok 0
+AMBIENT IS_SET after                                 -> ok 1
+AMBIENT LOWER                                        -> ok 0
+AMBIENT IS_SET after LOWER                           -> ok 0
+AMBIENT CLEAR_ALL                                    -> ok 0
+AMBIENT IS_SET 12 after CLEAR_ALL                    -> ok 0
+AMBIENT RAISE, bset dropped                          -> ok 0
+AMBIENT RAISE, not in P                              -> EPERM
+SECUREBITS NO_CAP_AMBIENT_RAISE                      -> ok 0
+AMBIENT RAISE under it                               -> EPERM
+GET_KEEPCAPS                                         -> ok 0
+SET_KEEPCAPS 2                                       -> EINVAL
+SET_KEEPCAPS 1 arg3 junk                             -> ok 0
+GET_KEEPCAPS after                                   -> ok 1
+GET_SECUREBITS after                                 -> ok 16
+SET_KEEPCAPS 0                                       -> ok 0
+SET_SECUREBITS KEEP_CAPS|LOCKED                      -> ok 0
+GET_KEEPCAPS after                                   -> ok 1
+SET_KEEPCAPS 0 when locked                           -> EPERM
+SET_KEEPCAPS 1 when locked                           -> EPERM
+SET_SECUREBITS NOROOT                                -> ok 0
+SET_SECUREBITS NOROOT|LOCKED                         -> ok 0
+SET_SECUREBITS clear locked                          -> EPERM
+SET_SECUREBITS unlock                                -> EPERM
+SET_SECUREBITS unknown bit                           -> EPERM
+SET_SECUREBITS same                                  -> ok 0
+GET_SECUREBITS                                       -> ok 3
+SECUREBITS no SETPCAP: NO_CAP_AMBIENT_RAISE          -> EPERM
+SECUREBITS no SETPCAP: EXEC_RESTRICT_FILE            -> ok 0
+SECUREBITS no SETPCAP: same                          -> EPERM
+SECUREBITS no SETPCAP: KEEP_CAPS                     -> EPERM
+GET_SECUREBITS                                       -> ok 256
+setresuid 1000 x3                                    -> ok 0
+  status                                             -> CapInh: 0000000000000400 | CapPrm: 0000000000000000 | CapEff: 0000000000000000 | CapBnd: 000001ffffffffff | CapAmb: 0000000000000000 | NoNewPrivs: 0 | Seccomp: 0
+KEEPCAPS, setresuid 1000 x3                          -> ok 0
+  status                                             -> CapInh: 0000000000000400 | CapPrm: 000001ffffffffff | CapEff: 0000000000000000 | CapBnd: 000001ffffffffff | CapAmb: 0000000000000000 | NoNewPrivs: 0 | Seccomp: 0
+  raise E from P                                     -> ok 0
+  status                                             -> CapInh: 0000000000000400 | CapPrm: 000001ffffffffff | CapEff: 000001ffffffffff | CapBnd: 000001ffffffffff | CapAmb: 0000000000000000 | NoNewPrivs: 0 | Seccomp: 0
+seteuid 1000 (saved 0)                               -> ok 0
+  status                                             -> CapInh: 0000000000000400 | CapPrm: 000001ffffffffff | CapEff: 0000000000000000 | CapBnd: 000001ffffffffff | CapAmb: 0000000000000400 | NoNewPrivs: 0 | Seccomp: 0
+seteuid 0                                            -> ok 0
+  status                                             -> CapInh: 0000000000000400 | CapPrm: 000001ffffffffff | CapEff: 000001ffffffffff | CapBnd: 000001ffffffffff | CapAmb: 0000000000000400 | NoNewPrivs: 0 | Seccomp: 0
+partial E, seteuid 1000 then 0                       -> ok 0
+  sets                                               -> e=0x1ffffffffff p=0x1ffffffffff i=0x0
+setfsuid 1000                                        -> 0
+  sets                                               -> e=0x1fef7fffde0 p=0x1ffffffffff i=0x0
+setfsuid 0                                           -> 1000
+  sets                                               -> e=0x1ffffffffff p=0x1ffffffffff i=0x0
+  after dropping DAC_OVERRIDE from P, 1000 and back  -> e=0x1ffffffffff p=0x1ffffffffff i=0x0
+SECUREBITS NO_SETUID_FIXUP                           -> ok 0
+setresuid 1000 x3 under it                           -> ok 0
+  status                                             -> CapInh: 0000000000000000 | CapPrm: 000001ffffffffff | CapEff: 000001ffffffffff | CapBnd: 000001ffffffffff | CapAmb: 0000000000000000 | NoNewPrivs: 0 | Seccomp: 0
+  setresuid 0 x3 back                                -> ok 0
+  ids                                                -> uid 0/0/0 fs 0
+NO_SETUID_FIXUP, setfsuid 1000                       -> 0
+  sets                                               -> e=0x1ffffffffff p=0x1ffffffffff i=0x0
+uid 1000: setuid 0                                   -> EPERM
+uid 1000: capset raise                               -> EPERM
+uid 1000: CAPBSET_DROP                               -> EPERM
+uid 1000: status                                     -> CapInh: 0000000000000000 | CapPrm: 0000000000000000 | CapEff: 0000000000000000 | CapBnd: 000001ffffffffff | CapAmb: 0000000000000000 | NoNewPrivs: 0 | Seccomp: 0
+root without SETUID: setresuid 1000 x3               -> EPERM
+root without SETUID: setfsuid 1000                   -> 0
+  fs now                                             -> 0
+root without SETUID: setresgid 1000 x3               -> ok 0
+root without SETGID: setresgid 1000 x3               -> EPERM
+root without SETGID: setgroups                       -> EPERM
+root without SETGID: setresuid 1000 x3               -> ok 0
+uid 1000 reads a child's status                      -> CapInh: 0000000000000000 | CapPrm: 0000000000000000 | CapEff: 0000000000000000 | CapBnd: 000001ffffffffff | CapAmb: 0000000000000000 | NoNewPrivs: 0 | Seccomp: 0
+exec root                                            -> uid 0/0/0 fs 0 e=0x1ffffffffff p=0x1ffffffffff i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=0 AT_EUID=0
+exec root, bset without CHOWN                        -> uid 0/0/0 fs 0 e=0x1fffffffffe p=0x1fffffffffe i=0x0 a=0x0 b=0x1fffffffffe keepcaps=0 securebits=0x0 AT_SECURE=0 AT_EUID=0
+exec root, I has CHOWN, bset without it              -> uid 0/0/0 fs 0 e=0x1ffffffffff p=0x1ffffffffff i=0x1 a=0x0 b=0x1fffffffffe keepcaps=0 securebits=0x0 AT_SECURE=0 AT_EUID=0
+exec root, E partial                                 -> uid 0/0/0 fs 0 e=0x1ffffffffff p=0x1ffffffffff i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=0 AT_EUID=0
+exec root, NOROOT                                    -> uid 0/0/0 fs 0 e=0x0 p=0x0 i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x1 AT_SECURE=0 AT_EUID=0
+exec root, KEEPCAPS                                  -> uid 0/0/0 fs 0 e=0x1ffffffffff p=0x1ffffffffff i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=0 AT_EUID=0
+exec real root, euid 1000                            -> uid 0/1000/1000 fs 1000 e=0x0 p=0x1ffffffffff i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=1 AT_EUID=1000
+exec euid 0, real 1000                               -> uid 1000/0/0 fs 0 e=0x1ffffffffff p=0x1ffffffffff i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=1 AT_EUID=0
+exec uid 1000                                        -> uid 1000/1000/1000 fs 1000 e=0x0 p=0x0 i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=0 AT_EUID=1000
+exec uid 1000, kept P                                -> uid 1000/1000/1000 fs 1000 e=0x0 p=0x0 i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=0 AT_EUID=1000
+  ambient raise as 1000                              -> ok 0
+exec uid 1000, ambient NET_BIND_SERVICE              -> uid 1000/1000/1000 fs 1000 e=0x400 p=0x400 i=0x400 a=0x400 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=0 AT_EUID=1000
+exec uid 1000 groups [0], setgid-0, ambient set      -> uid 1000/1000/1000 fs 1000 e=0x1 p=0x1 i=0x1 a=0x1 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=1 AT_EUID=1000
+exec uid 1000 no groups, setgid-0, ambient set       -> uid 1000/1000/1000 fs 1000 e=0x0 p=0x0 i=0x1 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=1 AT_EUID=1000
+exec uid 1000, I has NET_BIND_SERVICE, no file caps  -> uid 1000/1000/1000 fs 1000 e=0x0 p=0x0 i=0x400 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=0 AT_EUID=1000
+setxattr security.capability without SETFCAP         -> EPERM
+setxattr bad size without SETFCAP                    -> EINVAL
+setxattr bad size                                    -> EINVAL
+setxattr v1 (12 bytes)                               -> EINVAL
+setxattr bad revision                                -> EINVAL
+setxattr v3 rootid 0                                 -> ok 0
+  getxattr                                           -> 20 bytes 02000001 00000400 00000000 00000000 00000000
+  getxattr size 0                                    -> ok 20
+exec uid 1000, v3 rootid 0 fP=NET_BIND_SERVICE fE    -> uid 1000/1000/1000 fs 1000 e=0x400 p=0x400 i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=1 AT_EUID=1000
+setxattr v3 rootid 1000                              -> ok 0
+  getxattr                                           -> 24 bytes 03000001 00000400 00000000 00000000 00000000 000003e8
+exec uid 1000, v3 rootid 1000                        -> uid 1000/1000/1000 fs 1000 e=0x0 p=0x0 i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=0 AT_EUID=1000
+setxattr v2 fP=NET_BIND_SERVICE fE                   -> ok 0
+  getxattr                                           -> 20 bytes 02000001 00000400 00000000 00000000 00000000
+exec uid 1000, v2 fE                                 -> uid 1000/1000/1000 fs 1000 e=0x400 p=0x400 i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=1 AT_EUID=1000
+exec uid 1000, v2 fE, ambient set                    -> uid 1000/1000/1000 fs 1000 e=0x400 p=0x400 i=0x1 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=1 AT_EUID=1000
+exec uid 1000, v2 fE, bset without it                -> EPERM
+exec uid 1000, v2 fE, no_new_privs                   -> uid 1000/1000/1000 fs 1000 e=0x0 p=0x0 i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=1 AT_EUID=1000
+exec root, v2 fE                                     -> uid 0/0/0 fs 0 e=0x1ffffffffff p=0x1ffffffffff i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=0 AT_EUID=0
+exec root NOROOT, v2 fE                              -> uid 0/0/0 fs 0 e=0x400 p=0x400 i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x1 AT_SECURE=0 AT_EUID=0
+setxattr v2 fP=NET_BIND_SERVICE, no fE               -> ok 0
+exec uid 1000, v2 no fE                              -> uid 1000/1000/1000 fs 1000 e=0x0 p=0x400 i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=1 AT_EUID=1000
+exec uid 1000, v2 no fE, bset without it             -> uid 1000/1000/1000 fs 1000 e=0x0 p=0x0 i=0x0 a=0x0 b=0x1fffffffbff keepcaps=0 securebits=0x0 AT_SECURE=0 AT_EUID=1000
+setxattr v2 fI=NET_RAW|CHOWN                         -> ok 0
+exec uid 1000, I=NET_RAW, v2 fI                      -> uid 1000/1000/1000 fs 1000 e=0x0 p=0x2000 i=0x2000 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=1 AT_EUID=1000
+setxattr v2 fP=0, no fE                              -> ok 0
+exec uid 1000, v2 empty, ambient set                 -> uid 1000/1000/1000 fs 1000 e=0x0 p=0x0 i=0x1 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=0 AT_EUID=1000
+removexattr without SETFCAP                          -> EPERM
+setxattr empty value                                 -> ok 0
+  getxattr                                           -> EINVAL
+setxattr empty value without SETFCAP                 -> ok 0
+setxattr v2 again                                    -> ok 0
+removexattr                                          -> ok 0
+  getxattr                                           -> ENODATA
+exec uid 1000, setuid-root                           -> uid 1000/0/0 fs 0 e=0x1ffffffffff p=0x1ffffffffff i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=1 AT_EUID=0
+exec uid 1000, setuid-root, NOROOT                   -> uid 1000/0/0 fs 0 e=0x0 p=0x0 i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x1 AT_SECURE=1 AT_EUID=0
+exec uid 1000, setuid-root, no_new_privs             -> uid 1000/1000/1000 fs 1000 e=0x0 p=0x0 i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=0 AT_EUID=1000
+exec uid 1000, setuid-root, bset without CHOWN       -> uid 1000/0/0 fs 0 e=0x1fffffffffe p=0x1fffffffffe i=0x0 a=0x0 b=0x1fffffffffe keepcaps=0 securebits=0x0 AT_SECURE=1 AT_EUID=0
+exec uid 1000, setuid-root, ambient set              -> uid 1000/0/0 fs 0 e=0x1ffffffffff p=0x1ffffffffff i=0x1 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=1 AT_EUID=0
+file caps after chown                                -> ENODATA
+file caps after a write                              -> ENODATA
+setuid-root with file caps: mode                     -> 104755
+exec uid 1000, setuid-root with file caps            -> uid 1000/0/0 fs 0 e=0x400 p=0x400 i=0x0 a=0x0 b=0x1ffffffffff keepcaps=0 securebits=0x0 AT_SECURE=1 AT_EUID=0
+chown to 1000: with                                  -> ok 0
+chown to 1000: without                               -> EPERM
+chgrp to 1000: with                                  -> ok 0
+chgrp to 1000: without                               -> EPERM
+open another's 0600 O_RDONLY: with                   -> ok 0
+open another's 0600 O_RDONLY: without                -> ok 0
+open another's 0600 O_WRONLY: with                   -> ok 0
+open another's 0600 O_WRONLY: without                -> EACCES
+open another's 0600 O_RDONLY: neither DAC            -> EACCES
+open in another's 0700 dir: neither DAC              -> EACCES
+open in another's 0700 dir: READ_SEARCH only         -> ok 0
+list another's 0700 dir: READ_SEARCH only            -> ok 0
+create in another's 0700 dir: READ_SEARCH only       -> EACCES
+access(R_OK) another's 0600: READ_SEARCH only        -> ok 0
+open another's 0600 O_RDONLY: OVERRIDE only          -> ok 0
+chmod another's file: with                           -> ok 0
+chmod another's file: without                        -> EPERM
+utimensat explicit on another's file: with           -> ok 0
+utimensat explicit on another's file: without        -> EPERM
+chmod g+s, file group not ours: with                 -> ok 0 mode 2755
+chmod g+s, file group not ours: without              -> ok 0 mode 755
+kill another uid: with                               -> ok 0
+kill another uid: without                            -> EPERM
+bind 0.0.0.0:81: with                                -> ok 0
+bind 0.0.0.0:81: without                             -> EACCES
+SO_RCVBUFFORCE: with                                 -> ok 0
+SO_RCVBUFFORCE: without                              -> EPERM
+socket AF_INET SOCK_RAW: with                        -> ok 0
+socket AF_INET SOCK_RAW: without                     -> EPERM
+chroot /: with                                       -> ok 0
+chroot /: without                                    -> EPERM
+mknod char 1:3: with                                 -> ok 0
+mknod char 1:3: without                              -> EPERM
+mknod fifo: with                                     -> ok 0
+mknod fifo: without                                  -> ok 0
+setpriority -5: with                                 -> ok 0
+setpriority -5: without                              -> EACCES
+settimeofday NULL NULL: with                         -> ok 0
+settimeofday NULL NULL: without                      -> EPERM
+setrlimit NOFILE above hard: with                    -> ok 0
+setrlimit NOFILE above hard: without                 -> EPERM
+sethostname (same name): with                        -> ok 0
+sethostname (same name): without                     -> EPERM
+setxattr trusted.x: with                             -> ok 0
+setxattr trusted.x: without                          -> EPERM
+reboot bad magic: with                               -> EINVAL
+reboot bad magic: without                            -> EPERM
+vhangup: with                                        -> ok 0
+vhangup: without                                     -> EPERM
+syslog SIZE_UNREAD: with                             -> ok 0
+syslog SIZE_UNREAD: SYS_ADMIN only                   -> EPERM
+syslog SIZE_UNREAD: neither                          -> EPERM
+mlock with RLIMIT_MEMLOCK 0: with                    -> ok 0
+mlock with RLIMIT_MEMLOCK 0: without                 -> EPERM
+shmat another's 0600 segment: with                   -> ok
+shmat another's 0600 segment: without                -> EACCES
+/proc/<pid>/mem of another uid: with                 -> ok
+/proc/<pid>/mem of another uid: without              -> EACCES
+setgroups: with                                      -> ok 0
+setgroups: without                                   -> EPERM
+uid 1000: chown another's file to its owner          -> EPERM
+uid 1000: utimensat NULL on another's 0644           -> EACCES
+uid 1000: utimensat NULL on another's 0666           -> ok 0
+uid 1000: utimensat explicit on another's 0666       -> EPERM
+uid 1000: utimensat NOW/NOW on another's 0666        -> ok 0
+uid 1000: utimensat NOW/OMIT on another's 0666       -> EPERM
+uid 1000: chmod g+s own file of group 0              -> ok 0 mode 755
+CAPBSET_DROP 40: with                                -> ok 0
+CAPBSET_DROP 40: without                             -> EPERM
+open a TIOCEXCL pty slave again: with                -> ok 0
+open a TIOCEXCL pty slave again: without             -> EBUSY

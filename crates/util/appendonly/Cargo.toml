@@ -1,0 +1,12 @@
+[package]
+name = "util-appendonly"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "util_appendonly"
+crate-type = ["rlib"]
+
+# No dependencies: a fixed array of `OnceLock`s, a count and a `Mutex`.

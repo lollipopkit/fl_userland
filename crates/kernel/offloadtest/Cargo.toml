@@ -1,0 +1,15 @@
+[package]
+name = "kernel-offloadtest"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "offloadtest"
+crate-type = ["rlib"]
+
+[dependencies]
+asbestos-offloadsym = { path = "../../asbestos/offloadsym" }
+kernel-taskview = { path = "../taskview" }
+libc = "0.2"

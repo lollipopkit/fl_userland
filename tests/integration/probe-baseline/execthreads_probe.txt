@@ -1,0 +1,109 @@
+the leader execs while six threads are parked or spinning    -> 
+  leader: getpid is the pid before the exec                  -> same
+  leader: gettid is getpid                                   -> same
+  leader: /proc/self/task                                    -> only <pid>
+  leader: Threads: in status                                 -> 1
+  leader: Tgid: is Pid:                                      -> same
+  leader: start time in /proc/self/stat                      -> same
+  leader: the new program ran                                -> yes
+  the leader execs while six threads are parked or spinning: the parent's wait events -> the child exited 0, then errno 10
+a thread that is not the leader execs                        -> 
+  other: getpid is the pid before the exec                   -> same
+  other: gettid is getpid                                    -> same
+  other: /proc/self/task                                     -> only <pid>
+  other: Threads: in status                                  -> 1
+  other: Tgid: is Pid:                                       -> same
+  other: /proc/<the exec'ing thread's old tid>               -> errno 2
+  other: getppid                                             -> same
+  other: getpgid                                             -> same
+  other: getsid                                              -> same
+  other: start time in /proc/self/stat                       -> the old leader's
+  other: the new program ran                                 -> yes
+  a thread that is not the leader execs: the parent's wait events -> the child exited 0, then errno 10
+what a thread's exec keeps                                   -> 
+  keeps: gettid is getpid                                    -> same
+  keeps: /proc/self/task                                     -> only <pid>
+  keeps: Threads: in status                                  -> 1
+  keeps: Tgid: is Pid:                                       -> same
+  keeps: SigBlk                                              -> {10,12}
+  keeps: SigPnd                                              -> {12}
+  keeps: ShdPnd                                              -> {10}
+  keeps: a descriptor without O_CLOEXEC                      -> open
+  keeps: a descriptor with O_CLOEXEC                         -> errno 9
+  keeps: timer_gettime of a POSIX timer made before          -> errno 22
+  keeps: ITIMER_REAL                                         -> still armed
+  keeps: PR_GET_CHILD_SUBREAPER                              -> 1
+  keeps: PR_GET_PDEATHSIG                                    -> 12
+  what a thread's exec keeps: the parent's wait events       -> the child exited 0, then errno 10
+a clone child with exit signal SIGUSR1: a thread execs       -> 
+  exitsig: gettid is getpid                                  -> same
+  exitsig: /proc/self/task                                   -> only <pid>
+  exitsig: Threads: in status                                -> 1
+  exitsig: Tgid: is Pid:                                     -> same
+  exitsig: waitpid(__WALL)                                   -> exited 0
+  exitsig: the signal the parent got                         -> ["SIGCHLD"]
+  exitsig: the outer wait events                             -> the child exited 0, then errno 10
+a clone child with exit signal SIGUSR1: the leader execs     -> 
+  exitsig: gettid is getpid                                  -> same
+  exitsig: /proc/self/task                                   -> only <pid>
+  exitsig: Threads: in status                                -> 1
+  exitsig: Tgid: is Pid:                                     -> same
+  exitsig: waitpid(__WALL)                                   -> exited 0
+  exitsig: the signal the parent got                         -> ["SIGCHLD"]
+  exitsig: the outer wait events                             -> the child exited 0, then errno 10
+two threads exec at once                                     -> 
+  two: programs that ran                                     -> 1
+  two: the parent's wait events                              -> the child exited 0, then errno 10
+one thread calls exit_group(7) while another execs           -> 
+  race: 20 rounds                                            -> each round one or the other
+a thread's exec fails before the point of no return          -> 
+  fail: a path that does not exist                           -> errno 2, 3 threads after, a parked one answers
+  fail: a file with no execute bit                           -> errno 13, 3 threads after, a parked one answers
+  fail: a file that is no format                             -> errno 8, 3 threads after, a parked one answers
+  a thread's exec fails before the point of no return: the parent's wait events -> the child exited 0, then errno 10
+a killed thread's robust list and clear_child_tid            -> 
+  robust: the killed leader's robust lock                    -> FUTEX_OWNER_DIED, the tid cleared
+  robust: the killed leader's clear_child_tid word           -> 0
+  robust: the exec'ing thread's robust lock                  -> its tid, unchanged
+  robust: the exec'ing thread's clear_child_tid word         -> its tid, unchanged
+  robust: the parent's wait events                           -> the child exited 0, then errno 10
+vfork, then a thread of the child execs                      -> 
+  vfork: gettid is getpid                                    -> same
+  vfork: /proc/self/task                                     -> only <pid>
+  vfork: Threads: in status                                  -> 1
+  vfork: Tgid: is Pid:                                       -> same
+  vfork: the new program ran                                 -> yes
+  vfork: the parent was released                             -> yes
+  vfork: the child                                           -> exited 0
+  vfork, then a thread of the child execs: the parent's wait events -> the child exited 0, then errno 10
+a CLONE_VM process sharing the old address space             -> 
+  clonevm: gettid is getpid                                  -> same
+  clonevm: /proc/self/task                                   -> only <pid>
+  clonevm: Threads: in status                                -> 1
+  clonevm: Tgid: is Pid:                                     -> same
+  clonevm: the CLONE_VM process still runs                   -> answered
+  clonevm:   and is reaped by the new program                -> exited 5
+  a CLONE_VM process sharing the old address space: the parent's wait events -> the child exited 0, then errno 10
+a files table shared by CLONE_FILES with another process     -> 
+  files: gettid is getpid                                    -> same
+  files: /proc/self/task                                     -> only <pid>
+  files: Threads: in status                                  -> 1
+  files: Tgid: is Pid:                                       -> same
+  files: the sibling sees the new program's new descriptor   -> no, errno 9
+  a files table shared by CLONE_FILES with another process: the parent's wait events -> the child exited 0, then errno 10
+the old leader's child, with PR_SET_PDEATHSIG                -> 
+  pdeath: gettid is getpid                                   -> same
+  pdeath: /proc/self/task                                    -> only <pid>
+  pdeath: Threads: in status                                 -> 1
+  pdeath: Tgid: is Pid:                                      -> same
+  pdeath: the old leader's child says                        -> got SIGUSR1, getppid same
+  the old leader's child, with PR_SET_PDEATHSIG: the parent's wait events -> the child exited 0, then errno 10
+a pidfd taken before a thread execs                          -> 
+  pidfd: gettid is getpid                                    -> same
+  pidfd: /proc/self/task                                     -> only <pid>
+  pidfd: Threads: in status                                  -> 1
+  pidfd: Tgid: is Pid:                                       -> same
+  pidfd: pidfd_send_signal(0) after the exec                 -> 0
+  pidfd: readable while the new program runs                 -> no
+  pidfd: readable once it exits                              -> yes
+  pidfd: waitid(P_PIDFD)                                     -> si_pid same si_status 0

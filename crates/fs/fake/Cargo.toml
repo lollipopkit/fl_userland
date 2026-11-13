@@ -1,0 +1,51 @@
+[package]
+name = "fs-fake"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fs_fake"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# The fakefs on-disk format: the schema, and the guest-path-to-host-path
+# rule this mount resolves every lookup with.
+fs-fakeschema = { path = "../fakeschema" }
+fs-fakechange = { path = "../../fs/fakechange" }
+fs-inode = { path = "../../fs/inode" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+kernel-taskview = { path = "../../kernel/taskview" }
+# errno_map and err_map as Rust calls; they went through bindgen until
+# 2026-09-04, one unsafe block per call for a function with no unsafe in it.
+kernel-errno = { path = "../../kernel/errno" }
+libc.workspace = true
+rustix.workspace = true
+realfs = { path = "../realfs" }
+fs-fakedb = { path = "../fakedb" }
+fs-bindmount = { path = "../bindmount" }
+# Which mount owns a guest path, and a reference that holds it. The bind-mount
+# API used to keep a registry of its own -- one slot -- and the mount table is
+# the registry.
+fs-mounttable = { path = "../mounttable" }
+fs-bindstash = { path = "../bindstash" }
+bindpath = { path = "../bindpath" }
+
+# The one integration test, `tests/bind_mounts.rs`, needs a booted kernel: the
+# boot path, the VFS entry points, the gadget archive and the crypto helpers.
+# All of them depend on this crate, so a normal edge either way is a cycle; a
+# dev-dependency may point back.
+[dev-dependencies]
+iul = { path = "../../iul" }
+kernel-boot = { path = "../../kernel/boot" }
+fs-generic = { path = "../generic" }
+fs-fdobj = { path = "../fdobj" }
+fs-fakedb = { path = "../fakedb" }
+asbestos-gadgets = { path = "../../asbestos/gadgets" }
+# `do_mount`, for `tests/mount_registry.rs`: mounting a second fakefs is what
+# the CLI does at every boot and is what that test is about.
+fs-mount = { path = "../mount" }

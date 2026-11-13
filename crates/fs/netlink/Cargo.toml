@@ -1,0 +1,18 @@
+[package]
+name = "fs-netlink"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "netlink"
+crate-type = ["rlib"]
+
+# Nothing but libc, for the host's interface list. The message format itself is
+# arithmetic over bytes and has no dependency at all -- which is what lets the
+# tests assert offsets without a kernel.
+[dependencies]
+rustix.workspace = true
+util-errno = { path = "../../util/errno" }
+libc.workspace = true

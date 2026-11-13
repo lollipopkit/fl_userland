@@ -1,0 +1,24 @@
+[package]
+name = "asbestos-diag"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "asbestos_diag"
+crate-type = ["rlib"]
+
+[dependencies]
+# The calling thread's guest pid, for a debug line. A hook, so that a layer-0
+# crate does not name a `kernel` one for it.
+util-currentpid = { path = "../../util/currentpid" }
+asbestos-jitstate = { path = "../jitstate" }
+# The shared Rust types are re-exported by kernel-taskview.
+# The types, and `current` -- both the foundation's. This crate names no
+# field accessor, so it does not depend on `taskview`, a layer above it.
+util-iulenv = { path = "../../util/iulenv" }
+libc.workspace = true
+
+[build-dependencies]
+iul-buildcfg = { path = "../../util/buildcfg" }

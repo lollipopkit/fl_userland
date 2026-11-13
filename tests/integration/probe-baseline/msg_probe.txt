@@ -1,0 +1,123 @@
+## the shape of the header
+sizeof(msghdr)                                       -> 56
+sizeof(iovec)                                        -> 16
+sizeof(mmsghdr)                                      -> 64
+## msg_iovlen
+sendmsg(msg_iovlen=0)                                -> 0
+sendmsg(msg_iovlen=1)                                -> 5
+sendmsg(msg_iovlen=UIO_MAXIOV (1024))                -> 5120
+sendmsg(msg_iovlen=1025)                             -> EMSGSIZE
+sendmsg(msg_iovlen=0x1_0000_0001)                    -> EMSGSIZE
+sendmsg(msg_iovlen=0x1_0000_0000)                    -> EMSGSIZE
+sendmsg(msg_iovlen=~0)                               -> EMSGSIZE
+## msg_iovlen on recvmsg
+recvmsg(msg_iovlen=0)                                -> 0
+recvmsg(msg_iovlen=1025)                             -> EMSGSIZE
+recvmsg(msg_iovlen=0x1_0000_0001)                    -> EMSGSIZE
+## msg_controllen
+sendmsg(msg_controllen=0)                            -> 5
+sendmsg(msg_controllen=2048)                         -> EINVAL
+sendmsg(msg_controllen=2049)                         -> EINVAL
+sendmsg(msg_controllen=0x7fff_ffff (INT_MAX))        -> ENOBUFS
+sendmsg(msg_controllen=0x8000_0000 (INT_MAX+1))      -> ENOBUFS
+sendmsg(msg_controllen=0x1_0000_0000)                -> ENOBUFS
+sendmsg(msg_controllen=~0)                           -> ENOBUFS
+## msg_controllen on recvmsg
+recvmsg(msg_controllen=2049)                         -> 5
+recvmsg(msg_controllen=0x7fff_ffff (INT_MAX))        -> 5
+recvmsg(msg_controllen=0x1_0000_0000)                -> 5
+recvmsg(msg_controllen=~0)                           -> 5
+recvmsg(control=NULL, controllen=64)                 -> 5
+  msg_controllen after                               -> 0
+## what recvmsg writes into msg_namelen
+recvmsg(name=set, namelen=0)                         -> 5
+  msg_namelen after                                  -> 0
+  the first two bytes written                        -> 0
+recvmsg(name=set, namelen=16)                        -> 5
+  msg_namelen after                                  -> 0
+  the first two bytes written                        -> 0
+recvmsg(name=set, namelen=128)                       -> 5
+  msg_namelen after                                  -> 0
+  the first two bytes written                        -> 0
+recvmsg(name=set, namelen=0xffffffff)                -> EINVAL
+  msg_namelen after                                  -> 4294967295
+  the first two bytes written                        -> 0
+## msg_control that is null
+sendmsg(control=NULL, controllen=64)                 -> EFAULT
+## msg_name on a connected socket
+sendmsg(name=NULL, namelen=0)                        -> 5
+sendmsg(name=NULL, namelen=16)                       -> 5
+sendmsg(name=set, namelen=0)                         -> 5
+sendmsg(name=set, namelen=16)                        -> errno 106
+sendmsg(name=set, namelen=128)                       -> errno 106
+sendmsg(name=set, namelen=0xffffffff)                -> EINVAL
+## iov_len
+sendmsg(iov_len=0)                                   -> 0
+sendmsg(iov_len=5)                                   -> 5
+sendmsg(iov_len=0x7fff_ffff_ffff_ffff (SSIZE_MAX))   -> EFAULT
+sendmsg(iov_len=0x8000_0000_0000_0000)               -> EINVAL
+sendmsg(iov_len=~0)                                  -> EINVAL
+## two iovecs whose lengths sum past SSIZE_MAX
+sendmsg(two iovecs, total > SSIZE_MAX)               -> EFAULT
+## a pointer that is not mapped
+sendmsg(msg_iov unmapped)                            -> EFAULT
+sendmsg(iov_base unmapped)                           -> EFAULT
+sendmsg(the msghdr itself unmapped)                  -> EFAULT
+## msg_flags
+sendmsg(msg_flags=-1 in the struct)                  -> 5
+sendmsg(flags=0)                                     -> 5
+sendmsg(flags=MSG_OOB (0x01))                        -> 5
+sendmsg(flags=MSG_PEEK (0x02))                       -> 5
+sendmsg(flags=MSG_DONTROUTE (0x04))                  -> 5
+sendmsg(flags=MSG_CTRUNC (0x08))                     -> 5
+sendmsg(flags=MSG_PROXY (0x10))                      -> 5
+sendmsg(flags=MSG_TRUNC (0x20))                      -> 5
+sendmsg(flags=MSG_DONTWAIT (0x40))                   -> 5
+sendmsg(flags=MSG_EOR (0x80))                        -> 5
+sendmsg(flags=MSG_WAITALL (0x100))                   -> 5
+sendmsg(flags=MSG_FIN (0x200))                       -> 5
+sendmsg(flags=MSG_SYN (0x400))                       -> 5
+sendmsg(flags=MSG_CONFIRM (0x800))                   -> 5
+sendmsg(flags=MSG_RST (0x1000))                      -> 5
+sendmsg(flags=MSG_ERRQUEUE (0x2000))                 -> 5
+sendmsg(flags=MSG_NOSIGNAL (0x4000))                 -> 5
+sendmsg(flags=MSG_MORE (0x8000))                     -> 5
+sendmsg(flags=MSG_WAITFORONE (0x10000))              -> 5
+sendmsg(flags=MSG_BATCH (0x40000))                   -> 5
+sendmsg(flags=MSG_ZEROCOPY (0x4000000))              -> 5
+sendmsg(flags=MSG_FASTOPEN (0x20000000))             -> 5
+sendmsg(flags=MSG_CMSG_CLOEXEC (0x40000000))         -> 5
+sendmsg(flags=an unknown bit (0x0080_0000))          -> 5
+sendmsg(flags=every bit)                             -> 5
+## what recvmsg reports in msg_flags
+recvmsg(a 64-byte datagram into 8 bytes)             -> 8
+  msg_flags has MSG_TRUNC                            -> 1
+  msg_flags has anything else                        -> 0
+recvmsg(a stream, name/control null)                 -> 5
+  msg_namelen after                                  -> 99
+  msg_controllen after                               -> 0
+  msg_flags after                                    -> 0
+## recvmsg on an empty socket
+recvmsg(nothing there, MSG_DONTWAIT)                 -> EAGAIN
+recvmsg(the peer closed)                             -> 0
+## sendmsg and recvmsg on things that are not sockets
+sendmsg(a character device)                          -> ENOTSOCK
+recvmsg(a character device)                          -> ENOTSOCK
+sendmsg(a descriptor that is not open)               -> EBADF
+sendmsg(fd=-1)                                       -> EBADF
+## sendmmsg and recvmmsg
+sendmmsg(vlen=0, each unmapped)                      -> 0
+sendmmsg(vlen=1, each unmapped)                      -> EFAULT
+sendmmsg(vlen=UIO_MAXIOV (1024), each unmapped)      -> EFAULT
+sendmmsg(vlen=1025, each unmapped)                   -> EFAULT
+sendmmsg(vlen=0xffff_ffff, each unmapped)            -> EFAULT
+sendmmsg(two 3-byte messages)                        -> 2
+  vec[0].msg_len                                     -> 3
+  vec[1].msg_len                                     -> 3
+recvmmsg(vlen=0)                                     -> 0
+recvmmsg(vlen=1025)                                  -> EAGAIN
+recvmmsg(vlen=0xffff_ffff)                           -> EAGAIN
+recvmmsg(tv_nsec = 1_000_000_000)                    -> EINVAL
+recvmmsg(tv_nsec = -1)                               -> EINVAL
+recvmmsg(tv_sec = -1)                                -> EINVAL
+recvmmsg(timeout unmapped)                           -> EFAULT

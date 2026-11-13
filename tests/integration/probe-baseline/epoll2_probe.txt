@@ -1,0 +1,96 @@
+## epoll_pwait2 arguments
+  NULL timeout, one ready                                    1
+  zero timeout, nothing ready                                0
+  zero timeout, one ready                                    1
+  tv_nsec = 1_000_000_000                                    -EINVAL
+  tv_nsec = -1                                               -EINVAL
+  tv_sec = -1                                                -EINVAL
+  tv_sec = LLONG_MAX, one ready                              1
+  tv_sec = LLONG_MAX, nsec 999999999, one ready              1
+  an unreadable timeout                                      -EFAULT
+  maxevents 0                                                -EINVAL
+  maxevents -1                                               -EINVAL
+  maxevents INT_MAX/16 + 1                                   -EINVAL
+  a closed epfd                                              -EBADF
+  a pipe as epfd                                             -EINVAL
+  events NULL, one ready                                     -EFAULT
+  events past the address space                              -EFAULT
+  a mask with sigsetsize 4                                   -EINVAL
+  a mask with sigsetsize 16                                  -EINVAL
+  a mask with sigsetsize 1<<32 | 8                           -EINVAL
+  epoll_pwait, a mask with sigsetsize 1<<32 | 8              -EINVAL
+  NULL mask with sigsetsize 4                                0
+  an unreadable mask                                         -EFAULT
+## epoll_pwait2, which argument is checked first
+  closed epfd, timeout tv_nsec -1                            -EINVAL
+  closed epfd, unreadable timeout                            -EFAULT
+  closed epfd, sigsetsize 4                                  -EINVAL
+  closed epfd, maxevents 0                                   -EBADF
+  closed epfd, events past the address space                 -EBADF
+  maxevents 0, timeout tv_nsec -1                            -EINVAL
+  maxevents 0, sigsetsize 4                                  -EINVAL
+  unreadable mask, timeout tv_nsec -1                        -EINVAL
+  a pipe as epfd, sigsetsize 4                               -EINVAL
+  10 ms on an idle set                                       0
+    the timeout after                                        0s 10000000ns
+## epoll_pwait2 timeouts
+  300 us                                                     0
+    took at least 300 us                                     true
+  1 ns                                                       0
+  20 ms                                                      0
+    took at least 20 ms                                      true
+    took under 200 ms                                        true
+  epoll_pwait 1 ms                                           0
+    took at least 1 ms                                       true
+  NULL timeout, written after 30 ms                          1
+    took at least 30 ms                                      true
+## epoll_pwait2 and a signal
+  unblocked by the temporary mask                            -EINTR
+    the handler ran                                          true
+    SIGUSR1 blocked again after                              true
+  blocked by the temporary mask, 100 ms                      0
+    the handler ran                                          false
+    then a zero wait with it unblocked                       0
+    the handler ran                                          false
+## EPIOCSPARAMS and EPIOCGPARAMS
+  GPARAMS on a new set                                       0 usecs 0 budget 0 prefer 0 pad 0
+  SPARAMS {100, 8, 1, 0}                                     0
+    GPARAMS after                                            0 usecs 100 budget 8 prefer 1 pad 0
+  SPARAMS pad 1                                              -EINVAL
+  SPARAMS prefer 2                                           -EINVAL
+  SPARAMS usecs 0x80000000                                   -EINVAL
+    GPARAMS after three refusals                             0 usecs 100 budget 8 prefer 1 pad 0
+  SPARAMS usecs 0x7fffffff                                   0
+    GPARAMS after                                            0 usecs 2147483647 budget 5 prefer 0 pad 0
+  SPARAMS budget 64                                          0
+    GPARAMS after                                            0 usecs 0 budget 64 prefer 0 pad 0
+  SPARAMS pad 1 and budget 65                                -EINVAL
+  SPARAMS prefer 2 and budget 65                             -EINVAL
+  SPARAMS NULL                                               -EFAULT
+  GPARAMS NULL                                               -EFAULT
+  SPARAMS with a 4-byte size                                 -EINVAL
+  SPARAMS on a pipe                                          -ENOTTY
+  GPARAMS on an eventfd                                      -ENOTTY
+  FIONBIO on a set                                           0
+  ioctl 0x8a03 on a set                                      -EINVAL
+  TCGETS on a set                                            -EINVAL
+  FIONREAD on a set                                          -EINVAL
+## EPOLLEXCLUSIVE: four threads, four sets, one write
+  eventfd, EPOLLEXCLUSIVE: at least one woke                 true
+  eventfd, EPOLLEXCLUSIVE: exactly one woke                  true
+  eventfd, EPOLLEXCLUSIVE: all four woke                     false
+  eventfd, EPOLLEXCLUSIVE|EPOLLET: at least one woke         true
+  eventfd, EPOLLEXCLUSIVE|EPOLLET: exactly one woke          true
+  eventfd, EPOLLEXCLUSIVE|EPOLLET: all four woke             false
+  pipe, EPOLLEXCLUSIVE: at least one woke                    true
+  pipe, EPOLLEXCLUSIVE: exactly one woke                     true
+  pipe, EPOLLEXCLUSIVE: all four woke                        false
+  eventfd, not exclusive: at least one woke                  true
+  eventfd, not exclusive: exactly one woke                   false
+  eventfd, not exclusive: all four woke                      true
+  pipe, not exclusive: at least one woke                     true
+  pipe, not exclusive: exactly one woke                      false
+  pipe, not exclusive: all four woke                         true
+## four threads on one set, EPOLLET, one write
+  at least one woke                                          true
+  all four woke                                              false

@@ -1,0 +1,18 @@
+[package]
+name = "fs-mounttable"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fs_mounttable"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# The three accessors over `struct mount`, which were `crates/fs/mount`'s
+# until 2026-09-09 -- and depending on that crate for three field reads is
+# what made this crate unreachable from it.
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true

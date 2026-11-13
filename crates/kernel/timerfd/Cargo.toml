@@ -1,0 +1,22 @@
+[package]
+name = "kernel-timerfd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_timerfd"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+fs-pollset = { path = "../../fs/pollset" }
+util-guestlock = { path = "../../util/guestlock" }
+util-timer = { path = "../../util/timer" }
+
+[dev-dependencies]
+# The real signal state, so a test runs the real `wait_for`. It ran
+# `crates/util/guestlock-teststub`'s parallel one until 2026-09-08.
+kernel-sighand = { path = "../sighand" }
+kernel-sigqueue = { path = "../sigqueue" }

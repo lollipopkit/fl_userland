@@ -1,0 +1,167 @@
+########## pidfd_open's flags ##########
+pidfd_open(self, PIDFD_NONBLOCK)                             -> a descriptor
+  O_NONBLOCK in F_GETFL                                      -> true
+  O_EXCL in F_GETFL                                          -> false
+  FD_CLOEXEC                                                 -> 1
+pidfd_open(self, PIDFD_THREAD)                               -> a descriptor
+  O_NONBLOCK in F_GETFL                                      -> false
+  O_EXCL in F_GETFL                                          -> true
+  FD_CLOEXEC                                                 -> 1
+pidfd_open(self, PIDFD_NONBLOCK|PIDFD_THREAD)                -> a descriptor
+  O_NONBLOCK in F_GETFL                                      -> true
+  O_EXCL in F_GETFL                                          -> true
+  FD_CLOEXEC                                                 -> 1
+pidfd_open(a thread, 0)                                      -> errno 2
+pidfd_open(a thread, PIDFD_THREAD)                           -> a descriptor
+  poll while the thread runs                                 -> n=0 revents=0x0
+  pidfd_send_signal(thread pidfd, 0)                         -> 0
+  ... with PIDFD_SIGNAL_THREAD_GROUP                         -> 0
+  PIDFD_GET_INFO                                             -> 0
+  pid is the thread                                          -> true
+  tgid is the process                                        -> true
+  poll after the thread exited                               -> n=1 revents=0x11
+  process pidfd after the thread exited                      -> n=0 revents=0x0
+  signal 0 to the exited thread                              -> ESRCH
+
+########## the descriptor itself ##########
+readlink /proc/self/fd/<pidfd>, digits as N                  -> anon_inode:[pidfd]
+fstat                                                        -> 0
+  st_mode                                                    -> 700
+read                                                         -> EINVAL
+write                                                        -> EINVAL
+fdinfo has Pid: <self>                                       -> true
+fdinfo has NSpid: <self>                                     -> true
+
+########## pidfd_getfd ##########
+pidfd_getfd(self, /dev/null, 0)                              -> a descriptor
+  the same file                                              -> true
+  FD_CLOEXEC                                                 -> 1
+  shares the description (F_GETFL agrees)                    -> true
+pidfd_getfd(self, /dev/null, 1)                              -> EINVAL
+pidfd_getfd(self, 9999, 0)                                   -> EBADF
+pidfd_getfd(self, -1, 0)                                     -> EBADF
+pidfd_getfd(/dev/null, 0, 0)                                 -> EBADF
+pidfd_getfd(-1, 0, 0)                                        -> EBADF
+pidfd_getfd(9999, 0, 0)                                      -> EBADF
+pidfd_getfd(PIDFD_SELF_THREAD, /dev/null, 0)                 -> EBADF
+pidfd_getfd(PIDFD_SELF_THREAD_GROUP, /dev/null, 0)           -> EBADF
+pidfd_getfd(-10002, /dev/null, 0)                            -> EBADF
+pidfd_getfd(child, 50)                                       -> a descriptor
+  reads the child's /dev/zero                                -> true
+pidfd_getfd(child, 51), not open there                       -> EBADF
+pidfd_getfd(child, 50) once it has exited                    -> ESRCH
+pidfd_getfd(child, 50) once it is reaped                     -> ESRCH
+
+########## pidfd_send_signal: scopes and sentinels ##########
+PIDFD_SELF_THREAD, signal 0                                  -> 0
+PIDFD_SELF_THREAD_GROUP, signal 0                            -> 0
+PIDFD_SIGNAL_THREAD, signal 0                                -> 0
+PIDFD_SIGNAL_THREAD_GROUP, signal 0                          -> 0
+PIDFD_SIGNAL_PROCESS_GROUP, signal 0                         -> 0
+THREAD|THREAD_GROUP                                          -> EINVAL
+flags 8                                                      -> EINVAL
+SIGUSR1 with PIDFD_SIGNAL_THREAD                             -> 0, received true
+SIGUSR1 with PIDFD_SIGNAL_THREAD_GROUP                       -> 0, received true
+SIGUSR1 with PIDFD_SIGNAL_PROCESS_GROUP                      -> 0, received true
+
+########## PIDFD_GET_INFO ##########
+GET_INFO(self, mask 0, 64 bytes)                             -> mask 0x3
+  GET_INFO(self, mask 0, 64 bytes): cgroupid reported        -> true
+  pid                                                        -> true
+  tgid                                                       -> true
+  ppid                                                       -> true
+  ruid euid suid fsuid                                       -> 0 0 0 0
+  rgid egid sgid fsgid                                       -> 0 0 0 0
+GET_INFO(self, EXIT|COREDUMP)                                -> mask 0x13
+  GET_INFO(self, EXIT|COREDUMP): cgroupid reported           -> true
+GET_INFO(self, SUPPORTED_MASK, 88 bytes)                     -> mask 0x23
+  GET_INFO(self, SUPPORTED_MASK, 88 bytes): cgroupid reported -> true
+  supported_mask                                             -> 0xff
+GET_INFO(self, SUPPORTED_MASK, 72 bytes)                     -> mask 0x23
+  GET_INFO(self, SUPPORTED_MASK, 72 bytes): cgroupid reported -> true
+  supported_mask untouched                                   -> true
+GET_INFO(self, 0, 120 bytes)                                 -> mask 0x3
+  GET_INFO(self, 0, 120 bytes): cgroupid reported            -> true
+  tail past 88 bytes, filled with ones first                 -> [0, 0, 0, 0]
+GET_INFO, 56 bytes                                           -> ENOTTY
+GET_INFO, 0 bytes                                            -> ENOTTY
+GET_INFO at an unreadable address                            -> EFAULT
+ioctl nr 12                                                  -> ENOTTY
+GET_INFO on /dev/null                                        -> ENOTTY
+GET_INFO on PIDFD_SELF_THREAD_GROUP                          -> EBADF, pid false
+GET_INFO(live child, EXIT)                                   -> mask 0x3
+  GET_INFO(live child, EXIT): cgroupid reported              -> true
+  ppid is this process                                       -> true
+  exit_code                                                  -> 0
+GET_INFO(exited child, EXIT)                                 -> mask 0x3
+  GET_INFO(exited child, EXIT): cgroupid reported            -> true
+  exit_code                                                  -> 0x0
+GET_INFO(exited child, 0)                                    -> mask 0x3
+  GET_INFO(exited child, 0): cgroupid reported               -> true
+GET_INFO(reaped child, EXIT)                                 -> mask 0x8
+  GET_INFO(reaped child, EXIT): cgroupid reported            -> true
+  exit_code                                                  -> 0x700
+  pid still reported                                         -> false
+GET_INFO(reaped child, 0)                                    -> ESRCH
+  GET_INFO(reaped child, 0): cgroupid reported               -> false
+GET_INFO(child killed by SIGKILL, EXIT)                      -> mask 0x8
+  GET_INFO(child killed by SIGKILL, EXIT): cgroupid reported -> true
+  exit_code                                                  -> 0x9
+
+########## the namespace ioctls ##########
+PIDFD_GET_CGROUP_NAMESPACE                                   -> a descriptor
+PIDFD_GET_IPC_NAMESPACE                                      -> a descriptor
+PIDFD_GET_MNT_NAMESPACE                                      -> a descriptor
+PIDFD_GET_NET_NAMESPACE                                      -> a descriptor
+PIDFD_GET_PID_NAMESPACE                                      -> a descriptor
+PIDFD_GET_PID_FOR_CHILDREN_NAMESPACE                         -> a descriptor
+PIDFD_GET_TIME_NAMESPACE                                     -> a descriptor
+PIDFD_GET_TIME_FOR_CHILDREN_NAMESPACE                        -> a descriptor
+PIDFD_GET_USER_NAMESPACE                                     -> a descriptor
+PIDFD_GET_UTS_NAMESPACE                                      -> a descriptor
+
+########## poll ##########
+poll(self)                                                   -> n=0 revents=0x0
+poll(live child)                                             -> n=0 revents=0x0
+poll(exited child)                                           -> n=1 revents=0x1
+poll(reaped child)                                           -> n=1 revents=0x11
+
+########## waitid(P_PIDFD) ##########
+live child, WEXITED|WNOHANG                                  -> 0, si_pid 0, si_code 0, si_status 0
+live child, PIDFD_NONBLOCK, WEXITED                          -> EAGAIN
+live child, PIDFD_NONBLOCK, WEXITED|WNOHANG                  -> 0, si_pid 0, si_code 0, si_status 0
+exited child, WEXITED|WNOWAIT                                -> 0, si_pid set, si_code 1, si_status 7
+exited child, PIDFD_NONBLOCK, WEXITED                        -> 0, si_pid set, si_code 1, si_status 7
+reaped child, WEXITED                                        -> ECHILD
+self, WEXITED|WNOHANG                                        -> ECHILD
+/dev/null, WEXITED                                           -> EBADF
+-1, WEXITED                                                  -> EINVAL
+9999, WEXITED                                                -> EBADF
+PIDFD_SELF_THREAD_GROUP, WEXITED|WNOHANG                     -> EINVAL
+
+########## clone3: CLONE_PIDFD ##########
+clone3(CLONE_PIDFD)                                          -> a child
+  pidfd written                                              -> true
+  FD_CLOEXEC                                                 -> 1
+  poll after the child exits                                 -> n=1 revents=0x1
+  waitid through it                                          -> 0, si_pid set, si_code 1, si_status 3
+clone3(CLONE_PIDFD) with an unwritable pidfd                 -> EFAULT
+
+########## clone3: set_tid ##########
+set_tid = [32000]                                            -> child pid is 32000: true
+set_tid = [own pid]                                          -> EEXIST
+set_tid = [0]                                                -> EINVAL
+set_tid = [-1]                                               -> EINVAL
+set_tid = [INT_MAX]                                          -> EINVAL
+set_tid_size = 33                                            -> EINVAL
+set_tid = NULL, set_tid_size = 1                             -> EINVAL
+set_tid set, set_tid_size = 0                                -> EINVAL
+set_tid unreadable                                           -> EFAULT
+set_tid with a 64-byte struct                                -> a child
+
+########## clone3: CLONE_INTO_CGROUP ##########
+cgroup = /dev/null                                           -> EBADF
+cgroup = 9999                                                -> EBADF
+cgroup > INT_MAX                                             -> EINVAL
+cgroup with an 80-byte struct                                -> EINVAL
+cgroup = the root directory                                  -> EBADF

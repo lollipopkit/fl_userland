@@ -1,0 +1,27 @@
+[package]
+name = "kernel-sysvsem"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "sysvsem"
+crate-type = ["rlib"]
+
+[dependencies]
+# The key space, the id space, the mode check and the ipc_perm wire format,
+# which the message queues share.
+kernel-sysvipc = { path = "../sysvipc" }
+# The identity the mode check compares.
+kernel-creds = { path = "../creds" }
+kernel-taskview = { path = "../taskview" }
+kernel-usercopy = { path = "../usercopy" }
+util-guestlock = { path = "../../util/guestlock" }
+util-strace = { path = "../../util/strace" }
+
+[dev-dependencies]
+# The real signal state, so a test runs the real `wait_for`. It ran
+# `crates/util/guestlock-teststub`'s parallel one until 2026-09-08.
+kernel-sighand = { path = "../sighand" }
+kernel-sigqueue = { path = "../sigqueue" }

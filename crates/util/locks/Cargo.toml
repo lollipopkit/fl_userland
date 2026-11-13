@@ -1,0 +1,25 @@
+[package]
+name = "util-locks"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "locks"
+crate-type = ["rlib"]
+
+[dependencies]
+# `util/sync.h`'s four types, which this crate is the behaviour over. It named
+# `crates/kernel/abi` for them until 2026-09-09 -- a layer-0 crate depending on
+# a `kernel` one for a mutex.
+util-synctypes = { path = "../synctypes" }
+# The calling thread's guest pid, for a debug line. A hook, so that a layer-0
+# crate does not name a `kernel` one for it.
+util-currentpid = { path = "../currentpid" }
+libc = "0.2"
+# The types, and `current` -- both the foundation's. This crate names no
+# field accessor, so it does not depend on `taskview`, a layer above it.
+
+[build-dependencies]
+iul-buildcfg = { path = "../buildcfg" }

@@ -1,0 +1,79 @@
+## pipe2 flags
+pipe2(flags=0)                                       -> 0
+pipe2(flags=O_CLOEXEC)                               -> 0
+pipe2(flags=O_NONBLOCK)                              -> 0
+pipe2(flags=O_DIRECT (packet mode))                  -> 0
+pipe2(flags=O_CLOEXEC|O_NONBLOCK)                    -> 0
+pipe2(flags=O_APPEND)                                -> EINVAL
+pipe2(flags=O_RDWR)                                  -> EINVAL
+pipe2(flags=an undefined bit (0x8000000))            -> EINVAL
+  FD_CLOEXEC is set on the read end                  -> 1
+  O_NONBLOCK is set on the write end                 -> 1
+  the read end's access mode                         -> 0
+  the write end's access mode                        -> 1
+## how much a pipe holds
+F_GETPIPE_SZ                                         -> 65536
+bytes written before it was full                     -> 65536
+the write that found it full                         -> EAGAIN
+and then reading it all back gives                   -> 65536
+the read that found it empty                         -> EAGAIN
+## F_SETPIPE_SZ
+F_SETPIPE_SZ(4096)                                   -> 4096
+  F_GETPIPE_SZ then says                             -> 4096
+F_SETPIPE_SZ(1)                                      -> 4096
+  F_GETPIPE_SZ then says                             -> 4096
+F_SETPIPE_SZ(0)                                      -> 4096
+  F_GETPIPE_SZ then says                             -> 4096
+F_SETPIPE_SZ(65536)                                  -> 65536
+  F_GETPIPE_SZ then says                             -> 65536
+F_SETPIPE_SZ(100000 (not a power of two))            -> 131072
+  F_GETPIPE_SZ then says                             -> 131072
+F_SETPIPE_SZ(-1)                                     -> EINVAL
+F_SETPIPE_SZ(0x7fffffff) unprivileged                -> EPERM
+F_SETPIPE_SZ(4096) with 8192 bytes queued            -> EBUSY
+## when one end is gone
+write with no readers                                -> EPIPE
+read of what is left after the writer closed         -> 3
+the read after that                                  -> 0
+and the one after that                               -> 0
+a write with no readers left SIGPIPE pending         -> 1
+## reading and writing the wrong end
+write to the read end                                -> EBADF
+read from the write end                              -> EBADF
+## a pipe is not a file
+lseek(0, SEEK_SET)                                   -> ESPIPE
+lseek(0, SEEK_CUR)                                   -> ESPIPE
+ftruncate(0)                                         -> EINVAL
+fstat                                                -> 0
+  S_ISFIFO                                           -> 1
+  st_size                                            -> 0
+  st_nlink                                           -> 1
+  the permission bits                                -> 384
+## FIONREAD
+ioctl(FIONREAD) on an empty pipe                     -> 0
+  it says                                            -> 0
+after writing 100 bytes it says                      -> 100
+ioctl(FIONREAD) on the write end                     -> 0
+ioctl(an unknown request)                            -> ENOTTY
+## poll
+an empty pipe: the read end's revents                -> 0
+  the write end's revents                            -> 4
+with 4 bytes in it: the read end                     -> 1
+  the write end                                      -> 4
+after the writer closed: the read end                -> 17
+a full pipe: the write end's revents                 -> 0
+...and once the reader is gone                       -> 8
+## a write larger than the pipe holds
+write(1 MiB) to an empty non-blocking pipe           -> wrote a partial amount
+a 4096-byte write into an empty pipe                 -> 4096
+PIPE_BUF write with 100 bytes of room                -> EAGAIN
+an 8192-byte write with 100 bytes of room            -> EAGAIN
+## O_DIRECT, if it exists
+packet mode: the first read of 100                   -> 10
+  the second read of 5 (discards the rest)           -> 5
+  the third read of 100                              -> 30
+  the fourth read                                    -> -1
+## the descriptors themselves
+write through a dup of the write end                 -> 4
+read it back                                         -> 4
+read after every writer is closed                    -> 0

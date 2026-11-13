@@ -1,0 +1,23 @@
+[package]
+name = "kernel-unamecalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "unamecalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-pagetable = { path = "../../kernel/pagetable" }
+libc.workspace = true
+rustix.workspace = true
+kernel-usercopy = { path = "../usercopy" }
+kernel-pids = { path = "../pids" }
+# What a guest is told the machine has, which /proc/meminfo answers too.
+kernel-hoststats = { path = "../hoststats" }
+# Whether the caller may set the hostname.
+kernel-taskview = { path = "../taskview" }
+util-strace = { path = "../../util/strace" }

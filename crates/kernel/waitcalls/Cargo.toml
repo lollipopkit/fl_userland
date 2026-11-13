@@ -1,0 +1,39 @@
+[package]
+name = "kernel-waitcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "waitcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# printk, as a Rust call: it was a variadic extern declaration here.
+util-logline = { path = "../../util/logline" }
+kernel-pids = { path = "../pids" }
+kernel-sigqueue = { path = "../sigqueue" }
+util-timeabi = { path = "../../util/timeabi" }
+kernel-groupstop = { path = "../groupstop" }
+kernel-exitcalls = { path = "../exitcalls" }
+kernel-grouprusage = { path = "../grouprusage" }
+kernel-taskcalls = { path = "../taskcalls" }
+kernel-signaldeliver = { path = "../signaldeliver" }
+util-waitfor = { path = "../../util/waitfor" }
+kernel-groupexit = { path = "../groupexit" }
+kernel-procattr = { path = "../procattr" }
+kernel-creds = { path = "../creds" }
+kernel-proctree = { path = "../../kernel/proctree" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+# The IUL_* settings as a safe read; see crates/util/iulenv.
+util-iulenv = { path = "../../util/iulenv" }
+libc.workspace = true
+kernel-usercopy = { path = "../usercopy" }
+util-strace = { path = "../../util/strace" }
+
+# `pidfd_resolve` for waitid(P_PIDFD), called by path: it was a hand-written
+# `extern` declaration against a header no C read.
+kernel-pidfdcalls = { path = "../pidfdcalls" }

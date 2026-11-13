@@ -1,0 +1,27 @@
+[package]
+name = "kernel-tgroup"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_tgroup"
+crate-type = ["rlib"]
+
+[dependencies]
+util-timeabi = { path = "../../util/timeabi" }
+kernel-pids = { path = "../pids" }
+kernel-posixtimers = { path = "../../kernel/posixtimers" }
+kernel-grouprusage = { path = "../../kernel/grouprusage" }
+kernel-itimer = { path = "../../kernel/itimer" }
+kernel-groupstop = { path = "../../kernel/groupstop" }
+kernel-rlimitstate = { path = "../../kernel/rlimitstate" }
+util-waitfor = { path = "../../util/waitfor" }
+kernel-hostthreads = { path = "../../kernel/hostthreads" }
+kernel-ctty = { path = "../../kernel/ctty" }
+kernel-procattr = { path = "../../kernel/procattr" }
+kernel-proctree = { path = "../../kernel/proctree" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true

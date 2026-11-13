@@ -1,0 +1,33 @@
+########## the registers that carry a contract ##########
+  CTR_EL0                    000000099444c004
+  CTR_EL0 decoded            icache 64 bytes, dcache 64 bytes, IDC 1, DIC 0
+  DCZID_EL0                  0000000000000004
+  DCZID_EL0 decoded          zva 64 bytes, prohibited 0
+########## the registers that name the machine ##########
+  MIDR_EL1                   readable, non-zero: true
+  MPIDR_EL1                  readable, non-zero: true
+  ID_AA64ISAR0_EL1           readable, non-zero: true
+  ID_AA64PFR0_EL1            readable, non-zero: true
+  CNTFRQ_EL0                 readable, non-zero: true
+  CNTVCT_EL0                 readable, non-zero: true
+########## the thread pointer ##########
+  TPIDR_EL0 round trip       reads back: true, libc set one: true
+  TPIDRRO_EL0                readable, non-zero: false
+  writing TPIDRRO_EL0        SIGILL
+########## cache maintenance ##########
+  dc cvau                    ok
+  dc civac                   ok
+  dc cvac                    ok
+  ic ivau                    ok
+  ic iallu                   SIGILL
+  dsb ish + isb              ok
+  dc zva bytes zeroed        64, byte before untouched: true
+########## hints ##########
+  prfm pldl1keep             ok
+  prfm pstl1strm             ok
+  nop                        ok
+  yield                      ok
+  wfe                        ok
+  sevl                       ok
+  hint #7                    ok
+  hint #23                   ok

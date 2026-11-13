@@ -1,0 +1,35 @@
+[package]
+name = "realfs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "realfs"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# The bind-mount table, which a host path has to be looked up in before the
+# mount source is tried. `fs/fake` wraps the same function; this crate calls it
+# directly, which is not a cycle because that crate depends on one leaf.
+fs-bindmount = { path = "../bindmount" }
+# The namespace and flag rules the twelve xattr syscalls apply. Shared,
+# because a filesystem that implements the calls and none of the rules
+# silently accepts what Linux refuses.
+fs-xattrabi = { path = "../xattrabi" }
+util-fchdir = { path = "../../util/fchdir" }
+fs-fakechange = { path = "../../fs/fakechange" }
+kernel-sighand = { path = "../../kernel/sighand" }
+fs-adhoc = { path = "../../fs/adhoc" }
+kernel-pagetable = { path = "../../kernel/pagetable" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+# errno_map as a Rust call; through bindgen until 2026-09-04.
+kernel-errno = { path = "../../kernel/errno" }
+libc.workspace = true
+rustix.workspace = true

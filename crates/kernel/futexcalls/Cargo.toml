@@ -1,0 +1,38 @@
+[package]
+name = "kernel-futexcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "futexcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-pids = { path = "../pids" }
+kernel-creds = { path = "../creds" }
+util-logline = { path = "../../util/logline" }
+kernel-mmapcalls = { path = "../../kernel/mmapcalls" }
+kernel-pagetable = { path = "../../kernel/pagetable" }
+kernel-procattr = { path = "../../kernel/procattr" }
+kernel-proctree = { path = "../../kernel/proctree" }
+# The IUL_* settings as a safe read; see crates/util/iulenv.
+util-iulenv = { path = "../../util/iulenv" }
+kernel-taskview = { path = "../../kernel/taskview" }
+asbestos-diag = { path = "../../asbestos/diag" }
+libc.workspace = true
+kernel-robustlist = { path = "../robustlist" }
+util-timeabi = { path = "../../util/timeabi" }
+kernel-usercopy = { path = "../usercopy" }
+util-strace = { path = "../../util/strace" }
+
+# The futex table itself, called by path: `kernel/futex.h` was a declaration
+# no C read.
+kernel-futex = { path = "../futex" }
+# The CPU count the default `PR_FUTEX_HASH` size is computed from, which is
+# the one `sched_getaffinity` reports.
+kernel-rescalls = { path = "../rescalls" }
+
+[dev-dependencies]

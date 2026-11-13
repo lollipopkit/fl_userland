@@ -1,0 +1,57 @@
+[package]
+name = "kernel-execcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "execcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+# The robust list and PI futexes an execve releases.
+kernel-futexcalls = { path = "../futexcalls" }
+util-errno = { path = "../../util/errno" }
+kernel-vdso = { path = "../vdso" }
+kernel-sighand = { path = "../sighand" }
+fs-generic = { path = "../../fs/generic" }
+kernel-pids = { path = "../pids" }
+util-logline = { path = "../../util/logline" }
+util-signpost = { path = "../../util/signpost" }
+kernel-offloadexec = { path = "../../kernel/offloadexec" }
+kernel-posixtimers = { path = "../../kernel/posixtimers" }
+kernel-rlimit = { path = "../../kernel/rlimit" }
+fs-inode = { path = "../../fs/inode" }
+kernel-mmapcalls = { path = "../../kernel/mmapcalls" }
+kernel-signaldeliver = { path = "../../kernel/signaldeliver" }
+kernel-taskcalls = { path = "../../kernel/taskcalls" }
+kernel-exitcalls = { path = "../../kernel/exitcalls" }
+kernel-fdcalls = { path = "../../kernel/fdcalls" }
+kernel-pagetable = { path = "../../kernel/pagetable" }
+fdtable = { path = "../../fs/fdtable" }
+kernel-procattr = { path = "../../kernel/procattr" }
+kernel-creds = { path = "../../kernel/creds" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+kernel-proctree = { path = "../../kernel/proctree" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+# The IUL_* settings as a safe read; see crates/util/iulenv.
+util-iulenv = { path = "../../util/iulenv" }
+libc.workspace = true
+elf = { path = "../elf" }
+kernel-execargs = { path = "../execargs" }
+kernel-initstack = { path = "../initstack" }
+kernel-sigframe = { path = "../sigframe" }
+kernel-shebang = { path = "../shebang" }
+kernel-usercopy = { path = "../usercopy" }
+util-strace = { path = "../../util/strace" }
+
+# `get_random` for AT_RANDOM, called by path rather than through the C ABI:
+# nothing but Rust defines it and nothing but Rust calls it, so a header
+# declaring it was a third copy of the signature.
+kernel-random = { path = "../random" }
+
+[dev-dependencies]

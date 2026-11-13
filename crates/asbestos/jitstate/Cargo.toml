@@ -1,0 +1,15 @@
+[package]
+name = "asbestos-jitstate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "jitstate"
+crate-type = ["rlib"]
+
+# A leaf: the dispatch loop writes this and the crash handler reads it, and
+# those live in crates that do not depend on each other.
+[dependencies]
+libc = "0.2"

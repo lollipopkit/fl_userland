@@ -1,0 +1,36 @@
+[package]
+name = "kernel-signalcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_signalcalls"
+# rlib: crates/iul is the one staticlib in the product and links this in. See
+# the staticlib note in CLAUDE.md.
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-taskview = { path = "../../kernel/taskview" }
+kernel-sigdisp = { path = "../sigdisp" }
+kernel-sighand = { path = "../sighand" }
+kernel-sigqueue = { path = "../sigqueue" }
+# Delivery, which is below a syscall: this crate chooses which tasks to signal
+# and that one queues it. The edge ran both ways through a C ABI declaration
+# until 2026-09-09.
+kernel-signaldeliver = { path = "../signaldeliver" }
+kernel-usercopy = { path = "../usercopy" }
+# `rt_sigtimedwait` judges the guest's timespec, which is the one argument of
+# the four that is a struct.
+util-timeabi = { path = "../../util/timeabi" }
+kernel-pids = { path = "../pids" }
+util-strace = { path = "../../util/strace" }
+kernel-signalfd = { path = "../signalfd" }
+
+[dev-dependencies]
+# The real signal state, so a test runs the real `wait_for`. It ran
+# `crates/util/guestlock-teststub`'s parallel one until 2026-09-08.
+kernel-sighand = { path = "../sighand" }
+kernel-sigqueue = { path = "../sigqueue" }

@@ -1,0 +1,62 @@
+## inotify
+## inotify_init1 flags
+  inotify_init1(0)                                     ok
+  inotify_init1(IN_NONBLOCK)                           ok
+  inotify_init1(IN_CLOEXEC)                            ok
+  inotify_init1(both)                                  ok
+  inotify_init1(bit 0, which is neither)               -EINVAL
+  inotify_init1(every bit)                             -EINVAL
+## the mask
+  add_watch(0, which asks for nothing)                 -EINVAL
+  add_watch(IN_ONLYDIR alone, a modifier with no event) 1
+  add_watch(MASK_ADD and MASK_CREATE together)         -EINVAL
+  add_watch(a bit that is not a mask bit)              -EINVAL
+  add_watch(IN_ALL_EVENTS)                             1
+  add_watch(IN_ATTRIB)                                 1
+  add_watch(ATTRIB with two modifiers)                 1
+  add_watch(every bit)                                 -EINVAL
+  bad mask, bad fd                                     -EINVAL
+  good mask, bad fd                                    -EBADF
+  good mask, bad fd, null path                         -EBADF
+  good mask, good fd, null path                        -EFAULT
+  good mask, good fd, unmapped path                    -EFAULT
+  a path that does not exist                           -ENOENT
+  IN_ONLYDIR on a regular file                         -ENOTDIR
+  no IN_ONLYDIR on a regular file                      2
+  add_watch on a plain file descriptor                 -EINVAL
+## watch descriptors
+  the first watch                                      1
+  the second watch                                     2
+  the first path again                                 the same wd
+  again with IN_MASK_CREATE                            -EEXIST
+  a new path with IN_MASK_CREATE                       3
+## inotify_rm_watch
+  remove the second watch                              0
+  remove it again                                      -EINVAL
+  remove a watch that never was                        -EINVAL
+  remove wd 0                                          -EINVAL
+  remove wd -1                                         -EINVAL
+  remove from a bad descriptor                         -EBADF
+## reading
+  nothing pending, non-blocking                        -EAGAIN
+    with a real buffer                                 -EAGAIN
+  a create event: the wd is the one we got             true
+    the mask is IN_CREATE                              0x100
+    the cookie is zero                                 true
+    the name                                           "created"
+    len covers the name and a terminator               true
+    len is a multiple of 16                            true
+    the read returned exactly one event                false
+    an event is pending                                true
+  read into 8 bytes                                    -EINVAL
+    still pending after that                           true
+  read into 16 bytes                                   -EINVAL
+    still pending after that                           true
+  read into an unmapped buffer                         -EFAULT
+    still pending after that                           true
+  read into 16 + strlen(name) + 1                      -EINVAL
+    still pending after that                           true
+  the event survived the refusals                      true
+  a rename: the first mask                             0x40
+    the second mask                                    0x80
+    they share a cookie                                true

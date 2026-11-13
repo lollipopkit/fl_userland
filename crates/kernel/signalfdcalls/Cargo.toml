@@ -1,0 +1,31 @@
+[package]
+name = "kernel-signalfdcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "signalfdcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-sighand = { path = "../sighand" }
+kernel-sigqueue = { path = "../sigqueue" }
+fs-adhoc = { path = "../../fs/adhoc" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+kernel-signalfd = { path = "../signalfd" }
+kernel-usercopy = { path = "../usercopy" }
+util-strace = { path = "../../util/strace" }
+
+# The signal syscalls bodies, called by path: `kernel/signalcalls.h`
+# was a declaration no C read.
+
+# The `POLL_*` bits, which are Rust constants in the crate that owns the
+# readiness model. `fs/poll.h` had them as `#define`s no C read.
+fs-poll = { path = "../../fs/poll" }

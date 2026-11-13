@@ -1,0 +1,32 @@
+[package]
+name = "kernel-timecalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "timecalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-hoststats = { path = "../hoststats" }
+kernel-errno = { path = "../errno" }
+kernel-hostrusage = { path = "../hostrusage" }
+kernel-rescalls = { path = "../rescalls" }
+kernel-itimer = { path = "../../kernel/itimer" }
+kernel-signaldeliver = { path = "../../kernel/signaldeliver" }
+kernel-grouprusage = { path = "../grouprusage" }
+# `TaskRef`: what a POSIX timer addresses, and how it is looked up again when
+# the timer fires.
+kernel-pids = { path = "../pids" }
+# The POSIX timer table, called as Rust.
+kernel-posixtimers = { path = "../posixtimers" }
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true
+rustix.workspace = true
+util-timeabi = { path = "../../util/timeabi" }
+kernel-usercopy = { path = "../usercopy" }
+util-strace = { path = "../../util/strace" }
+util-timer = { path = "../../util/timer" }

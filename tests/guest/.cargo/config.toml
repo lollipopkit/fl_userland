@@ -1,0 +1,6 @@
+# cargo would otherwise use the host `cc`, which on macOS is clang driving
+# ld64: it rejects the GNU linker options rustc passes for this target
+# ("unknown options: --as-needed -Bstatic --gc-sections"). rust-lld ships with
+# the toolchain and needs nothing installed.
+[target.aarch64-unknown-linux-musl]
+linker = "rust-lld"

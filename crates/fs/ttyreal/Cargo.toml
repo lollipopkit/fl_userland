@@ -1,0 +1,18 @@
+[package]
+name = "fs-ttyreal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "ttyreal"
+crate-type = ["rlib"]
+
+[dependencies]
+kernel-errno = { path = "../../kernel/errno" }
+util-logline = { path = "../../util/logline" }
+fs-tty = { path = "../tty" }
+libc.workspace = true
+rustix.workspace = true
+ldisc = { path = "../ldisc" }

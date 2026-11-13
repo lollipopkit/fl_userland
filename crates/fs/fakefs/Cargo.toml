@@ -1,0 +1,22 @@
+[package]
+name = "fakefs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fakefs"
+# rlib: this ships inside crates/iul's staticlib. See the staticlib note in
+# CLAUDE.md.
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+fs-fakeschema = { path = "../fakeschema" }
+util-logline = { path = "../../util/logline" }
+libc.workspace = true
+# The sqlite3 handle belongs to the C side; Connection::from_handle borrows it
+# without taking ownership, so no bundled sqlite3 here either.
+rusqlite.workspace = true
+rustix.workspace = true

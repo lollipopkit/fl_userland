@@ -1,0 +1,39 @@
+[package]
+name = "kernel-offloadexec"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "offloadexec"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# For `set_offload_forward_hook`. Downward: this crate already reaches
+# delivery through `kernel-exitcalls`.
+kernel-signaldeliver = { path = "../signaldeliver" }
+fs-fakedb = { path = "../../fs/fakedb" }
+kernel-sighand = { path = "../sighand" }
+kernel-pids = { path = "../pids" }
+util-logline = { path = "../../util/logline" }
+fs-fake = { path = "../../fs/fake" }
+kernel-posixtimers = { path = "../../kernel/posixtimers" }
+kernel-exitcalls = { path = "../../kernel/exitcalls" }
+kernel-taskcalls = { path = "../../kernel/taskcalls" }
+kernel-fsinfo = { path = "../../kernel/fsinfo" }
+fdtable = { path = "../../fs/fdtable" }
+kernel-procattr = { path = "../../kernel/procattr" }
+kernel-creds = { path = "../../kernel/creds" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true
+rustix.workspace = true
+kernel-offloadreg = { path = "../offloadreg" }
+kernel-hostsignal = { path = "../hostsignal" }
+
+[dev-dependencies]

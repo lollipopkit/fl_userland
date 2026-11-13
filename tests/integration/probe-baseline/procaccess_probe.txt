@@ -1,0 +1,258 @@
+########## the modes, of a process's own directory ##########
+mode of auxv                                         -> 400
+mode of cmdline                                      -> 444
+mode of comm                                         -> 644
+mode of environ                                      -> 400
+mode of limits                                       -> 444
+mode of maps                                         -> 444
+mode of mem                                          -> 600
+mode of mountinfo                                    -> 444
+mode of mounts                                       -> 444
+mode of oom_adj                                      -> 644
+mode of oom_score_adj                                -> 644
+mode of smaps                                        -> 444
+mode of smaps_rollup                                 -> 444
+mode of stat                                         -> 444
+mode of statm                                        -> 444
+mode of status                                       -> 444
+mode of io                                           -> 400
+mode of numa_maps                                    -> ENOENT
+mode of pagemap                                      -> 400
+mode of personality                                  -> 400
+mode of stack                                        -> 400
+mode of syscall                                      -> 400
+mode of timerslack_ns                                -> 666
+mode of cwd                                          -> 777
+mode of exe                                          -> 777
+mode of root                                         -> 777
+mode of fd                                           -> 500
+mode of fdinfo                                       -> 555
+mode of task                                         -> 555
+mode of map_files                                    -> 500
+mode of ns                                           -> 511
+########## uid 1000, a root process ##########
+1000 -> root: auxv                                   -> open EACCES
+1000 -> root: cmdline                                -> open ok, read ok
+1000 -> root: comm                                   -> open ok, read ok
+1000 -> root: environ                                -> open EACCES
+1000 -> root: limits                                 -> open ok, read ok
+1000 -> root: maps                                   -> open EACCES
+1000 -> root: mem                                    -> open EACCES
+1000 -> root: mountinfo                              -> open ok, read ok
+1000 -> root: mounts                                 -> open ok, read ok
+1000 -> root: oom_adj                                -> open ok, read ok
+1000 -> root: oom_score_adj                          -> open ok, read ok
+1000 -> root: smaps                                  -> open EACCES
+1000 -> root: smaps_rollup                           -> open EACCES
+1000 -> root: stat                                   -> open ok, read ok
+1000 -> root: statm                                  -> open ok, read ok
+1000 -> root: status                                 -> open ok, read ok
+1000 -> root: io                                     -> open EACCES
+1000 -> root: numa_maps                              -> open ENOENT
+1000 -> root: pagemap                                -> open EACCES
+1000 -> root: personality                            -> open EACCES
+1000 -> root: stack                                  -> open EACCES
+1000 -> root: syscall                                -> open EACCES
+1000 -> root: timerslack_ns                          -> open ok, read EPERM
+1000 -> root: cwd                                    -> readlink EACCES, stat EACCES
+1000 -> root: exe                                    -> readlink EACCES, stat EACCES
+1000 -> root: root                                   -> readlink EACCES, stat EACCES
+1000 -> root: fd/0                                   -> readlink EACCES, stat EACCES
+1000 -> root: ns/uts                                 -> readlink EACCES, stat EACCES
+1000 -> root: fd/                                    -> EACCES
+1000 -> root: fdinfo/                                -> EACCES
+1000 -> root: task/                                  -> lists entries
+1000 -> root: map_files/                             -> EACCES
+1000 -> root: ns/                                    -> EACCES
+1000 -> root: task/<tid>/maps                        -> open EACCES
+1000 -> root: task/<tid>/environ                     -> open EACCES
+1000 -> root: stat fields 26..52                     -> 1100000NN000Nx0000000000000
+########## uid 1000, a uid 1000 process ##########
+1000 -> 1000: auxv                                   -> open ok, read ok
+1000 -> 1000: cmdline                                -> open ok, read ok
+1000 -> 1000: comm                                   -> open ok, read ok
+1000 -> 1000: environ                                -> open ok, read ok
+1000 -> 1000: limits                                 -> open ok, read ok
+1000 -> 1000: maps                                   -> open ok, read ok
+1000 -> 1000: mem                                    -> open ok, read EIO
+1000 -> 1000: mountinfo                              -> open ok, read ok
+1000 -> 1000: mounts                                 -> open ok, read ok
+1000 -> 1000: oom_adj                                -> open ok, read ok
+1000 -> 1000: oom_score_adj                          -> open ok, read ok
+1000 -> 1000: smaps                                  -> open ok, read ok
+1000 -> 1000: smaps_rollup                           -> open ok, read ok
+1000 -> 1000: stat                                   -> open ok, read ok
+1000 -> 1000: statm                                  -> open ok, read ok
+1000 -> 1000: status                                 -> open ok, read ok
+1000 -> 1000: io                                     -> open ok, read ok
+1000 -> 1000: numa_maps                              -> open ENOENT
+1000 -> 1000: pagemap                                -> open ok, read ok
+1000 -> 1000: personality                            -> open ok, read ok
+1000 -> 1000: stack                                  -> open ok, read EACCES
+1000 -> 1000: syscall                                -> open ok, read ok
+1000 -> 1000: timerslack_ns                          -> open ok, read EPERM
+1000 -> 1000: cwd                                    -> readlink ok, stat ok
+1000 -> 1000: exe                                    -> readlink ok, stat ok
+1000 -> 1000: root                                   -> readlink ok, stat ok
+1000 -> 1000: fd/0                                   -> readlink ok, stat ok
+1000 -> 1000: ns/uts                                 -> readlink ok, stat ok
+1000 -> 1000: fd/                                    -> lists entries
+1000 -> 1000: fdinfo/                                -> lists entries
+1000 -> 1000: task/                                  -> lists entries
+1000 -> 1000: map_files/                             -> lists entries
+1000 -> 1000: ns/                                    -> lists entries
+1000 -> 1000: task/<tid>/maps                        -> open ok, read ok
+1000 -> 1000: task/<tid>/environ                     -> open ok, read ok
+1000 -> 1000: stat fields 26..52                     -> NNN0000NN100Nx00000NNNNNNN0
+########## uid 1000, a uid 1000 process that is not dumpable ##########
+1000 -> 1000 undumpable: auxv                        -> open EACCES
+1000 -> 1000 undumpable: cmdline                     -> open ok, read ok
+1000 -> 1000 undumpable: comm                        -> open ok, read ok
+1000 -> 1000 undumpable: environ                     -> open EACCES
+1000 -> 1000 undumpable: limits                      -> open ok, read ok
+1000 -> 1000 undumpable: maps                        -> open EACCES
+1000 -> 1000 undumpable: mem                         -> open EACCES
+1000 -> 1000 undumpable: mountinfo                   -> open ok, read ok
+1000 -> 1000 undumpable: mounts                      -> open ok, read ok
+1000 -> 1000 undumpable: oom_adj                     -> open ok, read ok
+1000 -> 1000 undumpable: oom_score_adj               -> open ok, read ok
+1000 -> 1000 undumpable: smaps                       -> open EACCES
+1000 -> 1000 undumpable: smaps_rollup                -> open EACCES
+1000 -> 1000 undumpable: stat                        -> open ok, read ok
+1000 -> 1000 undumpable: statm                       -> open ok, read ok
+1000 -> 1000 undumpable: status                      -> open ok, read ok
+1000 -> 1000 undumpable: io                          -> open EACCES
+1000 -> 1000 undumpable: numa_maps                   -> open ENOENT
+1000 -> 1000 undumpable: pagemap                     -> open EACCES
+1000 -> 1000 undumpable: personality                 -> open EACCES
+1000 -> 1000 undumpable: stack                       -> open EACCES
+1000 -> 1000 undumpable: syscall                     -> open EACCES
+1000 -> 1000 undumpable: timerslack_ns               -> open ok, read EPERM
+1000 -> 1000 undumpable: cwd                         -> readlink EACCES, stat EACCES
+1000 -> 1000 undumpable: exe                         -> readlink EACCES, stat EACCES
+1000 -> 1000 undumpable: root                        -> readlink EACCES, stat EACCES
+1000 -> 1000 undumpable: fd/0                        -> readlink EACCES, stat EACCES
+1000 -> 1000 undumpable: ns/uts                      -> readlink EACCES, stat EACCES
+1000 -> 1000 undumpable: fd/                         -> EACCES
+1000 -> 1000 undumpable: fdinfo/                     -> EACCES
+1000 -> 1000 undumpable: task/                       -> lists entries
+1000 -> 1000 undumpable: map_files/                  -> EACCES
+1000 -> 1000 undumpable: ns/                         -> EACCES
+1000 -> 1000 undumpable: task/<tid>/maps             -> open EACCES
+1000 -> 1000 undumpable: task/<tid>/environ          -> open EACCES
+########## fs ids 1000, real and saved 2000, a uid 1000 process ##########
+fs 1000 -> 1000: auxv                                -> open ok, read ok
+fs 1000 -> 1000: cmdline                             -> open ok, read ok
+fs 1000 -> 1000: comm                                -> open ok, read ok
+fs 1000 -> 1000: environ                             -> open ok, read ok
+fs 1000 -> 1000: limits                              -> open ok, read ok
+fs 1000 -> 1000: maps                                -> open ok, read ok
+fs 1000 -> 1000: mem                                 -> open ok, read EIO
+fs 1000 -> 1000: mountinfo                           -> open ok, read ok
+fs 1000 -> 1000: mounts                              -> open ok, read ok
+fs 1000 -> 1000: oom_adj                             -> open ok, read ok
+fs 1000 -> 1000: oom_score_adj                       -> open ok, read ok
+fs 1000 -> 1000: smaps                               -> open ok, read ok
+fs 1000 -> 1000: smaps_rollup                        -> open ok, read ok
+fs 1000 -> 1000: stat                                -> open ok, read ok
+fs 1000 -> 1000: statm                               -> open ok, read ok
+fs 1000 -> 1000: status                              -> open ok, read ok
+fs 1000 -> 1000: io                                  -> open ok, read ok
+fs 1000 -> 1000: numa_maps                           -> open ENOENT
+fs 1000 -> 1000: pagemap                             -> open ok, read ok
+fs 1000 -> 1000: personality                         -> open ok, read ok
+fs 1000 -> 1000: stack                               -> open ok, read EACCES
+fs 1000 -> 1000: syscall                             -> open ok, read ok
+fs 1000 -> 1000: timerslack_ns                       -> open ok, read EPERM
+fs 1000 -> 1000: cwd                                 -> readlink ok, stat ok
+fs 1000 -> 1000: exe                                 -> readlink ok, stat ok
+fs 1000 -> 1000: root                                -> readlink ok, stat ok
+fs 1000 -> 1000: fd/0                                -> readlink ok, stat ok
+fs 1000 -> 1000: ns/uts                              -> readlink ok, stat ok
+fs 1000 -> 1000: fd/                                 -> lists entries
+fs 1000 -> 1000: fdinfo/                             -> lists entries
+fs 1000 -> 1000: task/                               -> lists entries
+fs 1000 -> 1000: map_files/                          -> lists entries
+fs 1000 -> 1000: ns/                                 -> lists entries
+fs 1000 -> 1000: task/<tid>/maps                     -> open ok, read ok
+fs 1000 -> 1000: task/<tid>/environ                  -> open ok, read ok
+########## root, a uid 1000 process that is not dumpable ##########
+root -> 1000 undumpable: auxv                        -> open ok, read ok
+root -> 1000 undumpable: cmdline                     -> open ok, read ok
+root -> 1000 undumpable: comm                        -> open ok, read ok
+root -> 1000 undumpable: environ                     -> open ok, read ok
+root -> 1000 undumpable: limits                      -> open ok, read ok
+root -> 1000 undumpable: maps                        -> open ok, read ok
+root -> 1000 undumpable: mem                         -> open ok, read EIO
+root -> 1000 undumpable: mountinfo                   -> open ok, read ok
+root -> 1000 undumpable: mounts                      -> open ok, read ok
+root -> 1000 undumpable: oom_adj                     -> open ok, read ok
+root -> 1000 undumpable: oom_score_adj               -> open ok, read ok
+root -> 1000 undumpable: smaps                       -> open ok, read ok
+root -> 1000 undumpable: smaps_rollup                -> open ok, read ok
+root -> 1000 undumpable: stat                        -> open ok, read ok
+root -> 1000 undumpable: statm                       -> open ok, read ok
+root -> 1000 undumpable: status                      -> open ok, read ok
+root -> 1000 undumpable: io                          -> open ok, read ok
+root -> 1000 undumpable: numa_maps                   -> open ENOENT
+root -> 1000 undumpable: pagemap                     -> open ok, read ok
+root -> 1000 undumpable: personality                 -> open ok, read ok
+root -> 1000 undumpable: stack                       -> open ok, read ok
+root -> 1000 undumpable: syscall                     -> open ok, read ok
+root -> 1000 undumpable: timerslack_ns               -> open ok, read ok
+root -> 1000 undumpable: cwd                         -> readlink ok, stat ok
+root -> 1000 undumpable: exe                         -> readlink ok, stat ok
+root -> 1000 undumpable: root                        -> readlink ok, stat ok
+root -> 1000 undumpable: fd/0                        -> readlink ok, stat ok
+root -> 1000 undumpable: ns/uts                      -> readlink ok, stat ok
+root -> 1000 undumpable: fd/                         -> lists entries
+root -> 1000 undumpable: fdinfo/                     -> lists entries
+root -> 1000 undumpable: task/                       -> lists entries
+root -> 1000 undumpable: map_files/                  -> lists entries
+root -> 1000 undumpable: ns/                         -> lists entries
+root -> 1000 undumpable: task/<tid>/maps             -> open ok, read ok
+root -> 1000 undumpable: task/<tid>/environ          -> open ok, read ok
+########## uid 1000 and not dumpable, its own directory ##########
+own, undumpable: auxv                                -> open EACCES
+own, undumpable: cmdline                             -> open ok, read ok
+own, undumpable: comm                                -> open ok, read ok
+own, undumpable: environ                             -> open EACCES
+own, undumpable: limits                              -> open ok, read ok
+own, undumpable: maps                                -> open ok, read ok
+own, undumpable: mem                                 -> open EACCES
+own, undumpable: mountinfo                           -> open ok, read ok
+own, undumpable: mounts                              -> open ok, read ok
+own, undumpable: oom_adj                             -> open ok, read ok
+own, undumpable: oom_score_adj                       -> open ok, read ok
+own, undumpable: smaps                               -> open ok, read ok
+own, undumpable: smaps_rollup                        -> open ok, read ok
+own, undumpable: stat                                -> open ok, read ok
+own, undumpable: statm                               -> open ok, read ok
+own, undumpable: status                              -> open ok, read ok
+own, undumpable: io                                  -> open EACCES
+own, undumpable: numa_maps                           -> open ENOENT
+own, undumpable: pagemap                             -> open EACCES
+own, undumpable: personality                         -> open EACCES
+own, undumpable: stack                               -> open EACCES
+own, undumpable: syscall                             -> open EACCES
+own, undumpable: timerslack_ns                       -> open ok, read ok
+own, undumpable: cwd                                 -> readlink ok, stat ok
+own, undumpable: exe                                 -> readlink ok, stat ok
+own, undumpable: root                                -> readlink ok, stat ok
+own, undumpable: fd/0                                -> readlink ok, stat ok
+own, undumpable: ns/uts                              -> readlink ok, stat ok
+own, undumpable: fd/                                 -> lists entries
+own, undumpable: fdinfo/                             -> lists entries
+own, undumpable: task/                               -> lists entries
+own, undumpable: map_files/                          -> lists entries
+own, undumpable: ns/                                 -> EACCES
+own, undumpable: task/<tid>/maps                     -> open ok, read ok
+own, undumpable: task/<tid>/environ                  -> open EACCES
+########## writing comm ##########
+write "probe-name\n" to its own                      -> wrote 11, reads "probe-name\n\n"
+write "twenty-characters-ok" to its own              -> wrote 20, reads "twenty-characte\n"
+write "" to its own                                  -> wrote 0, reads "\n"
+write "a\0b" to its own                              -> wrote 3, reads "a\n"
+write another thread's                               -> wrote 6, reads "worker\n"
+  and the process's is still                         -> "a\n"
+write another process's, as root                     -> write EINVAL

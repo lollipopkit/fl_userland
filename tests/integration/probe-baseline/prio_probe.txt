@@ -1,0 +1,104 @@
+########## getpriority: which and who ##########
+getpriority(PRIO_PROCESS, 0)                         -> 20 (errno clear)
+getpriority(PRIO_PGRP, 0)                            -> 20 (errno clear)
+getpriority(PRIO_USER, 0)                            -> 20 (errno clear)
+getpriority(PRIO_PROCESS, self)                      -> 20 (errno clear)
+getpriority(PRIO_PROCESS, 999999)                    -> -1 (errno ESRCH)
+getpriority(PRIO_PROCESS, -1)                        -> -1 (errno ESRCH)
+getpriority(3, 0) -- no such `which`                 -> -1 (errno EINVAL)
+getpriority(-1, 0)                                   -> -1 (errno EINVAL)
+
+########## setpriority: the range and the clamp ##########
+setpriority(PRIO_PROCESS, 0, 0)                      -> 0 then 20 (errno clear)
+setpriority(PRIO_PROCESS, 0, 5)                      -> 0 then 15 (errno clear)
+setpriority(PRIO_PROCESS, 0, 19)                     -> 0 then 1 (errno clear)
+setpriority(PRIO_PROCESS, 0, 20)                     -> 0 then 1 (errno clear)
+setpriority(PRIO_PROCESS, 0, 100)                    -> 0 then 1 (errno clear)
+setpriority(PRIO_PROCESS, 0, -1)                     -> EACCES then 1 (errno clear)
+setpriority(PRIO_PROCESS, 0, -20)                    -> EACCES then 1 (errno clear)
+setpriority(PRIO_PROCESS, 0, -21)                    -> EACCES then 1 (errno clear)
+setpriority(PRIO_PROCESS, 0, -100)                   -> EACCES then 1 (errno clear)
+setpriority(PRIO_PROCESS, 0, -2147483648)            -> EACCES then 1 (errno clear)
+setpriority(3, 0, 0) -- no such `which`              -> EINVAL
+setpriority(PRIO_PROCESS, 999999, 0)                 -> ESRCH
+
+########## sched policies ##########
+sched_getscheduler(0)                                -> 0
+sched_getscheduler(999999)                           -> ESRCH
+sched_getscheduler(-1)                               -> EINVAL
+sched_setscheduler(0, SCHED_OTHER, prio 0)           -> 0
+sched_setscheduler(0, SCHED_BATCH, prio 0)           -> 0
+sched_setscheduler(0, SCHED_IDLE, prio 0)            -> 0
+sched_setscheduler(0, SCHED_FIFO, prio 0)            -> EINVAL
+sched_setscheduler(0, SCHED_RR, prio 0)              -> EINVAL
+sched_setscheduler(0, SCHED_DEADLINE, prio 0)        -> EINVAL
+sched_setscheduler(0, policy 99, prio 0)             -> EINVAL
+sched_setscheduler(0, policy -1, prio 0)             -> EINVAL
+sched_setscheduler(0, SCHED_FIFO, prio 50)           -> EPERM
+sched_setscheduler(0, SCHED_OTHER, prio 1)           -> EINVAL
+set SCHED_BATCH then getscheduler                    -> 0 then 3
+set SCHED_IDLE then getscheduler                     -> 0 then 5
+set SCHED_OTHER then getscheduler                    -> 0 then 0
+
+########## the priority range of each policy ##########
+sched_get_priority_max(SCHED_OTHER)                  -> 0
+sched_get_priority_min(SCHED_OTHER)                  -> 0
+sched_get_priority_max(SCHED_FIFO)                   -> 99
+sched_get_priority_min(SCHED_FIFO)                   -> 1
+sched_get_priority_max(SCHED_RR)                     -> 99
+sched_get_priority_min(SCHED_RR)                     -> 1
+sched_get_priority_max(SCHED_BATCH)                  -> 0
+sched_get_priority_min(SCHED_BATCH)                  -> 0
+sched_get_priority_max(SCHED_IDLE)                   -> 0
+sched_get_priority_min(SCHED_IDLE)                   -> 0
+sched_get_priority_max(SCHED_DEADLINE)               -> 0
+sched_get_priority_min(SCHED_DEADLINE)               -> 0
+sched_get_priority_max(policy 99)                    -> EINVAL
+sched_get_priority_min(policy 99)                    -> EINVAL
+
+########## sched_getparam and sched_setparam ##########
+sched_getparam(0)                                    -> 0
+  its sched_priority                                 -> 0
+sched_getparam(999999)                               -> ESRCH
+sched_getparam(0, NULL)                              -> EINVAL
+sched_setparam(0, prio 0)                            -> 0
+sched_setparam(0, prio 1) under SCHED_OTHER          -> EINVAL
+
+########## affinity ##########
+sched_getaffinity(0, size 0)                         -> EINVAL
+sched_getaffinity(0, size 1)                         -> EINVAL
+sched_getaffinity(0, size 4)                         -> EINVAL
+sched_getaffinity(0, size 7)                         -> EINVAL
+sched_getaffinity(0, size 8)                         -> wrote 8 bytes
+sched_getaffinity(0, size 16)                        -> wrote 8 bytes
+sched_getaffinity(0, size 128)                       -> wrote 8 bytes
+at least one processor in the mask                   -> true
+the mask is not every bit of the buffer              -> true
+sched_getaffinity(999999, size 128)                  -> ESRCH
+sched_getaffinity(0, size 128, NULL)                 -> EFAULT
+sched_setaffinity(0, the mask it already has)        -> 0
+sched_setaffinity(0, an empty mask)                  -> EINVAL
+sched_setaffinity(0, size 0)                         -> EINVAL
+
+########## sched_yield and rr_get_interval ##########
+sched_yield()                                        -> 0
+sched_rr_get_interval(0)                             -> 0
+  the interval is not zero                           -> true
+  tv_nsec is in range                                -> true
+sched_rr_get_interval(999999)                        -> ESRCH
+
+########## ioprio ##########
+ioprio_get(IOPRIO_WHO_PROCESS, 0)                    -> 0
+ioprio_get(IOPRIO_WHO_PGRP, 0) accepted              -> yes
+ioprio_get(IOPRIO_WHO_USER, 0) accepted              -> yes
+ioprio_get(who 0, 0)                                 -> EINVAL
+ioprio_get(who 4, 0)                                 -> EINVAL
+ioprio_set(class 0, level 0)                         -> 0
+ioprio_set(class 1, level 0)                         -> EPERM
+ioprio_set(class 1, level 4)                         -> EPERM
+ioprio_set(class 1, level 7)                         -> EPERM
+ioprio_set(class 1, level 8)                         -> EPERM
+ioprio_set(class 1, level 15)                        -> EPERM
+ioprio_set(class 2, level 4)                         -> 0
+ioprio_set(class 3, level 0)                         -> 0
+ioprio_set(class 4, level 0)                         -> EINVAL

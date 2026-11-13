@@ -1,0 +1,43 @@
+== the ordinary case ==
+read 25 from self -> 25
+content matches -> true
+== counts and lengths ==
+liovcnt 0, riovcnt 0 -> 0
+one iovec of length 0 -> 0
+local 4, remote 25 -> 4
+local 64, remote 25 -> 25
+2 remote iovecs into 1 local -> 8
+gathered -> "the brow"
+== an empty transfer, and where the pid is checked ==
+everything zero, pid 0 -> 0
+everything zero, pid -1 -> 0
+empty local, bad pid, real remote -> 0
+real local, empty remote, bad pid -> 0
+real local, empty remote, pid 0 -> 0
+empty local, unmapped remote array -> 0
+flags 1 with everything else empty -> -1 EINVAL
+== the refusals ==
+flags 1 -> -1 EINVAL
+pid -1 -> -1 ESRCH
+pid 0 -> -1 ESRCH
+pid 0x7ffffff -> -1 ESRCH
+remote unmapped -> -1 EFAULT
+local unmapped -> -1 EFAULT
+remote good then bad -> 8
+remote len SIZE_MAX -> -1 EINVAL
+local len SIZE_MAX -> -1 EINVAL
+liovcnt 1025 -> -1 EINVAL
+riovcnt 1025 -> -1 EINVAL
+riovcnt 1024 -> 64
+local iovec array unmapped -> -1 EFAULT
+remote iovec array unmapped -> -1 EFAULT
+== writev ==
+write 25 to self -> 25
+content matches -> true
+flags 1 -> -1 EINVAL
+remote unmapped -> -1 EFAULT
+== another process ==
+read 25 from a child -> 25
+child's copy -> "CHILD-SIDE-PATTERN-111111"
+write 25 to a child -> 25
+after the write -> "PARENT-WROTE-THIS--------"

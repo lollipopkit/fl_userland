@@ -1,0 +1,67 @@
+## which signals take a handler
+sigaction(SIGUSR1)                                   -> ok
+sigaction(SIGKILL)                                   -> EINVAL
+sigaction(SIGSTOP)                                   -> EINVAL
+sigaction(32 (the first real-time-ish))              -> EINVAL
+sigaction(33)                                        -> EINVAL
+sigaction(34)                                        -> EINVAL
+sigaction(64)                                        -> ok
+sigaction(65)                                        -> EINVAL
+sigaction(0)                                         -> EINVAL
+sigaction(-1)                                        -> EINVAL
+## what sa_flags and sa_mask read back
+the four flags set come back                         -> true
+SA_ONSTACK, which was not set                        -> false
+sa_mask has SIGUSR2                                  -> 1
+sa_mask has SIGUSR1                                  -> 0
+## what a handler is told about who sent it
+kill: si_code                                        -> 0
+kill: si_pid is ours                                 -> true
+kill: si_uid is ours                                 -> true
+raise: si_code                                       -> -6
+sigqueue                                             -> ok
+sigqueue: si_code                                    -> -1
+sigqueue: si_value                                   -> 0xdeadbeef
+## what is blocked while a handler runs
+the signal itself is blocked                         -> true
+and so is sa_mask's SIGUSR2                          -> true
+SIGTERM, which is in neither                         -> false
+SA_NODEFER: the signal itself                        -> false
+## SA_RESETHAND
+the handler ran                                      -> 1
+and the disposition is now                           -> SIG_DFL
+## the mask
+blocking SIGKILL and SIGSTOP                         -> ok
+SIGKILL reads back as blocked                        -> 0
+SIGSTOP reads back as blocked                        -> 0
+SIGUSR1 reads back as blocked                        -> 1
+after raising it, sigpending                         -> 1
+and something else is not                            -> 0
+sigtimedwait takes it                                -> 10
+and a second one finds nothing                       -> EAGAIN
+## sigaltstack
+ss_flags before anything sets one                    -> 0
+setting one                                          -> ok
+ss_size comes back                                   -> true
+ss_flags after setting                               -> 0
+a one-byte stack                                     -> other
+SS_DISABLE                                           -> ok
+ss_flags after disabling                             -> 2
+## what a handler is told about a fault
+store to PROT_NONE: handler ran                      -> 1
+store to PROT_NONE: si_code                          -> 2
+store to PROT_NONE: si_addr is the address           -> true
+store to PROT_NONE: the store landed after repair    -> 1
+store to an unmapped page: handler ran               -> 1
+store to an unmapped page: si_code                   -> 1
+store to an unmapped page: si_addr is the address    -> true
+store to an unmapped page: the store landed after repair -> 2
+a handled fault: handler ran                         -> 1
+a handled fault: the store before it in its block ran -> 1
+## what the calls refuse
+sigaction with only an old                           -> ok
+sigprocmask with a bad how                           -> ok
+kill(self, 0)                                        -> ok
+kill(self, 65)                                       -> EINVAL
+kill(a pid nothing has, 0)                           -> ESRCH
+sigtimedwait with a negative tv_nsec                 -> EINVAL

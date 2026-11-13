@@ -1,0 +1,18 @@
+[package]
+name = "kernel-vdso"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_vdso"
+crate-type = ["rlib"]
+
+[dependencies]
+# The shared `VDSO_PAGES`, so the compiler checks the two copies agree.
+kernel-taskview = { path = "../taskview" }
+elf = { path = "../elf" }
+
+[build-dependencies]
+iul-buildcfg = { path = "../../util/buildcfg" }

@@ -1,0 +1,92 @@
+setup: the scratch directory                               -> ok
+## a conflict, seen from another process
+parent: F_SETLK write [10,20)                              -> ok
+child: F_SETLK write [10,20)                               -> EAGAIN
+child: F_SETLK read [15,25)                                -> EAGAIN
+child: F_SETLK write [20,30), disjoint                     -> ok
+child: F_GETLK write [10,20)                               -> write lock, whence 0, start 10, len 10, held by parent
+child: F_GETLK read [0,100)                                -> write lock, whence 0, start 10, len 10, held by parent
+child: F_GETLK write [0,100)                               -> write lock, whence 0, start 10, len 10, held by parent
+parent: F_GETLK write [10,20) on its own lock              -> free
+## read locks share, write locks do not
+parent: F_SETLK read [0,10)                                -> ok
+child: F_SETLK read [0,10)                                 -> ok
+child: F_SETLK write [0,10)                                -> EAGAIN
+child: F_GETLK write [0,10)                                -> read lock, whence 0, start 0, len 10, held by parent
+## lengths: negative runs backwards, zero runs to the end
+parent: F_SETLK write start 50 len -10                     -> ok
+parent: F_SETLK write start 90 len 0                       -> ok
+child: F_GETLK [40,50)                                     -> write lock, whence 0, start 40, len 10, held by parent
+child: F_GETLK [50,60)                                     -> free
+child: F_GETLK [39,40)                                     -> free
+child: F_GETLK [95,96)                                     -> write lock, whence 0, start 90, len 0, held by parent
+child: F_GETLK [1000,1001), past the end                   -> write lock, whence 0, start 90, len 0, held by parent
+child: F_GETLK start 0 len 0, everything                   -> write lock, whence 0, start 40, len 10, held by parent
+## the origin: SEEK_CUR and SEEK_END
+parent: F_SETLK write SEEK_CUR+5 len 5 at offset 30        -> ok
+parent: F_SETLK write SEEK_END-10 len 5                    -> ok
+child: F_GETLK [35,40)                                     -> write lock, whence 0, start 35, len 5, held by parent
+child: F_GETLK [90,95)                                     -> write lock, whence 0, start 90, len 5, held by parent
+child: F_GETLK asked in SEEK_END terms answers in          -> whence 0, start 90, len 5
+## a partial unlock splits, adjacent locks merge
+parent: F_SETLK write [0,100)                              -> ok
+parent: F_SETLK unlock [40,60)                             -> ok
+child: F_GETLK [0,100) after the split                     -> write lock, whence 0, start 0, len 40, held by parent
+child: F_GETLK [40,60)                                     -> free
+child: F_GETLK [60,100)                                    -> write lock, whence 0, start 60, len 40, held by parent
+parent: F_SETLK write [0,10)                               -> ok
+parent: F_SETLK write [10,20)                              -> ok
+parent: F_SETLK read [20,30), a different type             -> ok
+child: F_GETLK [0,30) after two adjacent writes            -> write lock, whence 0, start 0, len 20, held by parent
+child: F_GETLK [20,30)                                     -> read lock, whence 0, start 20, len 10, held by parent
+parent: F_SETLK read [5,15) over its write lock            -> ok
+child: F_GETLK [5,15) after the downgrade                  -> read lock, whence 0, start 5, len 10, held by parent
+child: F_SETLK read [5,15)                                 -> ok
+## arguments
+F_SETLK with l_type 99                                     -> EINVAL
+F_SETLK with l_whence 99                                   -> EINVAL
+F_SETLK with a negative start                              -> EINVAL
+F_SETLK start 0 len -1, before the start                   -> EINVAL
+F_SETLK start 5 len -5, exactly to the start               -> ok
+F_SETLK start i64::MAX len 10                              -> EOVERFLOW
+F_SETLK start i64::MAX len 0                               -> ok
+F_SETLK unlock a region never locked                       -> ok
+F_GETLK with l_type F_UNLCK                                -> EINVAL
+F_GETLK with l_type 99                                     -> EINVAL
+write lock on a read-only descriptor                       -> EBADF
+read lock on a read-only descriptor                        -> ok
+read lock on a write-only descriptor                       -> EBADF
+write lock on a write-only descriptor                      -> ok
+## closing any descriptor drops the process's locks, an OFD lock survives
+parent: F_SETLK write [0,10) through the first             -> ok
+child: F_GETLK [0,10) after the second closed              -> free
+parent: F_OFD_SETLK write [0,10) through the first         -> ok
+child: F_GETLK [0,10) after the second closed              -> write lock, whence 0, start 0, len 10, held by -1
+child: F_OFD_GETLK [0,10)                                  -> free
+child: F_OFD_SETLK write [0,10) on the inherited description -> ok
+parent: F_OFD_GETLK through a second open                  -> free
+parent: F_OFD_SETLK write through a second open            -> ok
+parent: F_SETLK write through a second open                -> EAGAIN
+## a lock is the process's, not the child's
+parent: F_SETLK write [0,10)                               -> ok
+child: F_GETLK [0,10) on the inherited descriptor          -> write lock, whence 0, start 0, len 10, held by parent
+child: F_SETLK write [0,10)                                -> EAGAIN
+child: F_SETLK unlock [0,10), the parent's lock            -> ok
+second child: F_GETLK [0,10) after the first's unlock      -> write lock, whence 0, start 0, len 10, held by parent
+## flock and fcntl do not see each other
+parent: flock(LOCK_EX)                                     -> ok
+child: F_SETLK write [0,10) under the parent's flock       -> ok
+child: F_GETLK write [0,10)                                -> free
+child: flock(LOCK_EX|LOCK_NB)                              -> ok
+## a deadlock is refused, a wait ends when the lock goes
+parent: F_SETLK write A [0,10)                             -> ok
+child: F_SETLK write B [50,60)                             -> ok
+child: F_SETLKW write A, closing the cycle                 -> EDEADLK
+child: F_SETLK unlock B                                    -> ok
+parent: F_SETLKW write B, waits for the child              -> ok
+## OFD locks report no pid and wait like the others
+parent: F_OFD_SETLK write [0,10)                           -> ok
+parent: F_OFD_GETLK through a second open                  -> write lock, whence 0, start 0, len 10, held by -1
+parent: F_GETLK through a second open                      -> write lock, whence 0, start 0, len 10, held by -1
+parent: F_OFD_SETLK with a non-zero l_pid                  -> EINVAL
+parent: F_OFD_SETLKW write [0,10) on the holder itself     -> ok

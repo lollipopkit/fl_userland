@@ -1,0 +1,84 @@
+## futex operations and their arguments
+## the operation numbers
+  WAIT | PRIVATE                                     -EAGAIN
+  WAKE | PRIVATE                                     0
+  FD | PRIVATE                                       -ENOSYS
+  REQUEUE | PRIVATE                                  0
+  CMP_REQUEUE | PRIVATE                              -EAGAIN
+  WAKE_OP | PRIVATE                                  0
+  LOCK_PI | PRIVATE                                  0
+  UNLOCK_PI | PRIVATE                                -EPERM
+  TRYLOCK_PI | PRIVATE                               0
+  WAIT_BITSET | PRIVATE                              -EAGAIN
+  WAKE_BITSET | PRIVATE                              0
+  WAIT_REQUEUE_PI | PRIVATE                          -EAGAIN
+  CMP_REQUEUE_PI | PRIVATE                           -EAGAIN
+  LOCK_PI2 | PRIVATE                                 0
+  an unallocated operation | PRIVATE                 -ENOSYS
+  operation 99 | PRIVATE                             -ENOSYS
+## WAIT
+  value does not match                               -EAGAIN
+  value matches, 1ms timeout                         -ETIMEDOUT
+  negative tv_sec                                    -EINVAL
+  tv_nsec = 1_000_000_000                            -EINVAL
+  unreadable timeout                                 -EFAULT
+  unaligned uaddr                                    -EINVAL
+  null uaddr                                         -EFAULT
+  unmapped uaddr                                     -EFAULT
+  WAIT | CLOCK_REALTIME, value mismatch              -ENOSYS
+  WAKE | CLOCK_REALTIME                              -ENOSYS
+  WAIT_BITSET | CLOCK_REALTIME, mismatch             -EAGAIN
+  WAIT_REQUEUE_PI | CLOCK_REALTIME                   -EAGAIN
+  LOCK_PI | CLOCK_REALTIME                           -ENOSYS
+  CMP_REQUEUE | CLOCK_REALTIME                       -ENOSYS
+## WAKE
+  wake 1, nobody waiting                             0
+  wake 0                                             0
+  wake -1                                            0
+  unaligned uaddr                                    -EINVAL
+  unmapped uaddr                                     0
+## WAIT_BITSET and WAKE_BITSET
+  WAIT_BITSET, bitset 0                              -EINVAL
+  WAKE_BITSET, bitset 0                              -EINVAL
+  WAIT_BITSET, all bits, value mismatch              -EAGAIN
+  WAKE_BITSET, all bits                              0
+  WAIT_BITSET, unaligned uaddr                       -EINVAL
+  WAKE_BITSET, unaligned uaddr                       -EINVAL
+  WAIT_BITSET, deadline in 1970                      -ETIMEDOUT
+## REQUEUE and CMP_REQUEUE
+  REQUEUE, nobody waiting                            0
+  CMP_REQUEUE, value matches                         0
+  CMP_REQUEUE, value does not match                  -EAGAIN
+  CMP_REQUEUE onto the same address                  0
+  CMP_REQUEUE, unaligned uaddr2                      -EINVAL
+  CMP_REQUEUE, unmapped uaddr2                       0
+  CMP_REQUEUE, count=0x8000_0000                     -EINVAL
+  CMP_REQUEUE, count=0x1_8000_0000                   -EINVAL
+  CMP_REQUEUE, count=0x1_0000_0001                   0
+  CMP_REQUEUE, val=0x8000_0000                       -EINVAL
+  WAKE, val=0x8000_0000                              0
+  CMP_REQUEUE, count=0x8000_0000 and a value mismatch -EINVAL
+  WAKE_OP, count=0x8000_0000                         0
+  WAKE_OP, count=0x1_8000_0000                       0
+## WAKE_OP
+  WAKE_OP SET 0, EQ 0                                0
+  WAKE_OP ADD, EQ 5                                  0
+  WAKE_OP OR, NE                                     0
+  WAKE_OP ANDN, LT                                   0
+  WAKE_OP XOR, LE                                    0
+  WAKE_OP SET with the shift bit, oparg 1            0
+  WAKE_OP shift by 31                                0
+  WAKE_OP shift by 32                                0
+  WAKE_OP shift by 33                                0
+  WAKE_OP shift by 63                                0
+  WAKE_OP shift by 4095, the widest oparg            0
+  WAKE_OP ADD with oparg 4095                        0
+  WAKE_OP ADD with oparg 0x800, the sign bit         0
+  WAKE_OP operation 5, unallocated                   -ENOSYS
+  WAKE_OP comparison 5, unallocated                  0
+  WAKE_OP, unmapped uaddr2                           -EFAULT
+## without the private flag
+  WAKE                                               0
+  WAIT, value mismatch                               -EAGAIN
+## a wait that really parks
+  WAIT, no timeout, value matches                    blocked (alarmed)

@@ -1,0 +1,28 @@
+[package]
+name = "kernel-rescalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "rescalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-taskcalls = { path = "../../kernel/taskcalls" }
+kernel-procattr = { path = "../../kernel/procattr" }
+kernel-creds = { path = "../../kernel/creds" }
+kernel-proctree = { path = "../../kernel/proctree" }
+# IUL_FAKE_NCPU as a safe read; a C accessor until 2026-09-04.
+util-iulenv = { path = "../../util/iulenv" }
+kernel-grouprusage = { path = "../grouprusage" }
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true
+kernel-rlimit = { path = "../rlimit" }
+kernel-schedabi = { path = "../schedabi" }
+kernel-pids = { path = "../pids" }
+kernel-usercopy = { path = "../usercopy" }
+kernel-hostrusage = { path = "../hostrusage" }
+util-strace = { path = "../../util/strace" }

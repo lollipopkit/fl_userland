@@ -1,0 +1,18 @@
+[package]
+name = "kernel-syslogcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "syslogcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# The ring, which is the log's and not this syscall's.
+util-logline = { path = "../../util/logline" }
+kernel-usercopy = { path = "../usercopy" }
+util-strace = { path = "../../util/strace" }
+kernel-taskview = { path = "../taskview" }

@@ -1,0 +1,13 @@
+[package]
+name = "kernel-hostsignal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "hostsignal"
+crate-type = ["rlib"]
+
+[dependencies]
+libc.workspace = true

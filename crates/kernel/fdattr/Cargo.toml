@@ -1,0 +1,27 @@
+[package]
+name = "kernel-fdattr"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fdattr"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+fs-generic = { path = "../../fs/generic" }
+fs-xattrabi = { path = "../../fs/xattrabi" }
+fs-perm = { path = "../../fs/perm" }
+kernel-creds = { path = "../../kernel/creds" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true
+fs-locks = { path = "../../fs/locks" }
+kernel-rwcalls = { path = "../rwcalls" }
+kernel-usercopy = { path = "../usercopy" }
+util-strace = { path = "../../util/strace" }

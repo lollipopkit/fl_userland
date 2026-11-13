@@ -1,0 +1,97 @@
+setup                                                      -> ok
+## what cannot be run
+a path that does not exist                                 -> ENOENT
+a path under a file                                        -> ENOTDIR
+a directory                                                -> EACCES
+a directory with no execute bit                            -> EACCES
+/dev/null                                                  -> EACCES
+a fifo with the execute bit                                -> EACCES
+a regular file with no execute bit                         -> EACCES
+an empty file with the execute bit                         -> ENOEXEC
+four bytes of nothing in particular                        -> ENOEXEC
+a text file with no #!                                     -> ENOEXEC
+a path of 5000 bytes                                       -> ENAMETOOLONG
+a component of 300 bytes                                   -> ENAMETOOLONG
+a symlink loop                                             -> ELOOP
+a dangling symlink                                         -> ENOENT
+## ELF files that are not programs
+the four magic bytes and nothing else                      -> ENOEXEC
+a 64-byte header of zeroes after the magic                 -> ENOEXEC
+an x86-64 ELF header                                       -> ran, signal 5
+an aarch64 header with no program headers                  -> ENOEXEC
+a 32-bit ELF header                                        -> ENOEXEC
+the real thing                                             -> ran, exit 0
+## #! scripts
+#!/bin/sh, exit 3                                          -> ran, exit 3
+#! with nothing after it                                   -> ENOEXEC
+#! followed by spaces only                                 -> ENOEXEC
+#!/nonexistent                                             -> ENOENT
+#! naming a directory                                      -> EACCES
+#! naming a file with no execute bit                       -> EACCES
+#! naming a script (depth 2)                               -> ran, exit 12
+#! four deep                                               -> ran, exit 14
+#! five deep                                               -> ran, exit 15
+#! six deep                                                -> ELOOP
+#! naming itself                                           -> ELOOP
+#! with an interpreter argument                            -> ran, exit 6
+#! line of 200 characters                                  -> ran, exit 7
+#! line of 300 characters, no newline in the first 256     -> ran, exit 8
+#! line of 300 characters ending in the path               -> ENOEXEC
+#! with a CR before the newline                            -> ENOENT
+#! with no newline at all                                  -> ran, exit 0
+#!/bin/sh in a file of 10 bytes                            -> ran, exit 0
+## the arguments
+argv NULL                                                  -> ran, exit 127
+envp NULL                                                  -> ran, exit 0
+argv empty (argc 0)                                        -> ran, exit 127
+argv at a bad address                                      -> EFAULT
+argv[0] at a bad address                                   -> EFAULT
+path at a bad address                                      -> EFAULT
+path NULL                                                  -> EFAULT
+path empty                                                 -> ENOENT
+one argument of 200 000 bytes                              -> E2BIG
+one argument of 100 000 bytes                              -> ran, exit 0
+500 arguments of 100 000 bytes                             -> E2BIG
+10 arguments of 100 000 bytes                              -> ran, exit 0
+an environment entry of 200 000 bytes                      -> E2BIG
+## a file someone is writing, and a file someone is running
+exec of a file open for writing                            -> ETXTBSY
+#! naming a file open for writing                          -> ETXTBSY
+exec of it once closed                                     -> ran, exit 127
+exec of a file open for reading                            -> ran, exit 127
+open(O_WRONLY) of a running program                        -> ETXTBSY
+open(O_RDWR) of a running program                          -> ETXTBSY
+open(O_RDONLY) of a running program                        -> ok
+open(O_PATH) of a running program                          -> ok
+open(O_WRONLY|O_TRUNC) of a running program                -> ETXTBSY
+its size after that                                        -> 919304
+truncate() of a running program                            -> ETXTBSY
+its size after that                                        -> 919304
+exec of a running program                                  -> ran, exit 0
+open(O_WRONLY) once it has exited                          -> ok
+## execveat
+execveat(dirfd, "true")                                    -> ran, exit 127
+execveat(dirfd, "/bin/true")                               -> ran, exit 127
+execveat(AT_FDCWD, "/bin/true")                            -> ran, exit 127
+execveat(-1, "/bin/true")                                  -> ran, exit 127
+execveat(-1, "true")                                       -> EBADF
+execveat(a file fd, "true")                                -> ENOTDIR
+execveat(fd, "") without AT_EMPTY_PATH                     -> ENOENT
+execveat(fd, "", AT_EMPTY_PATH)                            -> ran, exit 127
+execveat(O_PATH fd, "", AT_EMPTY_PATH)                     -> ran, exit 127
+execveat(dirfd, "", AT_EMPTY_PATH)                         -> EACCES
+execveat(script fd, "", AT_EMPTY_PATH)                     -> ran, exit 3
+execveat(O_PATH script fd, "", AT_EMPTY_PATH)              -> ran, exit 3
+execveat(fd, "", AT_EMPTY_PATH) on a closed fd             -> EBADF
+execveat(AT_FDCWD, "", AT_EMPTY_PATH)                      -> EACCES
+execveat(fd of a file unlinked since, "", AT_EMPTY_PATH)   -> ran, exit 0
+execveat(dirfd, "true", 0x8)                               -> EINVAL
+execveat(dirfd, "true", 0x10000)                           -> errno 0
+execveat(symlink, AT_SYMLINK_NOFOLLOW)                     -> ELOOP
+execveat(symlink, 0)                                       -> ran, exit 127
+execveat(/bin/true, AT_SYMLINK_NOFOLLOW)                   -> ELOOP
+## what the program sees
+a script's $0 and $@                                       -> DIR/args.sh|one|two| (stderr lines 1)
+through a symlink                                          -> DIR/args-link.sh|one|
+argv[0] of a program                                       -> 
+argv[0] empty                                              -> []

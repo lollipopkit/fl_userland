@@ -1,0 +1,21 @@
+[package]
+name = "kernel-posixtimers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_posixtimers"
+# rlib: crates/iul is the one staticlib in the product and links this in. See
+# the staticlib note in CLAUDE.md.
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# `TaskRef`: what a timer addresses. A pid alone names whoever holds the
+# number next. `util-identity` and not `kernel-pids`, where it was until
+# 2026-09-29: the pid table's closure contains `kernel-taskview`, and that edge
+# was the whole reason `struct tgroup` could not name `Timers`.
+util-identity = { path = "../../util/identity" }
+util-timer = { path = "../../util/timer" }

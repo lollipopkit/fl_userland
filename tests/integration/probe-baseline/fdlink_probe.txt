@@ -1,0 +1,20 @@
+## a pipe
+read end: stat follows to                          -> fifo
+read end: open O_RDONLY                            -> opened, F_GETFL O_RDONLY
+read end: open O_WRONLY                            -> opened, F_GETFL O_WRONLY
+read end: open O_RDWR                              -> opened, F_GETFL O_RDWR
+read end: a path through it                        -> ENOTDIR
+write end: stat follows to                         -> fifo
+write end: open O_RDONLY                           -> opened, F_GETFL O_RDONLY
+write end: open O_WRONLY                           -> opened, F_GETFL O_WRONLY
+write end: open O_RDWR                             -> opened, F_GETFL O_RDWR
+write end: a path through it                       -> ENOTDIR
+a byte through the reopened write end arrives      -> true
+## a socket
+stat follows to                                    -> socket
+open O_RDWR                                        -> ENXIO
+## an eventfd
+stat follows to                                    -> no type
+open O_RDWR                                        -> ENXIO
+## lstat does not follow
+lstat of the pipe's link                           -> symlink

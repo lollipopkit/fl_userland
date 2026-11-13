@@ -1,0 +1,74 @@
+## a child that exits
+waitpid returns the pid                            -> true
+the raw status word                                -> 0x2a00
+  WIFEXITED                                        -> true
+  WEXITSTATUS                                      -> 42
+  WIFSIGNALED                                      -> false
+  WIFSTOPPED                                       -> false
+  WCOREDUMP                                        -> false
+## and what waitid says about the same thing
+waitid                                             -> ok
+  si_signo                                         -> 17
+  si_code                                          -> 1
+  si_pid is the child                              -> true
+  si_uid is ours                                   -> true
+  si_status                                        -> 42
+## a child killed by a signal
+waitpid returns the pid                            -> true
+the raw status word                                -> 0x9
+  WIFSIGNALED                                      -> true
+  WTERMSIG                                         -> 9
+  WIFEXITED                                        -> false
+  WCOREDUMP                                        -> false
+## and waitid for a killed child
+waitid                                             -> ok
+  si_code                                          -> 2
+  si_status is the signal                          -> 15
+## a stopped child
+waitpid(WUNTRACED) returns the pid                 -> true
+the raw status word                                -> 0x137f
+  WIFSTOPPED                                       -> true
+  WSTOPSIG                                         -> 19
+  WIFEXITED                                        -> false
+waitpid(WCONTINUED) returns the pid                -> true
+the raw status word                                -> 0xffff
+  WIFCONTINUED                                     -> true
+and then it is reaped                              -> true
+## waitid for a stopped one
+waitid(WSTOPPED)                                   -> ok
+  si_code                                          -> 5
+  si_status is the stopping signal                 -> 19
+waitid(WCONTINUED)                                 -> ok
+  si_code                                          -> 6
+  si_status                                        -> 18
+and then it is reaped                              -> true
+## WNOWAIT leaves the child where it was
+waitid(WNOWAIT)                                    -> ok
+  si_status                                        -> 9
+and it can still be reaped                         -> true
+  with the same status                             -> 9
+## WNOHANG
+a child that has not exited                        -> 0
+and one that has                                   -> true
+## what they refuse
+waitpid on a pid nothing has                       -> ECHILD
+waitpid(-1) with no children                       -> ECHILD
+waitid with an idtype nobody has                   -> EINVAL
+waitid with no state asked for                     -> EINVAL
+waitid with only WNOWAIT                           -> EINVAL
+waitid into an unmapped siginfo                    -> EFAULT
+waitid with no children                            -> ECHILD
+  si_signo it leaves behind                        -> 0
+  si_pid it leaves behind                          -> 0
+## P_PGID and P_ALL
+waitid(P_PGID, 0)                                  -> ok
+  si_pid is the child                              -> true
+waitid(P_ALL)                                      -> ok
+  si_pid is the child                              -> true
+  si_status                                        -> 13
+## the rusage wait4 fills
+wait4 returns the pid                              -> true
+ru_utime is not negative                           -> true
+ru_maxrss is not negative                          -> true
+ru_nvcsw is not negative                           -> true
+no child is left unreaped                          -> -1

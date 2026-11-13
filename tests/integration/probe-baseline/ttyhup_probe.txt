@@ -1,0 +1,79 @@
+
+########## vhangup ##########
+TIOCSCTTY                                                -> ok
+open /dev/tty before                                     -> ok
+vhangup()                                                -> ok
+  the leader's signals                                   -> HUP 1 CONT 1
+  poll the old slave descriptor                          -> IN|OUT|ERR|HUP
+  read it                                                -> 0
+  write it                                               -> EIO
+  TCGETS on it                                           -> EIO
+  TIOCGPGRP on it                                        -> EIO
+  TIOCSPGRP on it                                        -> ENOTTY
+  read the /dev/tty descriptor                           -> 0
+  write the /dev/tty descriptor                          -> EIO
+  poll the master                                        -> OUT
+  read the master                                        -> EAGAIN
+  write the master                                       -> 3
+  the foreground member: signals                         -> HUP 0 CONT 0
+  the foreground member: read its descriptor             -> 0
+  the foreground member: write its descriptor            -> EIO
+  the foreground member: open /dev/tty                   -> ENXIO
+  open /dev/tty after                                    -> ENXIO
+  reopen the slave                                       -> ok
+  read the new descriptor                                -> EAGAIN
+  write the new descriptor                               -> 1
+  read the master                                        -> 1
+  TIOCGSID on the new descriptor                         -> ENOTTY
+  poll the old descriptor again                          -> IN|OUT|ERR|HUP
+  read the old descriptor again                          -> 0
+  TIOCSCTTY on the new descriptor                        -> ok
+  TIOCGSID on it                                         -> the caller's session
+  open /dev/tty then                                     -> ok
+
+########## vhangup without CAP_SYS_TTY_CONFIG ##########
+vhangup() as uid 65534                                   -> EPERM
+  write the slave                                        -> 1
+
+########## the master closes ##########
+close the master                                         -> ok
+  the leader's signals                                   -> HUP 1 CONT 1
+  poll the slave                                         -> IN|OUT|ERR|HUP
+  read it                                                -> 0
+  write it                                               -> EIO
+  TCGETS on it                                           -> EIO
+  TIOCGSID on it                                         -> EIO
+  the foreground member: signals                         -> HUP 0 CONT 0
+  the foreground member: read its descriptor             -> 0
+  the foreground member: write its descriptor            -> EIO
+  the foreground member: open /dev/tty                   -> ENXIO
+  open /dev/tty                                          -> ENXIO
+  reopen the slave                                       -> ENOENT
+
+########## every slave descriptor closes ##########
+write the slave                                          -> 1
+close the slave                                          -> ok
+  poll the master                                        -> IN|OUT|HUP
+  read the master                                        -> 1
+  read the master again                                  -> EIO
+  poll the master once it is drained                     -> OUT|HUP
+  write the master                                       -> 1
+  reopen the slave                                       -> ok
+  poll the master                                        -> IN|OUT
+  read the new descriptor                                -> EAGAIN
+  write the new descriptor                               -> 1
+  read the master                                        -> 2
+  poll the master after reading                          -> OUT
+  close it again                                         -> ok
+  read the master                                        -> EIO
+
+########## the session leader exits ##########
+the leader has exited                                    -> true
+  poll the master                                        -> OUT
+  the foreground member: signals                         -> HUP 1 CONT 0
+  the foreground member: read its descriptor             -> EAGAIN
+  the foreground member: write its descriptor            -> 1
+  the foreground member: open /dev/tty                   -> ENXIO
+  the foreground member: TIOCGSID on its descriptor      -> ENOTTY
+  read the master                                        -> 1
+  the prober's signals                                   -> HUP 0 CONT 0

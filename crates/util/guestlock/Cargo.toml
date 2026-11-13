@@ -1,0 +1,22 @@
+[package]
+name = "util-guestlock"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "util_guestlock"
+# rlib: crates/iul is the one staticlib in the product and links this in. See
+# the staticlib note in CLAUDE.md.
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# `util/sync.h`'s four types, which this crate is the behaviour over. It named
+# `crates/kernel/abi` for them until 2026-09-09 -- a layer-0 crate depending on
+# a `kernel` one for a mutex.
+util-synctypes = { path = "../synctypes" }
+util-locks = { path = "../../util/locks" }
+libc = "0.2"
+util-waitfor = { path = "../../util/waitfor" }

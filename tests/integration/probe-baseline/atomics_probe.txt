@@ -1,0 +1,81 @@
+########## lse read-modify-write, 64-bit ##########
+  ldadd {s}, {o}, [{p}]                  returned f0e1d2c3b4a59687  memory f205182b3e516476
+  ldclr {s}, {o}, [{p}]                  returned f0e1d2c3b4a59687  memory f0c0928034041200
+  ldeor {s}, {o}, [{p}]                  returned f0e1d2c3b4a59687  memory f1c297a43d0e5b68
+  ldset {s}, {o}, [{p}]                  returned f0e1d2c3b4a59687  memory f1e3d7e7bdafdfef
+  ldsmax {s}, {o}, [{p}]                 returned f0e1d2c3b4a59687  memory 0123456789abcdef
+  ldsmin {s}, {o}, [{p}]                 returned f0e1d2c3b4a59687  memory f0e1d2c3b4a59687
+  ldumax {s}, {o}, [{p}]                 returned f0e1d2c3b4a59687  memory f0e1d2c3b4a59687
+  ldumin {s}, {o}, [{p}]                 returned f0e1d2c3b4a59687  memory 0123456789abcdef
+  swp {s}, {o}, [{p}]                    returned f0e1d2c3b4a59687  memory 0123456789abcdef
+########## lse read-modify-write, 32-bit ##########
+  ldadd {s:w}, {o:w}, [{p}]              returned 00000000b4a59687  memory f0e1d2c33e516476
+  ldclr {s:w}, {o:w}, [{p}]              returned 00000000b4a59687  memory f0e1d2c334041200
+  ldeor {s:w}, {o:w}, [{p}]              returned 00000000b4a59687  memory f0e1d2c33d0e5b68
+  ldset {s:w}, {o:w}, [{p}]              returned 00000000b4a59687  memory f0e1d2c3bdafdfef
+  ldsmax {s:w}, {o:w}, [{p}]             returned 00000000b4a59687  memory f0e1d2c3b4a59687
+  ldumax {s:w}, {o:w}, [{p}]             returned 00000000b4a59687  memory f0e1d2c3b4a59687
+  swp {s:w}, {o:w}, [{p}]                returned 00000000b4a59687  memory f0e1d2c389abcdef
+########## lse read-modify-write, byte and halfword ##########
+  ldaddb {s:w}, {o:w}, [{p}]             returned 0000000000000087  memory f0e1d2c3b4a59676
+  ldaddh {s:w}, {o:w}, [{p}]             returned 0000000000009687  memory f0e1d2c3b4a56476
+  ldsetb {s:w}, {o:w}, [{p}]             returned 0000000000000087  memory f0e1d2c3b4a596ef
+  ldclrh {s:w}, {o:w}, [{p}]             returned 0000000000009687  memory f0e1d2c3b4a51200
+  swpb {s:w}, {o:w}, [{p}]               returned 0000000000000087  memory f0e1d2c3b4a596ef
+  swph {s:w}, {o:w}, [{p}]               returned 0000000000009687  memory f0e1d2c3b4a5cdef
+  ldumaxb {s:w}, {o:w}, [{p}]            returned 0000000000000087  memory f0e1d2c3b4a596ef
+  ldsmaxb {s:w}, {o:w}, [{p}]            returned 0000000000000087  memory f0e1d2c3b4a596ef
+########## the ordering variants ##########
+  ldadda {s}, {o}, [{p}]                 returned f0e1d2c3b4a59687  memory f205182b3e516476
+  ldaddl {s}, {o}, [{p}]                 returned f0e1d2c3b4a59687  memory f205182b3e516476
+  ldaddal {s}, {o}, [{p}]                returned f0e1d2c3b4a59687  memory f205182b3e516476
+  swpa {s}, {o}, [{p}]                   returned f0e1d2c3b4a59687  memory 0123456789abcdef
+  swpl {s}, {o}, [{p}]                   returned f0e1d2c3b4a59687  memory 0123456789abcdef
+  swpal {s}, {o}, [{p}]                  returned f0e1d2c3b4a59687  memory 0123456789abcdef
+  ldseta {s}, {o}, [{p}]                 returned f0e1d2c3b4a59687  memory f1e3d7e7bdafdfef
+  ldclral {s}, {o}, [{p}]                returned f0e1d2c3b4a59687  memory f0c0928034041200
+  ldeorl {s}, {o}, [{p}]                 returned f0e1d2c3b4a59687  memory f1c297a43d0e5b68
+  ldaddab {s:w}, {o:w}, [{p}]            returned 0000000000000087  memory f0e1d2c3b4a59676
+  ldaddalh {s:w}, {o:w}, [{p}]           returned 0000000000009687  memory f0e1d2c3b4a56476
+########## the store-only aliases ##########
+  stadd {s}, [{p}]                       memory f205182b3e516476
+  staddl {s}, [{p}]                      memory f205182b3e516476
+  stclr {s}, [{p}]                       memory f0c0928034041200
+  steor {s}, [{p}]                       memory f1c297a43d0e5b68
+  stset {s}, [{p}]                       memory f1e3d7e7bdafdfef
+  stsmax {s}, [{p}]                      memory 0123456789abcdef
+  stumin {s}, [{p}]                      memory 0123456789abcdef
+  staddb {s:w}, [{p}]                    memory f0e1d2c3b4a59676
+  staddh {s:w}, [{p}]                    memory f0e1d2c3b4a56476
+########## compare and swap ##########
+  cas (match)                            comparand f0e1d2c3b4a59687  memory 0123456789abcdef
+  cas (no match)                         comparand f0e1d2c3b4a59687  memory f0e1d2c3b4a59687
+  casa (match)                           comparand f0e1d2c3b4a59687  memory 0123456789abcdef
+  casl (match)                           comparand f0e1d2c3b4a59687  memory 0123456789abcdef
+  casal (match)                          comparand f0e1d2c3b4a59687  memory 0123456789abcdef
+  casal (no match)                       comparand f0e1d2c3b4a59687  memory f0e1d2c3b4a59687
+  cas w (match)                          comparand 00000000b4a59687  memory f0e1d2c389abcdef
+  cas w (no match)                       comparand 00000000b4a59687  memory f0e1d2c3b4a59687
+  casb (match)                           comparand 0000000000000087  memory f0e1d2c3b4a596ef
+  casb (no match)                        comparand 0000000000000087  memory f0e1d2c3b4a59687
+  cash (match)                           comparand 0000000000009687  memory f0e1d2c3b4a5cdef
+  casalb (match)                         comparand 0000000000000087  memory f0e1d2c3b4a596ef
+########## the exclusive pair ##########
+  ldxr/stxr                              loaded f0e1d2c3b4a59687  status 0  memory 0123456789abcdef
+  stxr after clrex                       status 1  memory f0e1d2c3b4a59687
+########## the ordered load and store ##########
+  ldar/stlr                              loaded f0e1d2c3b4a59687  memory 0123456789abcdef
+  ldarb/stlrb                            loaded 0000000000000087  memory f0e1d2c3b4a596ef
+  ldarh/stlrh                            loaded 0000000000009687  memory f0e1d2c3b4a5cdef
+########## the sixteen-byte pair ##########
+  casp (match)                           comparand f0e1d2c3b4a596870123456789abcdef  memory 11111111111111112222222222222222
+  casp (no match)                        comparand f0e1d2c3b4a596870123456789abcdef  memory f0e1d2c3b4a596870123456789abcdef
+  ldxp/stxp                              status 0  memory 33333333333333334444444444444444
+########## barriers ##########
+  dmb ish                                ok
+  dmb ishst                              ok
+  dmb ishld                              ok
+  dmb sy                                 ok
+  dsb ish                                ok
+  dsb sy                                 ok
+  isb                                    ok

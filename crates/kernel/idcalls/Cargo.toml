@@ -1,0 +1,22 @@
+[package]
+name = "kernel-idcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "idcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-procattr = { path = "../procattr" }
+kernel-creds = { path = "../creds" }
+kernel-proctree = { path = "../../kernel/proctree" }
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true
+kernel-pids = { path = "../pids" }
+kernel-usercopy = { path = "../usercopy" }
+util-plain = { path = "../../util/plain" }
+util-strace = { path = "../../util/strace" }

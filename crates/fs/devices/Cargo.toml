@@ -1,0 +1,23 @@
+[package]
+name = "fs-devices"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fs_devices"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# The terminal device table, as a Rust call: it was an `extern "C" { static
+# tty_dev }` here, which is a dependency edge cargo cannot see.
+fs-ttydev = { path = "../ttydev" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+kernel-random = { path = "../../kernel/random" }
+
+# The `POLL_*` bits, which are Rust constants in the crate that owns the
+# readiness model. `fs/poll.h` had them as `#define`s no C read.
+fs-poll = { path = "../poll" }

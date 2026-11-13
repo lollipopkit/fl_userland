@@ -1,0 +1,26 @@
+[package]
+name = "tmpfs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "tmpfs"
+# rlib: crates/iul is the one staticlib in the product and links this in. See
+# the staticlib note in CLAUDE.md.
+crate-type = ["rlib"]
+
+[dependencies]
+rustix.workspace = true
+util-errno = { path = "../../util/errno" }
+# The namespace and flag rules; see crates/fs/xattrabi.
+fs-xattrabi = { path = "../xattrabi" }
+fs-generic = { path = "../generic" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+kernel-taskview = { path = "../../kernel/taskview" }
+# A file's host file once it is mapped, and the mapping of it: a memfd's.
+realfs = { path = "../realfs" }
+libc.workspace = true

@@ -1,0 +1,57 @@
+## wait4 options
+wait4(-1, WNOHANG)                                   -> ok
+wait4(-1, 0x1000)                                    -> EINVAL
+wait4(-1, 0x80000000u)                               -> ECHILD
+wait4(-1, all known)                                 -> ECHILD
+## wait4 with no children
+wait4(-1) with nothing to wait for                   -> ECHILD
+waitpid(a pid that is not ours)                      -> ECHILD
+waitpid(a pid that does not exist)                   -> ECHILD
+waitpid(0) with no process group children            -> ECHILD
+## the exit status word
+a child that exited 42: WIFEXITED                    -> 1
+  WEXITSTATUS                                        -> 42
+  the raw word                                       -> 10752
+a child that exited 0x123: WEXITSTATUS               -> 35
+a child killed by SIGKILL: WIFSIGNALED               -> 1
+  WTERMSIG                                           -> 9
+  the raw word                                       -> 9
+## waitid
+waitid(P_PID, WEXITED|WNOWAIT)                       -> ok
+  si_code is CLD_EXITED                              -> 1
+waitid(the same child again)                         -> ok
+waitid(idtype=99)                                    -> EINVAL
+waitid(options with none of the three)               -> EINVAL
+waitid(options=0x1000)                               -> EINVAL
+## kill
+kill(self, 0)                                        -> ok
+kill(self, 99)                                       -> EINVAL
+kill(self, -1)                                       -> EINVAL
+kill(a pid that does not exist, 0)                   -> ESRCH
+kill(0, 0) -- this process group                     -> ok
+kill(-30000, 0) -- a group that does not exist       -> ESRCH
+tgkill(self, self, 0)                                -> ok
+tgkill(self, 30000, 0)                               -> ESRCH
+tgkill(tgid=0)                                       -> EINVAL
+## process groups and sessions
+setpgid(0, 0)                                        -> ok
+  getpgid(0) is our own pid                          -> 1
+setpgid(0, a group that does not exist)              -> EPERM
+setpgid(a pid that is not ours, 0)                   -> ESRCH
+setpgid(0, -1)                                       -> EINVAL
+getpgid(30000)                                       -> ESRCH
+getsid(30000)                                        -> ESRCH
+setsid(as a group leader)                            -> EPERM
+## ids
+setuid(0) as root                                    -> ok
+setresuid(-1, -1, -1)                                -> ok
+setgroups(0, NULL)                                   -> ok
+getgroups(-1, buf)                                   -> EINVAL
+getgroups(0, NULL) -- the count question             -> ok
+## prctl
+prctl(PR_SET_NAME)                                   -> ok
+prctl(PR_GET_NAME)                                   -> ok
+  the name came back                                 -> 1
+prctl(option=9999)                                   -> EINVAL
+prctl(PR_SET_PDEATHSIG, 99)                          -> EINVAL
+prctl(PR_SET_PDEATHSIG, 0)                           -> ok

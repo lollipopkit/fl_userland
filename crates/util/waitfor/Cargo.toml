@@ -1,0 +1,24 @@
+[package]
+name = "util-waitfor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "waitfor"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# `util/sync.h`'s four types, which this crate is the behaviour over. It named
+# `crates/kernel/abi` for them until 2026-09-09 -- a layer-0 crate depending on
+# a `kernel` one for a mutex.
+util-synctypes = { path = "../synctypes" }
+util-locks = { path = "../../util/locks" }
+libc.workspace = true
+util-timeabi = { path = "../timeabi" }
+# `struct task` and the lock primitives, so that they are one Rust type across
+# the tree rather than one per crate. See crates/kernel/taskview.
+# The types, and `current` -- both the foundation's. This crate names no
+# field accessor, so it does not depend on `taskview`, a layer above it.

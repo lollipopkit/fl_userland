@@ -1,0 +1,32 @@
+[package]
+name = "kernel-mmapcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "mmapcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+# `GeneralGuard`, which takes `task->general_lock`.
+util-locks = { path = "../../util/locks" }
+util-errno = { path = "../../util/errno" }
+util-logline = { path = "../../util/logline" }
+kernel-pagetable = { path = "../../kernel/pagetable" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+# The IUL_* settings as a safe read; see crates/util/iulenv.
+util-iulenv = { path = "../../util/iulenv" }
+libc.workspace = true
+kernel-mmapabi = { path = "../mmapabi" }
+util-strace = { path = "../../util/strace" }
+kernel-usercopy = { path = "../usercopy" }
+# Whether a shared mapping is under a write seal, which mprotect has to ask.
+kernel-memfdcalls = { path = "../memfdcalls" }
+
+[dev-dependencies]

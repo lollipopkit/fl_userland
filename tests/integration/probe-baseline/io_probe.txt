@@ -1,0 +1,125 @@
+## readv and writev: the vector count
+writev(iovcnt=0)                                       -> 0
+readv(iovcnt=0)                                        -> 0
+writev(iovcnt=1)                                       -> 1
+readv(iovcnt=1)                                        -> 1
+writev(iovcnt=1024 (UIO_MAXIOV))                       -> 1024
+readv(iovcnt=1024 (UIO_MAXIOV))                        -> 10
+writev(iovcnt=1025)                                    -> EINVAL
+readv(iovcnt=1025)                                     -> EINVAL
+writev(iovcnt=0x1_0000_0001)                           -> 1
+readv(iovcnt=0x1_0000_0001)                            -> 1
+writev(iovcnt=~0)                                      -> EINVAL
+readv(iovcnt=~0)                                       -> EINVAL
+## readv and writev: one vector's length
+writev(one vector, iov_len=0)                          -> 0
+writev(one vector, iov_len=10)                         -> 10
+writev(one vector, iov_len=0x7fff_ffff (INT_MAX))      -> EFAULT
+writev(one vector, iov_len=0x8000_0000 (INT_MAX+1))    -> EFAULT
+writev(one vector, iov_len=0x7fff_ffff_ffff_ffff (SSIZE_MAX)) -> EFAULT
+writev(one vector, iov_len=~0)                         -> EINVAL
+## a total past what one call may move
+writev(two vectors summing past INT_MAX)               -> EFAULT
+## the vector array itself
+writev(iov unmapped)                                   -> EFAULT
+writev(iov=NULL, iovcnt=0)                             -> 0
+writev(iov=NULL, iovcnt=1)                             -> EFAULT
+writev(iov_base unmapped)                              -> EFAULT
+writev(a good vector then a faulting one)              -> EFAULT
+## preadv and pwritev: the offset
+preadv(offset=0, glibc's shape)                        -> 4
+preadv(offset=0, musl's shape)                         -> 4
+preadv(offset=5, glibc's shape)                        -> 4
+preadv(offset=5, musl's shape)                         -> 4
+preadv(offset=-1, glibc's shape)                       -> EINVAL
+preadv(offset=-1, musl's shape)                        -> EINVAL
+preadv(offset=-2, glibc's shape)                       -> EINVAL
+preadv(offset=-2, musl's shape)                        -> EINVAL
+preadv(offset=0x7fff_ffff_ffff_ffff, glibc's shape)    -> EINVAL
+preadv(offset=0x7fff_ffff_ffff_ffff, musl's shape)     -> EINVAL
+preadv(pos_l=0, pos_h=1 -- pos_h is ignored)           -> 4
+  the first byte read                                  -> 48
+preadv left the file offset at                         -> 0
+  and read                                             -> 53
+preadv(a pipe, offset=0)                               -> ESPIPE
+preadv(a pipe, offset=-1)                              -> EINVAL
+## preadv2 and pwritev2: the flags nobody validated
+preadv2(flags=0)                                       -> 4
+preadv2(flags=RWF_HIPRI (0x1))                         -> 4
+preadv2(flags=RWF_DSYNC (0x2))                         -> 4
+preadv2(flags=RWF_SYNC (0x4))                          -> 4
+preadv2(flags=RWF_NOWAIT (0x8))                        -> EOPNOTSUPP
+preadv2(flags=RWF_APPEND (0x10))                       -> 4
+preadv2(flags=0x20 (undefined))                        -> 4
+preadv2(flags=0x8000_0000)                             -> EOPNOTSUPP
+preadv2(flags=every bit)                               -> EOPNOTSUPP
+pwritev2(offset=0, RWF_APPEND)                         -> 3
+  the file is now this long                            -> 13
+preadv2(offset=-1, meaning the file offset)            -> 4
+  the first byte read                                  -> 54
+  the file offset is now                               -> 10
+## reading and writing things that are not files
+readv(a directory)                                     -> EISDIR
+writev(a descriptor opened read-only)                  -> EBADF
+readv(fd=-1)                                           -> EBADF
+## sendfile
+sendfile(count=0)                                      -> 0
+sendfile(count=4)                                      -> 4
+sendfile(count=1000 (more than there is))              -> 10
+sendfile(count=0x7fff_ffff)                            -> 10
+sendfile(count=0x8000_0000)                            -> 10
+sendfile(count=0x1_0000_0000)                          -> 10
+sendfile(count=~0)                                     -> EINVAL
+sendfile(offset=3)                                     -> 4
+  the offset now says                                  -> 7
+  the input's own offset is                            -> 0
+sendfile(offset=-1)                                    -> EINVAL
+sendfile(offset unmapped)                              -> EFAULT
+sendfile(in = a pipe)                                  -> EINVAL
+sendfile(out = a pipe)                                 -> 4
+sendfile(in = out)                                     -> 4
+## splice and tee
+splice(file -> pipe)                                   -> 4
+splice(file -> file)                                   -> EINVAL
+splice(len=0)                                          -> 0
+splice(an undefined flag 0x40)                         -> EINVAL
+splice(an offset on the pipe end)                      -> ESPIPE
+tee(pipe -> pipe)                                      -> 4
+tee(pipe -> a file)                                    -> EINVAL
+tee(the same pipe both ways)                           -> EINVAL
+## copy_file_range
+copy_file_range(4 bytes)                               -> 4
+  the output is now this long                          -> 4
+copy_file_range(flags=1)                               -> EINVAL
+copy_file_range(a negative offset)                     -> EOVERFLOW
+copy_file_range(the same file, overlapping)            -> EINVAL
+copy_file_range(in = a pipe)                           -> EINVAL
+## a transfer length above 32 bits
+copy_file_range(len=0x1_0000_0000 (0 in the low half)) -> 10
+  the output is now this long                          -> 10
+splice(len=0x1_0000_0000 (0 in the low half), file -> pipe) -> 10
+copy_file_range(len=0x1_0000_0004 (4 in the low half)) -> 10
+  the output is now this long                          -> 10
+splice(len=0x1_0000_0004 (4 in the low half), file -> pipe) -> 10
+copy_file_range(len=0x2_0000_0000)                     -> 10
+  the output is now this long                          -> 10
+splice(len=0x2_0000_0000, file -> pipe)                -> 10
+copy_file_range(len=0x7fff_ffff_ffff_ffff (SSIZE_MAX)) -> 10
+  the output is now this long                          -> 10
+splice(len=0x7fff_ffff_ffff_ffff (SSIZE_MAX), file -> pipe) -> 10
+splice(len=0x8000_0000_0000_0000, file -> pipe)        -> EINVAL
+splice(len=~0, file -> pipe)                           -> EINVAL
+## ftruncate
+ftruncate(len=0)                                       -> 0
+ftruncate(len=100)                                     -> 0
+ftruncate(len=-1)                                      -> EINVAL
+ftruncate(len=0x7fff_ffff_ffff_ffff)                   -> 0
+ftruncate(a pipe)                                      -> EINVAL
+ftruncate(a directory)                                 -> EINVAL
+ftruncate(read-only descriptor)                        -> EINVAL
+## the file offset after a short read
+readv(4x4 bytes from a 10-byte file)                   -> 10
+  the offset is now                                    -> 10
+  the third vector's first byte                        -> 56
+  the fourth vector's first byte                       -> 0
+a std::fs::File has a descriptor                       -> 1

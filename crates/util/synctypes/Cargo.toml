@@ -1,0 +1,17 @@
+[package]
+name = "util-synctypes"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "util_synctypes"
+crate-type = ["rlib"]
+
+[dependencies]
+libc.workspace = true
+
+[build-dependencies]
+# `iul_lock_debug`, which decides whether `lock_t` carries its debug field.
+iul-buildcfg = { path = "../buildcfg" }

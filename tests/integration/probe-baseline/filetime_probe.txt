@@ -1,0 +1,41 @@
+## what moves a timestamp
+  a write                                              -> mtime+ctime
+  a read                                               -> atime
+  an open that reads nothing                           -> none
+  a chmod                                              -> ctime
+  a truncate that shortens                             -> mtime+ctime
+  a truncate to the same size                          -> none
+  gaining a hard link                                  -> ctime
+  being renamed                                        -> ctime
+  a second read, atime already newer than mtime        -> none
+## a directory's times
+  creating a file in it                                -> mtime+ctime
+  removing a file from it                              -> mtime+ctime
+  a rename inside it                                   -> mtime+ctime
+  reading it                                           -> atime
+  chmod on it                                          -> ctime
+## utimensat
+  setting both times                                   -> 0
+    atime seconds are what was asked                   -> true
+    mtime seconds are what was asked                   -> true
+    the nanoseconds survived                           -> true
+    ctime moved to now                                 -> true
+  UTIME_OMIT on atime, UTIME_NOW on mtime              -> 0
+    which moved                                        -> mtime+ctime
+  both UTIME_OMIT                                      -> 0
+    which moved                                        -> none
+  a null times pointer                                 -> 0
+    which moved                                        -> atime+mtime+ctime
+  nsec = 1_000_000_000                                 -> EINVAL
+  nsec = -1                                            -> EINVAL
+  a date in 1960                                       -> 0
+    it reads back negative                             -> true
+  a flag that means nothing                            -> EINVAL
+  a path that is not there                             -> ENOENT
+  futimens on a read-only descriptor                   -> 0
+  futimens on -1                                       -> EBADF
+## the range
+  1901                                                 -> set and read back
+  1970 exactly                                         -> set and read back
+  2038, past a 32-bit time_t                           -> set and read back
+  2262                                                 -> set and read back

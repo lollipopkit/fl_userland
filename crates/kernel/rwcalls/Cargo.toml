@@ -1,0 +1,41 @@
+[package]
+name = "kernel-rwcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "rwcalls"
+# rlib: crates/iul is the one staticlib in the product. See CLAUDE.md.
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+kernel-v8mute = { path = "../v8mute" }
+libc.workspace = true
+rwabi = { path = "../rwabi" }
+# `NoSigpipe`, which is `RWF_NOSIGNAL`.
+kernel-errno = { path = "../errno" }
+kernel-copyloop = { path = "../copyloop" }
+# `vmsplice` writes and reads this kernel's pipe with its own non-blocking rule.
+fs-pipecalls = { path = "../../fs/pipecalls" }
+kernel-usercopy = { path = "../usercopy" }
+util-strace = { path = "../../util/strace" }
+
+# inotify's three notify hooks, called by path: `kernel/inotify.h` was a
+# declaration no C read.
+kernel-inotifycalls = { path = "../inotifycalls" }
+
+# The `IN_*` event bits, which are Rust constants in the crate that
+# defines the events. `kernel/inotify.h` had a second copy.
+inotify = { path = "../../fs/inotify" }
+
+# The `POLL_*` bits, which are Rust constants in the crate that owns the
+# readiness model. `fs/poll.h` had them as `#define`s no C read.
+fs-poll = { path = "../../fs/poll" }

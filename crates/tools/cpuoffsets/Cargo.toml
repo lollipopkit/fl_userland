@@ -1,0 +1,18 @@
+[package]
+name = "cpuoffsets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "cpuoffsets"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cpuoffsets"
+path = "src/main.rs"
+
+[dependencies]
+# `struct cpu_state`, whose layout this publishes. Rust's since 2026-09-08.
+kernel-taskview = { path = "../../kernel/taskview" }

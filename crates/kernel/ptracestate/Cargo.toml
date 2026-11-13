@@ -1,0 +1,24 @@
+[package]
+name = "kernel-ptracestate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_ptracestate"
+crate-type = ["rlib"]
+
+[dependencies]
+# The guest ABI: `siginfo_`, which a stop records, and the `PTRACE_O_*` and
+# `SIGTRAP_` numbers a stop reports. Nothing else.
+kernel-abi = { path = "../abi" }
+# The lock and its condition variable. The one thing this crate does that a
+# plain `Mutex` cannot is park a guest thread interruptibly.
+util-guestlock = { path = "../../util/guestlock" }
+
+[dev-dependencies]
+# The real signal state, so a test runs the real `wait_for` rather than a
+# parallel implementation of it. See CLAUDE.md on `guestlock-teststub`.
+kernel-sighand = { path = "../sighand" }
+kernel-sigqueue = { path = "../sigqueue" }

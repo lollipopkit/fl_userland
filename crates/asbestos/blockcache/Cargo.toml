@@ -1,0 +1,20 @@
+[package]
+name = "asbestos-blockcache"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "asbestos_blockcache"
+crate-type = ["rlib"]
+
+[dependencies]
+# The emulator's own types -- `cpu_state`, `tlb`, `mmu`, `fiber_block`. This
+# named `crates/kernel/abi` for them until 2026-09-09, which is a crate two
+# layers up naming the CPU it emulates.
+emu-abi = { path = "../../emu/abi" }
+util-locks = { path = "../../util/locks" }
+# The shared Rust types are re-exported by kernel-taskview.
+# The types alone: this crate names no accessor, so it depends on the
+# foundation rather than on `taskview`, which sits a layer above it.

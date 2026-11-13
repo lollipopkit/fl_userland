@@ -1,0 +1,6 @@
+PR_GET_PDEATHSIG after an ordinary exec      -> 10
+PR_GET_KEEPCAPS after an ordinary exec       -> 0
+PR_GET_DUMPABLE after an ordinary exec       -> 1
+SIGUSR2 still blocked after an exec          -> 1
+SIGUSR1 was handled, and is now              -> SIG_DFL
+SIGTERM was ignored, and is now              -> SIG_IGN

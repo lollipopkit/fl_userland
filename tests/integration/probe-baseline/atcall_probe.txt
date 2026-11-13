@@ -1,0 +1,133 @@
+## membarrier
+  QUERY GLOBAL -> 1
+  QUERY GLOBAL_EXPEDITED -> 1
+  QUERY REGISTER_GLOBAL_EXPEDITED -> 1
+  QUERY PRIVATE_EXPEDITED -> 1
+  QUERY REGISTER_PRIVATE_EXPEDITED -> 1
+  QUERY PRIVATE_EXPEDITED_SYNC_CORE -> 1
+  QUERY REGISTER_PRIVATE_EXPEDITED_SYNC_CORE -> 1
+  QUERY PRIVATE_EXPEDITED_RSEQ -> 1
+  QUERY REGISTER_PRIVATE_EXPEDITED_RSEQ -> 1
+  QUERY GET_REGISTRATIONS -> 1
+  QUERY unnamed bits -> 0x0
+  REGISTER_PRIVATE_EXPEDITED -> 0
+  PRIVATE_EXPEDITED -> 0
+  PRIVATE_EXPEDITED with flags=1 -> -EINVAL
+  an unallocated command -> -EINVAL
+## sched priorities
+  SCHED_OTHER -> max 0 min 0
+  SCHED_FIFO -> max 99 min 1
+  SCHED_RR -> max 99 min 1
+  SCHED_BATCH -> max 0 min 0
+  SCHED_IDLE -> max 0 min 0
+  SCHED_DEADLINE -> max 0 min 0
+  an unallocated policy -> max -EINVAL min -EINVAL
+## fadvise64
+  advice 0 -> 0
+  advice 1 -> 0
+  advice 2 -> 0
+  advice 3 -> 0
+  advice 4 -> 0
+  advice 5 -> 0
+  advice 6 -> -EINVAL
+  advice 7 -> -EINVAL
+  advice 99 -> -EINVAL
+  len = -1 -> -EINVAL
+  offset = -1 -> -EINVAL
+  both -1 -> -EINVAL
+  len = LLONG_MAX -> 0
+  offset = LLONG_MAX -> 0
+  a sum that overflows -> 0
+  len = 0, which means the whole file -> 0
+  a closed descriptor -> -EBADF
+## *at flags
+  fchmodat(0) -> 0
+  fchownat(0) -> 0
+  fchmodat(AT_SYMLINK_NOFOLLOW) -> 0
+  fchownat(AT_SYMLINK_NOFOLLOW) -> 0
+  fchmodat(AT_EMPTY_PATH) -> 0
+  fchownat(AT_EMPTY_PATH) -> 0
+  fchmodat(an unallocated flag) -> 0
+  fchownat(an unallocated flag) -> -EINVAL
+  fstatat(fd, "", AT_EMPTY_PATH) -> 0
+  fstatat(fd, "", AT_EMPTY_PATH|NOFOLLOW) -> 0
+  fstatat(fd, "", 0) -> -ENOENT
+  fstatat(AT_FDCWD, "", AT_EMPTY_PATH) -> 0
+  statx(AT_FDCWD, "", AT_EMPTY_PATH) -> 0
+  statx(fd, "", AT_EMPTY_PATH) -> 0
+  statx(999, "", AT_EMPTY_PATH) -> -EBADF
+  fstatat(fd, path, an unallocated flag) -> -EINVAL
+  fstatat(fd, path, AT_NO_AUTOMOUNT) -> 0
+  fchownat(fd, "", -1, -1, AT_EMPTY_PATH) -> 0
+  linkat(fd, "", AT_EMPTY_PATH) -> 0
+  fchmodat with a file as the base -> -ENOTDIR
+  mkdirat with a file as the base -> -ENOTDIR
+  mknodat(S_IFREG) -> 0
+  mknodat(S_IFIFO) -> 0
+  mknodat(S_IFCHR) -> -EPERM
+  mknodat(S_IFBLK) -> 0
+  mknodat(S_IFSOCK) -> 0
+  mknodat(S_IFLNK) -> -EINVAL
+  linkat(0) -> 0
+  linkat over an existing name -> -EEXIST
+  linkat(an unallocated flag) -> -EINVAL
+  linkat from a missing source -> -ENOENT
+  linkat without AT_SYMLINK_FOLLOW -> 0 and the new name is a symlink: true
+  linkat with AT_SYMLINK_FOLLOW -> 0 and the new name is a symlink: false
+  symlinkat -> 0
+  symlinkat over an existing name -> -EEXIST
+  symlinkat with an empty target -> -ENOENT
+  renameat -> 0
+  renameat from a missing source -> -ENOENT
+## descriptor calls
+  fsync -> 0
+  fdatasync -> 0
+  fsync on a closed descriptor -> -EBADF
+  sync_file_range(WRITE on a file) -> 0
+  sync_file_range(WAIT_BEFORE|WRITE|WAIT_AFTER on a file) -> 0
+  sync_file_range(a flag outside the three) -> -EINVAL
+  sync_file_range(a flag outside the three, closed descriptor) -> -EBADF
+  sync_file_range(a closed descriptor) -> -EBADF
+  sync_file_range(a negative offset) -> -EINVAL
+  sync_file_range(a negative length) -> -EINVAL
+  sync_file_range(an offset and length that overflow) -> -EINVAL
+  sync_file_range(a pipe) -> -errno 29
+  ftruncate to 4 -> 0
+  ftruncate to a negative length -> -EINVAL
+  ftruncate a read-only descriptor -> -EINVAL
+  fsync on /dev/null -> -EINVAL
+  syncfs on /dev/null -> 0
+  ftruncate on /dev/null -> -EINVAL
+  fchdir to /dev/null -> -ENOTDIR
+  fsync on a directory -> 0
+  syncfs on a directory -> 0
+  ftruncate on a directory -> -EINVAL
+  fchdir to a directory -> 0
+  fsync on a pipe -> -EINVAL
+  syncfs on a pipe -> 0
+  ftruncate on a pipe -> -EINVAL
+  fchdir to a pipe -> -ENOTDIR
+  fsync on a unix socket -> -EINVAL
+  syncfs on a unix socket -> 0
+  ftruncate on a unix socket -> -EINVAL
+  fchdir to a unix socket -> -ENOTDIR
+  fchdir to a regular file -> -ENOTDIR
+  truncate on a directory path -> -EISDIR
+  fchdir back to the test directory -> 0
+  lseek(SEEK_SET, 0) -> 0
+  lseek(SEEK_CUR, 0) -> 0
+  lseek(SEEK_END, 0) -> 4
+  lseek(SEEK_DATA, 0) -> 0
+  lseek(SEEK_HOLE, 0) -> 4
+  lseek(an unallocated whence, 0) -> -EINVAL
+  lseek to a negative offset -> -EINVAL
+## sethostname
+  sethostname, a negative length -> -EPERM
+  sethostname, zero -> -EPERM
+  sethostname, the real length -> -EPERM
+  sethostname, a length past any buffer -> -EPERM
+## setdomainname
+  setdomainname, a negative length -> -EPERM
+  setdomainname, zero -> -EPERM
+  setdomainname, the real length -> -EPERM
+  setdomainname, a length past any buffer -> -EPERM

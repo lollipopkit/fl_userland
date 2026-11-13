@@ -1,0 +1,59 @@
+## open flags
+open(a file, O_DIRECTORY)                            -> ENOTDIR
+open(a dir, O_WRONLY)                                -> EISDIR
+open(a dir, O_RDONLY)                                -> ok
+open(a symlink, O_NOFOLLOW)                          -> ELOOP
+open(a symlink, O_NOFOLLOW|O_PATH)                   -> ok
+open(a self-referencing symlink)                     -> ELOOP
+open(O_CREAT|O_EXCL on something that exists)        -> EEXIST
+open(dir, O_TMPFILE|O_RDWR)                          -> ok
+open(dir, O_TMPFILE|O_RDONLY)                        -> EINVAL
+open(a file, 0x40000000)                             -> ok
+## O_PATH's restrictions
+read(an O_PATH fd)                                   -> EBADF
+fchmod(an O_PATH fd)                                 -> ok
+fstat(an O_PATH fd)                                  -> ok
+lseek(an O_PATH fd)                                  -> EBADF
+## the *at family's dirfd
+openat(a regular file as dirfd, "x")                 -> ENOTDIR
+openat(a closed fd as dirfd)                         -> EBADF
+openat(a regular file as dirfd, absolute)            -> ok
+openat(a closed fd as dirfd, absolute)               -> ok
+openat(AT_FDCWD, "")                                 -> ENOENT
+## unlink and rmdir
+unlink(a directory)                                  -> EISDIR
+rmdir(a regular file)                                -> ENOTDIR
+rmdir(".")                                           -> EINVAL
+unlinkat(AT_REMOVEDIR on a file)                     -> ENOTDIR
+unlinkat(flags=0x1000)                               -> EINVAL
+  and the file is still there                        -> true
+## rename
+rename(a file onto itself)                           -> ok
+rename(a directory onto a file)                      -> ENOTDIR
+rename(a file onto a directory)                      -> EISDIR
+renameat2(from -> to, NOREPLACE)                     -> ok
+renameat2(from -> to, EXCHANGE)                      -> ENOENT
+renameat2(from -> to, WHITEOUT)                      -> EINVAL
+renameat2(from -> to, both)                          -> EINVAL
+renameat2(from -> to, unknown8)                      -> EINVAL
+## link and symlink
+link(onto something that exists)                     -> EEXIST
+link(a directory)                                    -> EPERM
+symlink("", target)                                  -> ENOENT
+readlink(a regular file)                             -> EINVAL
+readlink(size=0)                                     -> ok
+## truncate and seek
+truncate(a directory, 0)                             -> EISDIR
+truncate(a file, -1)                                 -> EINVAL
+ftruncate(an O_RDONLY fd)                            -> EINVAL
+lseek(whence=99)                                     -> EINVAL
+lseek(SEEK_SET, -1)                                  -> EINVAL
+## fcntl
+fcntl(F_GETFL)                                       -> ok
+fcntl(cmd=9999)                                      -> EINVAL
+fcntl(F_DUPFD, -1)                                   -> EINVAL
+fcntl(F_DUPFD, huge)                                 -> EINVAL
+fcntl(F_SETFL, O_APPEND)                             -> ok
+## a path that is too long
+open(a 300-byte name)                                -> ENAMETOOLONG
+open(a 200-component path)                           -> ENOENT

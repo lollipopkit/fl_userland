@@ -1,0 +1,56 @@
+## a child that exits 31
+  handler ran                                        -> 1
+  si_code                                            -> CLD_EXITED
+  si_pid is the child                                -> 1
+  si_uid is ours                                     -> 1
+  si_status                                          -> 31
+  si_utime small                                     -> 1
+  si_stime small                                     -> 1
+## a child killed by SIGTERM
+  handler ran                                        -> 1
+  si_code                                            -> CLD_KILLED
+  si_pid is the child                                -> 1
+  si_uid is ours                                     -> 1
+  si_status                                          -> 15
+  si_utime small                                     -> 1
+  si_stime small                                     -> 1
+## a child that stops with SIGSTOP
+  handler ran                                        -> 1
+  si_code                                            -> CLD_STOPPED
+  si_pid is the child                                -> 1
+  si_uid is ours                                     -> 1
+  si_status                                          -> 19
+  si_utime small                                     -> 1
+  si_stime small                                     -> 1
+## and is continued
+  handler ran                                        -> 1
+  si_code                                            -> CLD_CONTINUED
+  si_pid is the child                                -> 1
+  si_uid is ours                                     -> 1
+  si_status                                          -> 18
+  si_utime small                                     -> 1
+  si_stime small                                     -> 1
+## and is then killed
+  handler ran                                        -> 1
+  si_code                                            -> CLD_KILLED
+  si_pid is the child                                -> 1
+  si_uid is ours                                     -> 1
+  si_status                                          -> 9
+  si_utime small                                     -> 1
+  si_stime small                                     -> 1
+## a traced child that stops
+  handler ran                                        -> 1
+  si_code                                            -> CLD_TRAPPED
+  si_pid is the child                                -> 1
+  si_uid is ours                                     -> 1
+  si_status                                          -> 19
+  si_utime small                                     -> 1
+  si_stime small                                     -> 1
+## and exits once detached
+  handler ran                                        -> 1
+  si_code                                            -> CLD_EXITED
+  si_pid is the child                                -> 1
+  si_uid is ours                                     -> 1
+  si_status                                          -> 0
+  si_utime small                                     -> 1
+  si_stime small                                     -> 1

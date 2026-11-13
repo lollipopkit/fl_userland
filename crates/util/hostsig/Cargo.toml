@@ -1,0 +1,13 @@
+[package]
+name = "util-hostsig"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "util_hostsig"
+crate-type = ["rlib"]
+
+[dependencies]
+libc.workspace = true

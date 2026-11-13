@@ -1,0 +1,362 @@
+# Rust workspace.
+#
+# The emulator core, the syscall layer and the gadgets stay in C and assembly —
+# see CLAUDE.md. What lives here is the code being moved to Rust, starting with
+# the host-side tools that parse untrusted input.
+#
+# `target/` is cargo's own, and the build scripts in `tools/` use it: they honour
+# `CARGO_TARGET_DIR` if it is set and otherwise share this one, so an ordinary
+# `cargo test` and a `tools/build-all.sh` reuse each other's compilation rather
+# than fighting over a lockfile. meson gave each of its four cargo invocations a
+# directory inside `build/` and paid for it with four compiles of the workspace.
+# A build with different `TMPFS_RS_CLANG_ARGS` still wants one of its own; see
+# CLAUDE.md's `-DLOCK_DEBUG=1` recipe.
+
+[workspace]
+resolver = "3"
+members = [
+    "crates/iul",
+    "crates/asbestos/jitstate",
+    "crates/kernel/offloadtest",
+    "crates/kernel/offloadtestprebuilt",
+    "crates/tools/cpuoffsets",
+    "crates/util/buildcfg",
+    "crates/emu/abi",
+    "crates/util/currentpid",
+    "crates/util/ioctlarg",
+    "crates/util/plain",
+    "crates/util/locks",
+    "crates/util/synctypes",
+    "crates/util/identity",
+    "crates/util/appendonly",
+    "crates/util/arcslot",
+    "crates/util/errno",
+    "crates/util/logchan",
+    "crates/util/signpost",
+    "crates/fs/bindmount",
+    "crates/fs/bindpath",
+    "crates/fs/cmsg",
+    "crates/fs/devpts",
+    "crates/fs/dirent",
+    "crates/fs/fakefs",
+    "crates/fs/fake",
+    "crates/fs/fakedb",
+    "crates/fs/fakeschema",
+    "crates/fs/generic",
+    "crates/fs/fdtable",
+    "crates/fs/inotify",
+    "crates/fs/ldisc",
+    "crates/fs/locks",
+    "crates/fs/mounttable",
+    "crates/fs/netlink",
+    "crates/fs/mountcalls",
+    "crates/fs/msghdr",
+    "crates/fs/pipe",
+    "crates/fs/pollset",
+    "crates/kernel/rwabi",
+    "crates/kernel/fdattr",
+    "crates/kernel/fsinfo",
+    "crates/kernel/pagetable",
+    "crates/emu/tlb",
+    "crates/asbestos/diag",
+    "crates/asbestos/blockcache",
+    "crates/asbestos/gadgets",
+    "crates/asbestos/crypto",
+    "crates/asbestos/features",
+    "crates/asbestos/dispatch",
+    "crates/asbestos/gen",
+    "crates/asbestos/offloadprebuilt",
+    "crates/kernel/vdso",
+    "crates/asbestos/offloadsym",
+    "crates/kernel/pathcalls",
+    "crates/kernel/idcalls",
+    "crates/kernel/mmapcalls",
+    "crates/kernel/pollcalls",
+    "crates/kernel/epollcalls",
+    "crates/kernel/inotifycalls",
+    "crates/kernel/fdcalls",
+    "crates/kernel/futexcalls",
+    "crates/kernel/rescalls",
+    "crates/kernel/rlimitstate",
+    "crates/kernel/waitcalls",
+    "crates/kernel/rwcalls",
+    "crates/kernel/timecalls",
+    "crates/kernel/syslogcalls",
+    "crates/kernel/timerfdcalls",
+    "crates/kernel/eventfdcalls",
+    "crates/kernel/aio",
+    "crates/kernel/unamecalls",
+    "crates/kernel/random",
+    "crates/fs/dircalls",
+    "crates/fs/statcalls",
+    "crates/fs/pipecalls",
+    "crates/fs/devices",
+    "crates/fs/adhoc",
+    "crates/fs/mount",
+    "crates/fs/inode",
+    "crates/kernel/v8mute",
+    "crates/kernel/offloadexec",
+    "crates/kernel/offloadreg",
+    "crates/util/fchdir",
+    "crates/util/hostsig",
+    "crates/util/hostdir",
+    "crates/fs/ttydev",
+    "crates/fs/ttyreal",
+    "crates/kernel/hostrusage",
+    "crates/kernel/hoststats",
+    "crates/kernel/groupcalls",
+    "crates/kernel/pidfdcalls",
+    "crates/kernel/procvmcalls",
+    "crates/kernel/sysvipc",
+    "crates/kernel/sysvmsg",
+    "crates/kernel/sysvsem",
+    "crates/kernel/memfdcalls",
+    "crates/kernel/sysvshm",
+    "crates/kernel/signalfdcalls",
+    "crates/kernel/misccalls",
+    "crates/fs/fdobj",
+    "crates/fs/poll",
+    "crates/fs/sockrestart",
+    "crates/kernel/ptrace",
+    "crates/kernel/ptracestate",
+    "crates/kernel/taskcalls",
+    "crates/kernel/taskview",
+    "crates/kernel/abi",
+    "crates/kernel/boot",
+    "crates/kernel/tgroup",
+    "crates/fs/path",
+    "crates/fs/perm",
+    "crates/fs/pollindex",
+    "crates/fs/proc",
+    "crates/fs/realfs",
+    "crates/fs/sock",
+    "crates/fs/sockabi",
+    "crates/fs/sockaddr",
+    "crates/fs/statx",
+    "crates/fs/xattrabi",
+    "crates/fs/tmpfs",
+    "crates/fs/unixname",
+    "crates/fs/fakechange",
+    "crates/fs/bindstash",
+    "crates/util/fifo",
+    "crates/fs/unixpeer",
+    "crates/fs/tty",
+    "crates/fs/ttyreg",
+    "crates/fs/jobctl",
+    "crates/kernel/pids",
+    "crates/kernel/sigdisp",
+    "crates/kernel/copyloop",
+    "crates/kernel/creds",
+    "crates/kernel/elf",
+    "crates/kernel/errno",
+    "crates/kernel/epoll",
+    "crates/kernel/eventfd",
+    "crates/kernel/mqueue",
+    "crates/kernel/mqueuecalls",
+    "crates/kernel/pidfd",
+    "crates/kernel/seccomp",
+    "crates/kernel/timerfd",
+    "crates/kernel/signalfd",
+    "crates/kernel/rlimit",
+    "crates/kernel/robustlist",
+    "crates/kernel/observe",
+    "crates/kernel/sigframe",
+    "crates/kernel/futex",
+    "crates/kernel/groupexit",
+    "crates/kernel/groupstop",
+    "crates/kernel/grouprusage",
+    "crates/kernel/ctty",
+    "crates/kernel/itimer",
+    "crates/kernel/execargs",
+    "crates/kernel/execcalls",
+    "crates/kernel/exitcalls",
+    "crates/kernel/forkcalls",
+    "crates/kernel/hostsignal",
+    "crates/kernel/hostthreads",
+    "crates/kernel/vforkhandoff",
+    "crates/kernel/posixtimers",
+    "crates/kernel/procattr",
+    "crates/kernel/proctree",
+    "crates/kernel/usercopy",
+    "crates/kernel/sigqueue",
+    "crates/kernel/siginfo",
+    "crates/kernel/initstack",
+    "crates/kernel/mmapabi",
+    "crates/kernel/schedabi",
+    "crates/kernel/shebang",
+    "crates/kernel/sighand",
+    "crates/kernel/signalcalls",
+    "crates/kernel/signaldeliver",
+    "crates/kernel/syscalldispatch",
+    "crates/kernel/syscallrefs",
+    "crates/kernel/syscallrestart",
+    "crates/util/timeabi",
+    "crates/util/guestlock",
+    "crates/util/iulenv",
+    "crates/util/strace",
+    "crates/kernel/syscalltable",
+    "crates/util/logline",
+    "crates/tools/iul",
+    "crates/tools/fakefsredirect",
+    "crates/util/waitfor",
+    "crates/util/timer",
+    "crates/tools/fakefsify",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+publish = false
+
+[workspace.dependencies]
+libc = "0.2"
+# No `bundled`: an embedder links the system sqlite3 (`-lsqlite3`) beside
+# libiul.a, and two sqlite3 builds in one process is two sets of global state.
+rusqlite = "0.40"
+# Safe wrappers for host syscalls: the *at() calls, xattrs, termios, poll.
+# They take a `BorrowedFd` and a `&CStr` and return the errno they read, so a
+# call site has no `unsafe`, no pointer and no window for `errno` to be
+# overwritten. First used by fakefsify's extraction -- relative to the fakefs
+# data/ directory, where getting a path wrong writes outside it -- and by realfs
+# and fakefs since 2026-09-29. Functions newer than iOS 13 are left out on
+# Apple targets or looked up at run time, which is the property
+# `tools/ios-symbol-floor.sh` checks.
+rustix = { version = "1", features = ["event", "fs", "net", "param", "pipe", "process", "stdio", "system", "termios", "thread"] }
+
+[profile.release]
+strip = true
+# libiul.a is downloaded by its consumer, so the archive's size is a delivery
+# cost. These bring it down by roughly two thirds.
+#
+# Deliberately NOT panic = "abort", which would shrink it further: a failure in
+# the migrate/rebuild path is meant to fail the mount, not the process (see the
+# panic note in CLAUDE.md), and the C ABI shim turns a panic into an error code
+# with catch_unwind — which does nothing if panics abort.
+opt-level = "z"
+lto = true
+codegen-units = 1
+
+# The exception, and the reason there is one: `opt-level = "z"` is chosen for
+# the *archive*, and it costs about 2x on a hot loop. The page table's
+# `pt_set_flags` walks one entry per guest page, and V8 mprotects a 128 MB heap
+# cage -- 32768 pages -- in one call: that call went from 55 us to 120 us when
+# kernel/memory.c became Rust, measured against a worktree at the previous
+# commit, while the one-page case did not move at all. The C it replaced was
+# compiled -O3.
+#
+# Per package rather than for the profile, so the size argument keeps holding
+# everywhere it is the only one that applies. Add a crate here when a
+# measurement says to, not before -- and put the measurement in the commit.
+[profile.release.package.kernel-pagetable]
+opt-level = 3
+
+# The TLB miss path, for the same reason: it runs once per guest memory access
+# that is not already cached, and entry.S calls it with `bl`.
+[profile.release.package.emu-tlb]
+opt-level = 3
+
+# `asbestos-gen` is the obvious next candidate and is deliberately **not** here.
+# It is the instruction decoder -- five thousand lines of table-driven matching,
+# run once per guest instruction compiled -- so `opt-level = "z"` should cost it,
+# and the instrument is exec churn rather than `compute_bench`, which measures
+# already-compiled code. Tried on 2026-09-03 and the answer was noise: thirteen
+# interleaved runs of 1500 `execve`s a side, on a machine whose own numbers
+# drifted from 1831 ms to 3364 ms for the *same* binary during the run. Nothing
+# was added, because the rule above is that a measurement says to.
+
+# And the same two in **dev**, which is a different argument. The guest suite
+# runs `build/iul`, and `tools/build-all.sh` with no `--release` is a debug build:
+# a per-page or per-entry loop at `opt-level = 0` is slow enough to change what
+# that suite measures. `tlb_flush` clears 8192 entries on every syscall return
+# whose mapping generation moved, and moving it from C to unoptimised Rust took
+# a one-page `mprotect` from 12.9 us to 23.0 -- 1.6x -- while the release build
+# did not move at all. Neither crate has logic worth single-stepping; both are
+# arithmetic over a generated struct.
+[profile.dev.package.kernel-pagetable]
+opt-level = 2
+
+[profile.dev.package.emu-tlb]
+opt-level = 2
+
+# The JIT's block cache, in both profiles and for the same reason: a lookup on
+# every block-cache miss and an index query on every store to a code page.
+[profile.release.package.asbestos-crypto]
+opt-level = 3
+
+[profile.dev.package.asbestos-crypto]
+opt-level = 2
+
+[profile.release.package.asbestos-blockcache]
+opt-level = 3
+
+# The software half of the newer CPU features (BF16, and FP16 arithmetic when it
+# lands): bit-level float arithmetic per lane, so the archive-size profile costs
+# it a large factor (bfdot 4s, 20M loop, ns/insn: see the commit).
+[profile.release.package.asbestos-features]
+opt-level = 3
+
+[profile.dev.package.asbestos-features]
+opt-level = 2
+
+[profile.dev.package.asbestos-blockcache]
+opt-level = 2
+
+# The offload fixtures, which stand in for a guest function and are therefore
+# the *only* code running while one executes. `mixbench` at 20M calls, against
+# the C fixtures they replaced in a worktree at the previous commit: 8.1-8.3 s
+# unoptimised against the C's 5.9-7.1, and 6.2-6.5 at opt-level 2. The debug
+# build is what the guest suite and `tests/offload/prebuilt/run.sh` run, so
+# without this the measurement the script exists to take is a measurement of
+# bounds checks on `cpu.regs[i]`.
+#
+# Release is not overridden: the profile is already `opt-level = "z"` with LTO
+# and nothing has measured a difference there for a fixture that only a dev
+# build compiles at all.
+[profile.dev.package.kernel-offloadtestprebuilt]
+opt-level = 2
+
+# The dispatch loop, which runs once per block the JIT does not chain past.
+[profile.release.package.asbestos-dispatch]
+opt-level = 3
+
+[profile.dev.package.asbestos-dispatch]
+opt-level = 2
+
+# Path resolution, which every syscall that names a file pays: `stat` on a
+# twenty-byte path is 3.5 us against `fstat`'s 0.47, so about 3 us of a path
+# syscall is turning the name into a file. It is string arithmetic over short
+# buffers -- normalise, split into components, ask a mount about each -- which
+# is the shape `opt-level = "z"` costs the most.
+#
+# **3%, and the archive got 74 KB smaller.** Twelve interleaved release runs a
+# side on 2026-09-04, `compute_bench` as the control and each reading divided
+# by its own round's: stat 20-byte -3.3%, stat 210-byte -3.6%, stat at depth
+# four -2.5%, with the control itself +0.9% -- so the gain is if anything
+# understated. libiul.a went 32,302,208 -> 32,226,488, which is the same
+# direction `kernel-pagetable` went and the reason the size argument does not
+# bite here.
+#
+# **Two groups were measured and dropped**, which is half of what a measurement
+# is for. `realfs` alone moved nothing (medians within noise over five rounds),
+# so the host `fstatat` per component is the host's time and not this kernel's.
+# And the io/dispatch group -- `kernel-usercopy`, `kernel-rwcalls`,
+# `kernel-syscalldispatch`, `kernel-mmapcalls`, `fdtable` -- moved nothing on
+# `read 64B`, `write 8KB` or `fstat` over four rounds; the 5% those showed in a
+# first combined run was noise, which is what running the group on its own said.
+# `fs-mounttable` measured about 1% on its own, inside this machine's spread,
+# and is not here for that reason.
+[profile.release.package.path]
+opt-level = 3
+
+[profile.release.package.kernel-pathcalls]
+opt-level = 3
+
+[profile.release.package.fs-generic]
+opt-level = 3
+
+# [profile.dev]
+# debug = "line-tables-only"
+
+# [profile.dev.package."*"]
+# debug = false

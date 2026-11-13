@@ -1,0 +1,28 @@
+[package]
+name = "kernel-mqueuecalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "mqueuecalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+util-identity = { path = "../../util/identity" }
+util-timeabi = { path = "../../util/timeabi" }
+util-strace = { path = "../../util/strace" }
+kernel-mqueue = { path = "../mqueue" }
+kernel-taskview = { path = "../taskview" }
+kernel-usercopy = { path = "../usercopy" }
+kernel-pids = { path = "../pids" }
+kernel-signaldeliver = { path = "../signaldeliver" }
+kernel-rlimit = { path = "../rlimit" }
+fs-fdobj = { path = "../../fs/fdobj" }
+fs-mounttable = { path = "../../fs/mounttable" }
+# `mq_notify(SIGEV_THREAD)` names a netlink socket and sends its cookie
+# there.
+fs-sock = { path = "../../fs/sock" }
+libc.workspace = true

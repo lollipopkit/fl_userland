@@ -1,0 +1,34 @@
+[package]
+name = "kernel-ptrace"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_ptrace"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-mmapcalls = { path = "../mmapcalls" }
+kernel-proctree = { path = "../proctree" }
+kernel-pids = { path = "../pids" }
+kernel-taskview = { path = "../../kernel/taskview" }
+# The state this crate is the syscall over. Split out on 2026-09-11 so that
+# `struct task` can name it: see the module comment.
+kernel-ptracestate = { path = "../ptracestate" }
+kernel-usercopy = { path = "../usercopy" }
+util-guestlock = { path = "../../util/guestlock" }
+util-strace = { path = "../../util/strace" }
+# `as_bytes`, for PTRACE_GETSIGINFO.
+kernel-sigqueue = { path = "../sigqueue" }
+# The byte view of a register set, for PTRACE_GETREGSET.
+util-plain = { path = "../../util/plain" }
+
+[dev-dependencies]
+# The six `guest_lock_*` symbols the C provides. Without it this crate's tests
+# cannot link, which is why several GuestLock crates had none at all.
+# The real signal state, so a test runs the real `wait_for`. It ran
+# `crates/util/guestlock-teststub`'s parallel one until 2026-09-08.
+kernel-sighand = { path = "../sighand" }

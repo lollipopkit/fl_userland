@@ -1,0 +1,20 @@
+[package]
+name = "util-errno"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+# Not `util_errno`: the distinction that matters at a call site is *guest*
+# errno numbers, which is what separates this crate from `crates/kernel/errno`
+# -- that one maps a **host** errno onto one of these.
+name = "guest_errno"
+crate-type = ["rlib"]
+
+[dev-dependencies]
+# Only the tests need it, and only as an *independent* source for the numbers:
+# the errnos below 35 are the same on Darwin as on Linux, EAGAIN and EDEADLK
+# excepted, so the host's own header is something to check the list against
+# that is not a copy of the list.
+libc.workspace = true

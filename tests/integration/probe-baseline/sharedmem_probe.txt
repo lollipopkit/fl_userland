@@ -1,0 +1,6 @@
+a shared anonymous page                              -> true
+a child's store is visible to the parent             -> exited value 0x5a5a5a5a
+a 32-bit compare-exchange lock, taken 2000 times each -> parent 2000 child 2000 exited
+a 64-bit fetch_add from both, 2000 each              -> 4000 exited
+a flag another process sets, waited for without a syscall -> seen exited
+the page is still ours after all that                -> 0x5a5a5a5a

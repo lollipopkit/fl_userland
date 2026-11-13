@@ -1,0 +1,75 @@
+[package]
+name = "kernel-abi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "iul_abi"
+crate-type = ["rlib"]
+
+[dependencies]
+libc.workspace = true
+# `siginfo_`, re-exported. A crate of its own so that `kernel-sigqueue` can
+# hold one without depending on this one.
+kernel-siginfo = { path = "../siginfo" }
+# A terminal, which the driver table in `tty_types.rs` names, and the two
+# terminal wire formats re-exported as `winsize_` and `termios_`.
+fs-tty = { path = "../../fs/tty" }
+ldisc = { path = "../../fs/ldisc" }
+# `IoctlArg`, which `FdOps::ioctl` takes.
+util-ioctlarg = { path = "../../util/ioctlarg" }
+# `Plain`, for the wire formats syscalls copy to and from the guest whole.
+util-plain = { path = "../../util/plain" }
+# `struct mount`'s fakefs connection; see `mount_types.rs`.
+fs-fakedb = { path = "../../fs/fakedb" }
+# The guest's errno numbers, one owner since 2026-09-11. The two ops
+# traits answer an errno for an operation a driver does not implement,
+# and six of them were written out here again -- the class that sweep
+# removed, reintroduced by a file created while it was in flight.
+util-errno = { path = "../../util/errno" }
+# `util/sync.h`'s four types, which this crate re-exports so every consumer
+# still writes `ffi::lock_t`. A crate of its own since 2026-09-09 so that the
+# three layer-0 crates that need a mutex do not name a `kernel` one.
+util-synctypes = { path = "../../util/synctypes" }
+# `struct fd`'s host directory stream.
+util-hostdir = { path = "../../util/hostdir" }
+# `Identity<T>`, re-exported. See `src/identity.rs`.
+util-identity = { path = "../../util/identity" }
+# The emulator's types -- `cpu_state`, `tlb`, `mmu` -- which `struct task`
+# embeds and which this crate re-exports. Same argument as `util-synctypes`.
+emu-abi = { path = "../../emu/abi" }
+# Six more objects a task or a descriptor holds **by pointer**, whose owning
+# crate is a leaf -- so naming the real type is not a cycle and the caller
+# that reads the field stops writing a `.cast()`. Three were converted on
+# 2026-09-09 (`hosts`, `native_offload_entry`) and these are the rest of the
+# ones the layering allows; the four still opaque each say which crate and why.
+fdtable = { path = "../../fs/fdtable" }
+kernel-itimer = { path = "../itimer" }
+kernel-grouprusage = { path = "../grouprusage" }
+# The group's stop state. It stands on `util-guestlock` and nothing else, so
+# this edge is not a cycle; it was two placeholders for one object until
+# 2026-09-11, this crate's and `crates/kernel/taskview`'s.
+kernel-groupstop = { path = "../groupstop" }
+# `inode_data.state`, the lock an inode's file locks and socket id sit under.
+util-guestlock = { path = "../../util/guestlock" }
+fs-pollset = { path = "../../fs/pollset" }
+# The four objects `struct task` and `struct tgroup` hold by value. Each is a
+# leaf crate with no dependencies of its own, which is what makes an edge out of
+# this one safe.
+kernel-creds = { path = "../creds" }
+kernel-procattr = { path = "../procattr" }
+kernel-syscallrestart = { path = "../syscallrestart" }
+kernel-groupexit = { path = "../groupexit" }
+# The two objects a task and a group hold **by pointer** whose owning crate has
+# no dependencies of its own, so naming the real type is not a cycle. See
+# `task_types.rs` on why the other three are still placeholders -- it is
+# layering, not FFI-safety.
+kernel-hostthreads = { path = "../hostthreads" }
+kernel-offloadreg = { path = "../offloadreg" }
+
+[build-dependencies]
+# `iul_lock_debug`, which decides whether the `lock_t_lock_debug` re-export
+# exists. See `crates/util/synctypes`, which owns the type.
+iul-buildcfg = { path = "../../util/buildcfg" }

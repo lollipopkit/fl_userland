@@ -1,0 +1,65 @@
+running as root                                      -> true
+## setuid as root
+  before                                             -> real 0 effective 0 saved 0
+  setuid(1000)                                       -> 0
+  after                                              -> real 1000 effective 1000 saved 1000
+  seteuid(0), trying to come back                    -> EPERM
+  setuid(0)                                          -> EPERM
+  after that                                         -> real 1000 effective 1000 saved 1000
+  seteuid(1000) instead                              -> 0
+  after seteuid                                      -> real 0 effective 1000 saved 0
+  seteuid(0), coming back                            -> 0
+  after coming back                                  -> real 0 effective 0 saved 0
+## setuid unprivileged
+  after setresuid(1000, 1000, 1001)                  -> real 1000 effective 1000 saved 1001
+  setuid(1001), one of ours                          -> 0
+  after                                              -> real 1000 effective 1001 saved 1001
+  setuid(1002), one that is not                      -> EPERM
+  seteuid(1000), also ours                           -> 0
+  after that                                         -> real 1000 effective 1000 saved 1001
+  setuid(0)                                          -> EPERM
+## setresuid
+  as root, setresuid(1000, 1001, 1002)               -> 0
+  after                                              -> real 1000 effective 1001 saved 1002
+  setresuid(-1, 1000, -1)                            -> 0
+  after                                              -> real 1000 effective 1000 saved 1002
+  setresuid(-1, 1002, -1), the saved one             -> 0
+  after                                              -> real 1000 effective 1002 saved 1002
+  setresuid(-1, 5000, -1)                            -> EPERM
+  setresuid(5000, -1, -1)                            -> EPERM
+  unchanged                                          -> real 1000 effective 1002 saved 1002
+  as 1000, setreuid(-1, 1000)                        -> 0
+  after                                              -> real 1000 effective 1000 saved 1000
+## the gid calls
+  before                                             -> real 0 effective 0 saved 0
+  setgid(1000) as root                               -> 0
+  after                                              -> real 1000 effective 1000 saved 1000
+  setgid(0), coming back                             -> 0
+  after that                                         -> real 0 effective 0 saved 0
+  setresgid(1000, 1000, 1000)                        -> 0
+  then setresuid(1000, 1000, 1000)                   -> 0
+  setgid(0) now                                      -> EPERM
+  the gids                                           -> real 1000 effective 1000 saved 1000
+## supplementary groups
+  setgroups(two)                                     -> 0
+  getgroups(0, NULL) answers the count               -> 2
+  getgroups(1, buf) with more than one               -> EINVAL
+  getgroups(8, buf)                                  -> [1000, 1001]
+  getgroups(-1, buf)                                 -> EINVAL
+  setgroups as root                                  -> 0
+  and reading them back                              -> [1000, 1001, 1002]
+  setgroups(0, NULL)                                 -> 0
+  getgroups after                                    -> 0
+  setgroups unprivileged                             -> EPERM
+  setgroups(70000)                                   -> EINVAL
+## the fs ids
+  setfsuid(-1) answers the current one               -> 0
+  setfsuid(1000) answers the previous                -> true
+  and it took                                        -> true
+  back to 0                                          -> true
+  unprivileged setfsuid(5000) is refused             -> true
+  and it answered the previous anyway                -> true
+  setfsuid to our own id                             -> true
+  setfsgid(-1) answers the current one               -> 0
+  setfsgid(1000) answers the previous                -> true
+  and it took                                        -> true

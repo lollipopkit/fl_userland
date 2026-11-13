@@ -1,0 +1,20 @@
+[package]
+name = "asbestos-offloadsym"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "offloadsym"
+crate-type = ["rlib"]
+
+[dependencies]
+# The registration table; see that crate.
+util-appendonly = { path = "../../util/appendonly" }
+# The shared Rust types are re-exported by kernel-taskview.
+emu-abi = { path = "../../emu/abi" }
+# The IUL_* settings as a safe read; see crates/util/iulenv.
+util-iulenv = { path = "../../util/iulenv" }
+libc.workspace = true
+emu-tlb = { path = "../../emu/tlb" }

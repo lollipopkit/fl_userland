@@ -1,0 +1,12 @@
+########## a session leader exits ##########
+the foreground member, when the wait returns: SIGHUP pending -> true
+the foreground member, when the wait returns: stopped    -> false
+########## its exit orphans its own group ##########
+the stopped child, when the wait returns: SIGHUP pending -> true
+the stopped child, when the wait returns: stopped        -> false
+########## its exit orphans its child's group ##########
+the stopped child, when the wait returns: SIGHUP pending -> true
+the stopped child, when the wait returns: stopped        -> false
+########## a group that is not orphaned ##########
+a stopped child in the session leader's group: SIGHUP pending -> false
+a stopped child in the session leader's group: stopped   -> true

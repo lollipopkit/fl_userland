@@ -1,0 +1,31 @@
+[package]
+name = "kernel-pollcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "pollcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# The shared Rust types and constants are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+kernel-signaldeliver = { path = "../signaldeliver" }
+fs-fdobj = { path = "../../fs/fdobj" }
+kernel-rescalls = { path = "../rescalls" }
+fs-pollset = { path = "../../fs/pollset" }
+kernel-exitcalls = { path = "../exitcalls" }
+libc.workspace = true
+pollindex = { path = "../../fs/pollindex" }
+util-timeabi = { path = "../../util/timeabi" }
+kernel-usercopy = { path = "../usercopy" }
+util-strace = { path = "../../util/strace" }
+
+# The `POLL_*` bits, which are Rust constants in the crate that owns the
+# readiness model. `fs/poll.h` had them as `#define`s no C read.
+fs-poll = { path = "../../fs/poll" }
+
+[dev-dependencies]

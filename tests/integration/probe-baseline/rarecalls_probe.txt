@@ -1,0 +1,193 @@
+
+########## vmsplice ##########
+vmsplice(-1, NULL, 0, 0)                                 -> EBADF
+vmsplice(-1, NULL, 0, 0x10)                              -> EINVAL
+vmsplice(-1, iov, 1, 0)                                  -> EBADF
+vmsplice(write end, hello)                               -> 5
+  read back                                              -> hello
+vmsplice(write end, two iovecs)                          -> 5
+  read back                                              -> abcde
+vmsplice(write end, SPLICE_F_GIFT)                       -> 5
+  read back                                              -> hello
+vmsplice(write end, flags 0xf)                           -> 5
+  read back                                              -> hello
+vmsplice(write end, flags 0x10)                          -> EINVAL
+vmsplice(write end, no iovecs)                           -> 0
+vmsplice(write end, NULL, 1)                             -> EFAULT
+vmsplice(write end, one empty iovec)                     -> 0
+vmsplice(write end, unmapped base)                       -> EFAULT
+  queued after it                                        -> 0
+vmsplice(write end, good then unmapped)                  -> 2
+  queued after it                                        -> 2
+vmsplice(write end, 1025 iovecs)                         -> EINVAL
+vmsplice(write end, 1 << 32 | 1 iovecs)                  -> 5
+  read back                                              -> hello
+vmsplice(read end, NULL, 0)                              -> 0
+vmsplice(read end, 8 bytes, 3 queued)                    -> 3
+  the buffer                                             -> xyz
+  queued after it                                        -> 0
+vmsplice(read end, 2+2, 6 queued)                        -> 4
+  the buffers                                            -> 1234
+  queued after it                                        -> 2
+vmsplice(read end, empty, SPLICE_F_NONBLOCK)             -> EAGAIN
+vmsplice(read end, empty, blocking)                      -> blocked
+vmsplice(read end, into read-only memory)                -> EFAULT
+  queued after it                                        -> 2
+vmsplice(write end, from read-only memory)               -> 2
+vmsplice(O_NONBLOCK read end, empty)                     -> blocked
+vmsplice(write end, twice the capacity)                  -> 65536
+  queued after it                                        -> 65536
+vmsplice(full write end, SPLICE_F_NONBLOCK)              -> EAGAIN
+vmsplice(full write end, blocking)                       -> blocked
+vmsplice(full O_NONBLOCK write end)                      -> blocked
+vmsplice(read end, no writers)                           -> 0
+vmsplice(write end, no readers)                          -> EPIPE
+  without SIG_IGN, the child                             -> signal 13
+O_DIRECT pipe: vmsplice of two iovecs, then read(64)     -> abcde
+vmsplice(regular file O_RDWR)                            -> EBADF
+vmsplice(regular file, no iovecs)                        -> 0
+vmsplice(regular file O_RDONLY)                          -> EBADF
+vmsplice(O_PATH)                                         -> EBADF
+vmsplice(/dev/null)                                      -> EBADF
+vmsplice(socket)                                         -> EBADF
+vmsplice(/proc/self/fd/<read end>, O_RDWR)               -> 5
+  queued on the read end                                 -> 5
+vmsplice(FIFO, O_RDWR)                                   -> 5
+  read back                                              -> hello
+vmsplice(FIFO, O_RDONLY)                                 -> 4
+  the buffer                                             -> fifo
+vmsplice(FIFO O_RDONLY, empty, SPLICE_F_NONBLOCK)        -> EAGAIN
+
+########## remap_file_pages ##########
+remap_file_pages(page 0 -> file page 3)                  -> ok
+  the four pages read                                    -> dbcd
+  maps at the start                                      -> 1 pages rw-s off 00003000
+  maps at page 1                                         -> 3 pages rw-s off 00001000
+  a store there reaches file page 3                      -> Z
+remap_file_pages(pages 0-1 -> file page 1), across the split -> ok
+  the four pages read                                    -> bccZ
+remap_file_pages(prot PROT_READ)                         -> EINVAL
+remap_file_pages(size 0)                                 -> EINVAL
+remap_file_pages(size 1)                                 -> EINVAL
+remap_file_pages(unaligned start)                        -> ok
+  page 0 reads                                           -> c
+remap_file_pages(flags 0xffff)                           -> ok
+  page 0 reads                                           -> a
+remap_file_pages(past the mapping)                       -> EINVAL
+remap_file_pages(pgoff wraps)                            -> EINVAL
+remap_file_pages(pgoff past the file)                    -> ok
+  touching the page past the end of the file             -> signal 7
+remap_file_pages(read-only shared)                       -> ok
+  page 0 reads                                           -> c
+  maps                                                   -> 1 pages r--s off 00002000
+remap_file_pages(MAP_PRIVATE file)                       -> EINVAL
+remap_file_pages(locked page)                            -> ok
+  maps                                                   -> 1 pages rw-s off 00002000
+remap_file_pages(across two adjacent mappings of one file) -> ok
+  the four pages read                                    -> aabb
+remap_file_pages(across two descriptors of one file)     -> EINVAL
+remap_file_pages(across a protection change)             -> EINVAL
+remap_file_pages(across a hole)                          -> EINVAL
+remap_file_pages(shared anon, page 0 -> 1)               -> ok
+  page 0 reads                                           -> S
+remap_file_pages(private anon)                           -> EINVAL
+remap_file_pages(unmapped)                               -> EINVAL
+
+########## swapon / swapoff ##########
+swapon(NULL, 0)                                          -> EFAULT
+swapon("", 0)                                            -> ENOENT
+swapon(missing, 0)                                       -> ENOENT
+swapon(through a file, 0)                                -> ENOTDIR
+swapon(/tmp, 0)                                          -> EISDIR
+swapon(/dev/null, 0)                                     -> EINVAL
+swapon(a file of zeros, 0)                               -> EINVAL
+swapon(a file of zeros, SWAP_FLAG_PREFER|5)              -> EINVAL
+swapon(a file of zeros, DISCARD_ONCE)                    -> EINVAL
+swapon(missing, 0x100000)                                -> EINVAL
+swapon(NULL, 0x100000)                                   -> EINVAL
+swapoff(NULL)                                            -> EFAULT
+swapoff("")                                              -> ENOENT
+swapoff(missing)                                         -> ENOENT
+swapoff(a socket)                                        -> ENXIO
+swapoff(a FIFO)                                          -> EINVAL
+swapoff(through a file)                                  -> ENOTDIR
+swapoff(/tmp)                                            -> EISDIR
+swapoff(/dev/null)                                       -> EINVAL
+swapoff(a file of zeros)                                 -> EINVAL
+swapoff(/proc/self/status)                               -> EINVAL
+swapoff(a mode 0400 file)                                -> EINVAL
+
+########## quotactl / quotactl_fd ##########
+quotactl(Q_SYNC, NULL)                                   -> ok
+quotactl(Q_SYNC grpquota, NULL)                          -> ok
+quotactl(Q_SYNC type 3, NULL)                            -> EINVAL
+quotactl(Q_GETFMT, NULL)                                 -> ENODEV
+quotactl(Q_GETFMT type 3, NULL)                          -> EINVAL
+quotactl(cmd 0, NULL)                                    -> ENODEV
+quotactl(Q_GETFMT, "")                                   -> ENOENT
+quotactl(Q_GETFMT, missing)                              -> ENOENT
+quotactl(Q_GETFMT, through a file)                       -> ENOTDIR
+quotactl(Q_GETFMT, /tmp)                                 -> ENOTBLK
+quotactl(Q_GETFMT, /dev/null)                            -> ENOTBLK
+quotactl(Q_GETFMT, a file)                               -> ENOTBLK
+quotactl(Q_GETFMT, bad pointer)                          -> EFAULT
+quotactl(Q_GETFMT type 3, /dev/null)                     -> EINVAL
+quotactl(Q_QUOTAON, /dev/null, missing)                  -> ENOTBLK
+quotactl(Q_SETQUOTA, /dev/null)                          -> ENOTBLK
+quotactl(0xff00, /dev/null)                              -> ENOTBLK
+quotactl_fd(-1, Q_GETFMT)                                -> EBADF
+quotactl_fd(-1, type 3)                                  -> EBADF
+quotactl_fd(/tmp, type 3)                                -> EINVAL
+quotactl_fd(/tmp, Q_GETFMT)                              -> ENOSYS
+quotactl_fd(/tmp, Q_GETINFO)                             -> ENOSYS
+quotactl_fd(/tmp, Q_GETQUOTA)                            -> ENOSYS
+quotactl_fd(/tmp, Q_SYNC)                                -> ENOSYS
+quotactl_fd(/tmp, Q_SETQUOTA)                            -> ENOSYS
+quotactl_fd(/tmp, cmd 0)                                 -> ENOSYS
+quotactl_fd(/tmp, 0xff00)                                -> ENOSYS
+quotactl_fd(a file, Q_GETFMT)                            -> ENOSYS
+quotactl_fd(/proc file, Q_GETFMT)                        -> ENOSYS
+quotactl_fd(O_PATH /tmp, Q_GETFMT)                       -> ENOSYS
+
+########## acct ##########
+acct(NULL)                                               -> ok
+acct(missing)                                            -> ENOENT
+acct(/tmp)                                               -> EISDIR
+acct(/dev/null)                                          -> EACCES
+acct(bad pointer)                                        -> EFAULT
+acct(a file)                                             -> ok
+acct(NULL), off again                                    -> ok
+
+########## modules, kexec ##########
+init_module(NULL, 0, "")                                 -> ENOEXEC
+init_module(16 zero bytes, "")                           -> ENOEXEC
+delete_module("rarecalls_probe_none", 0)                 -> ENOENT
+delete_module("rarecalls_probe_none", O_NONBLOCK)        -> ENOENT
+delete_module(NULL, 0)                                   -> EFAULT
+finit_module(-1, "", 0)                                  -> EBADF
+finit_module(-1, "", 0x100)                              -> EINVAL
+finit_module(a file of zeros, "", 0)                     -> ENOEXEC
+kexec_load(0, 0, NULL, flags 0xdead0000)                 -> ENOSYS
+kexec_load(0, 17 segments, NULL, 0)                      -> ENOSYS
+kexec_file_load(-1, -1, 0, "", flags 0x100)              -> ENOSYS
+
+########## retired numbers ##########
+lookup_dcookie(0, NULL, 0)                               -> ENOSYS
+nfsservctl(0, NULL, NULL)                                -> ENOSYS
+
+########## pivot_root ##########
+pivot_root(missing, /)                                   -> ENOENT
+pivot_root(a file, /)                                    -> ENOTDIR
+pivot_root(/tmp/x, /tmp/x), not a mount                  -> EINVAL
+pivot_root(NULL, /)                                      -> EFAULT
+
+########## vhangup ##########
+vhangup(), no controlling terminal                       -> ok
+  the pty is the controlling terminal                    -> true
+vhangup(), with one                                      -> ok
+  read the old slave descriptor                          -> 0
+  write the old slave descriptor                         -> EIO
+  TIOCGSID on it                                         -> EIO
+  reopen the slave                                       -> ok
+  write the new descriptor                               -> 1
+  open /dev/tty                                          -> ENXIO

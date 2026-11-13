@@ -1,0 +1,20 @@
+[package]
+name = "util-logline"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "logline"
+crate-type = ["rlib"]
+
+[dependencies]
+# The ring the kernel log is kept in. `kernel-syslogcalls` until 2026-09-29,
+# which owned the ring, and through it `kernel-usercopy` and `kernel-taskview`:
+# every crate that prints depended on the syscall layer to do it.
+util-fifo = { path = "../fifo" }
+libc = "0.2"
+
+[build-dependencies]
+iul-buildcfg = { path = "../buildcfg" }

@@ -1,0 +1,34 @@
+[package]
+name = "fs-mountcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "mountcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+fs-generic = { path = "../generic" }
+# The four filesystems this kernel is built with, whose `fs_ops` tables the
+# registry holds. They were `extern "C"` statics until 2026-09-09; see the
+# comment above `FILESYSTEMS`.
+realfs = { path = "../realfs" }
+proc = { path = "../proc" }
+devpts = { path = "../devpts" }
+tmpfs = { path = "../tmpfs" }
+fs-mount = { path = "../mount" }
+kernel-mmapcalls = { path = "../../kernel/mmapcalls" }
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true
+util-strace = { path = "../../util/strace" }
+# statmount and listmount: the table itself, a descriptor's mount, the device
+# split mountinfo uses, and the extensible request struct.
+fs-mounttable = { path = "../mounttable" }
+fs-fdobj = { path = "../fdobj" }
+fs-devices = { path = "../devices" }
+kernel-usercopy = { path = "../../kernel/usercopy" }
+
+[dev-dependencies]

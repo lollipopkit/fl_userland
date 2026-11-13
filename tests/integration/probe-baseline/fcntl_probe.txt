@@ -1,0 +1,178 @@
+setup                                                      -> true
+## F_GETFL reports what was opened, and more
+a file opened O_RDWR|O_APPEND                              -> O_RDWR|O_APPEND|O_LARGEFILE
+a file opened O_RDONLY                                     -> O_RDONLY|O_LARGEFILE
+an O_PATH descriptor                                       -> O_ACCMODE=3|O_PATH
+a pipe's read end                                          -> O_RDONLY
+a pipe's write end                                         -> O_WRONLY
+a pipe made with O_DIRECT, read end                        -> O_RDONLY
+a pipe made with O_DIRECT, write end                       -> O_WRONLY|O_DIRECT
+a socket                                                   -> O_RDWR
+a directory                                                -> O_RDONLY|O_LARGEFILE|O_DIRECTORY
+a file opened with every flag at once                      -> O_WRONLY|O_NONBLOCK|O_NOATIME|O_DSYNC|O_SYNC|O_LARGEFILE|O_NOFOLLOW
+  F_CREATED_QUERY on it                                    -> 1
+  F_CREATED_QUERY on a second O_CREAT open of it           -> 0
+a file opened O_DSYNC                                      -> O_RDONLY|O_DSYNC|O_SYNC|O_LARGEFILE
+O_PATH|O_DIRECTORY|O_CLOEXEC on a directory                -> O_ACCMODE=3|O_DIRECTORY|O_PATH
+O_PATH|O_DIRECTORY on a regular file                       -> ENOTDIR
+## F_SETFL: which bits take
+F_SETFL(O_NONBLOCK) on the file                            -> 0
+  flags after                                              -> O_RDWR|O_NONBLOCK|O_LARGEFILE
+F_SETFL(0) clears O_APPEND too                             -> 0
+  flags after                                              -> O_RDWR|O_LARGEFILE
+F_SETFL(O_APPEND)                                          -> 0
+  flags after                                              -> O_RDWR|O_APPEND|O_LARGEFILE
+F_SETFL(O_RDONLY) cannot change the access mode            -> 0
+  flags after                                              -> O_RDWR|O_LARGEFILE
+F_SETFL(O_CLOEXEC|O_CREAT|O_TRUNC), which are not status flags -> 0
+  flags after                                              -> O_RDWR|O_LARGEFILE
+F_SETFL(O_NOATIME) as the owner                            -> 0
+  flags after                                              -> O_RDWR|O_NOATIME|O_LARGEFILE
+F_SETFL(O_NOATIME) as somebody else                        -> EPERM
+  flags after                                              -> O_RDWR|O_LARGEFILE
+F_SETFL(O_NONBLOCK) as somebody else, which needs nothing  -> 0
+F_SETFL(O_DIRECT) on a regular file                        -> 0
+  flags after                                              -> O_RDWR|O_DIRECT|O_LARGEFILE
+F_SETFL(O_DIRECT) on a pipe, which is packet mode          -> 0
+  flags after                                              -> O_WRONLY|O_DIRECT
+  and the record boundary it makes                         -> 4 then 2
+F_SETFL(0) on the pipe turns packet mode off again         -> 0
+  and two writes read as one                               -> 6
+F_SETFL(O_DIRECT) on a socket                              -> EINVAL
+  flags after                                              -> O_RDWR
+F_SETFL(O_ASYNC) on a socket                               -> 0
+  flags after                                              -> O_RDWR|O_ASYNC
+F_SETFL(O_ASYNC) on a pipe                                 -> 0
+  flags after                                              -> O_RDONLY|O_ASYNC
+F_SETFL(O_ASYNC) on a regular file, which has no fasync    -> 0
+  flags after                                              -> O_RDWR|O_LARGEFILE
+F_SETFL(O_SYNC), which cannot be set this way              -> 0
+  flags after                                              -> O_RDWR|O_LARGEFILE
+F_SETFL(0x40000000), a bit that means nothing              -> 0
+  flags after                                              -> O_RDWR|O_LARGEFILE
+F_SETFL(O_NONBLOCK) on an O_PATH descriptor                -> EBADF
+  flags after                                              -> O_ACCMODE=3|O_PATH
+## F_GETFD and F_SETFD
+F_GETFD on a fresh descriptor                              -> 0
+F_SETFD(FD_CLOEXEC)                                        -> 0
+  F_GETFD after                                            -> 1
+F_SETFD(0xff), every bit                                   -> 0
+  F_GETFD after, only the one bit is kept                  -> 1
+F_SETFD(0)                                                 -> 0
+  F_GETFD after                                            -> 0
+F_SETFD(-1)                                                -> 0
+  F_GETFD after                                            -> 1
+## F_DUPFD
+F_DUPFD(0) answers a new descriptor                        -> true
+F_DUPFD(100) lands at or above 100                         -> true
+F_DUPFD(RLIMIT_NOFILE)                                     -> EINVAL
+F_DUPFD(RLIMIT_NOFILE - 1)                                 -> true
+F_DUPFD(-1)                                                -> EINVAL
+F_DUPFD(1 << 40), which is F_DUPFD(0) in 32 bits           -> true
+F_DUPFD((1 << 32) | 200) lands at or above 200             -> true
+F_DUPFD_CLOEXEC sets the flag on the copy                  -> 1
+F_DUPFD_QUERY(same fd)                                     -> 1
+F_DUPFD_QUERY(a dup of it)                                 -> 1
+F_DUPFD_QUERY(other fd)                                    -> 0
+F_DUPFD_QUERY(999)                                         -> EBADF
+F_DUPFD_QUERY((1 << 32) | same fd)                         -> 1
+F_CREATED_QUERY on the file this opened with O_CREAT       -> 1
+F_CREATED_QUERY on the read-only open of it                -> 0
+F_CREATED_QUERY on a pipe                                  -> 0
+## owners and signals, for SIGIO
+F_GETOWN on the socket, nobody yet                         -> 0
+F_SETOWN(getpid) on the socket                             -> 0
+  F_GETOWN after, is it us                                 -> true
+F_SETOWN(-getpgrp), a process group                        -> 0
+  F_GETOWN after, is it minus our group                    -> true
+F_SETOWN(0) clears it                                      -> 0
+  F_GETOWN after                                           -> 0
+F_SETOWN(999999), no such process                          -> ESRCH
+F_SETOWN on a regular file                                 -> 0
+F_SETOWN on a pipe                                         -> 0
+F_GETOWN_EX into NULL                                      -> EFAULT
+F_GETOWN_EX                                                -> type 1 pid-is-us false
+F_SETOWN_EX(F_OWNER_TID, gettid)                           -> 0
+F_SETOWN_EX(type 7)                                        -> EINVAL
+F_GETSIG, the default                                      -> 0
+F_SETSIG(SIGUSR1)                                          -> 0
+  F_GETSIG after                                           -> 10
+F_SETSIG(0), back to SIGIO                                 -> 0
+F_SETSIG(65)                                               -> EINVAL
+F_SETSIG(-1)                                               -> EINVAL
+F_SETSIG((1 << 32) | SIGUSR1)                              -> 0
+  F_GETSIG after                                           -> 10
+F_SETSIG(0), back to SIGIO                                 -> 0
+## leases and notification
+F_GETLEASE on the file                                     -> 2
+F_SETLEASE(F_RDLCK) on a file open for writing             -> EAGAIN
+F_SETLEASE(F_RDLCK) on a file open read-only               -> EAGAIN
+  F_GETLEASE after                                         -> 2
+F_SETLEASE(F_UNLCK)                                        -> EAGAIN
+F_SETLEASE(F_WRLCK) while it is open elsewhere             -> EAGAIN
+F_SETLEASE(7)                                              -> EINVAL
+F_SETLEASE on a pipe                                       -> EINVAL
+F_SETLEASE(F_UNLCK) on a pipe                              -> EINVAL
+F_GETLEASE on a pipe                                       -> 2
+F_SETLEASE(F_RDLCK) as somebody else                       -> EACCES
+F_NOTIFY(DN_MODIFY) on a directory                         -> 0
+F_NOTIFY(DN_MODIFY) on a file                              -> ENOTDIR
+F_NOTIFY(0) on a directory                                 -> 0
+F_NOTIFY(0x100) on a directory                             -> 0
+## pipes and hints
+F_GETPIPE_SZ on the pipe                                   -> 65536
+F_GETPIPE_SZ on a file                                     -> EBADF
+F_SETPIPE_SZ(0)                                            -> 4096
+  F_GETPIPE_SZ after                                       -> 4096
+F_SETPIPE_SZ(1)                                            -> 4096
+  F_GETPIPE_SZ after                                       -> 4096
+F_SETPIPE_SZ(1 << 20)                                      -> 1048576
+F_SETPIPE_SZ((1 << 32) | 4096), which is 4096 in 32 bits   -> 4096
+F_SETPIPE_SZ(1 << 31) unprivileged                         -> EPERM
+F_SETPIPE_SZ((1 << 20) + 1) unprivileged                   -> EPERM
+F_SETPIPE_SZ(1 << 20) unprivileged                         -> 1048576
+F_SETPIPE_SZ(-1) unprivileged                              -> EINVAL
+F_SETPIPE_SZ(-1)                                           -> EINVAL
+F_SETPIPE_SZ on a file                                     -> EBADF
+F_GET_RW_HINT into NULL                                    -> EFAULT
+F_GET_RW_HINT                                              -> 0
+F_SET_RW_HINT(2)                                           -> 0
+  F_GET_RW_HINT after                                      -> 2
+  F_GET_RW_HINT through another descriptor of the file     -> 2
+F_SET_RW_HINT(99)                                          -> EINVAL
+F_SET_RW_HINT(5), the largest                              -> 0
+F_SET_RW_HINT into NULL                                    -> EFAULT
+F_GET_RW_HINT on a pipe                                    -> 0
+F_GET_FILE_RW_HINT                                         -> EINVAL
+F_SET_FILE_RW_HINT(2)                                      -> EINVAL
+## the FIO* ioctls, which are F_SETFL and F_SETOWN written another way
+FIONBIO(1) on a pipe                                       -> 0
+  flags after                                              -> O_RDONLY|O_NONBLOCK
+FIONBIO(0) on a pipe                                       -> 0
+  flags after                                              -> O_RDONLY
+FIONBIO(1) on a regular file                               -> 0
+  flags after                                              -> O_RDWR|O_APPEND|O_NONBLOCK|O_LARGEFILE
+FIONBIO(0) on a regular file                               -> 0
+  flags after                                              -> O_RDWR|O_APPEND|O_LARGEFILE
+FIOASYNC(1) on a socket                                    -> 0
+  flags after                                              -> O_RDWR|O_ASYNC
+FIOASYNC(0) on a socket                                    -> 0
+  flags after                                              -> O_RDWR
+FIOASYNC(0) on a regular file, which has no fasync         -> 0
+FIOASYNC(1) on a regular file                              -> ENOTTY
+  flags after                                              -> O_RDWR|O_APPEND|O_LARGEFILE
+FIOCLEX on a pipe                                          -> 0
+  F_GETFD after                                            -> 1
+FIONCLEX on a pipe                                         -> 0
+  F_GETFD after                                            -> 0
+FIOSETOWN(pid) on a socket                                 -> 0
+  F_GETOWN after                                           -> 1
+FIOGETOWN on a socket                                      -> 0, owner 1
+FIONBIO on a descriptor nobody has                         -> EBADF
+FIONBIO on an O_PATH descriptor                            -> EBADF
+## a command nobody knows, and a descriptor nobody has
+fcntl(file, 99)                                            -> EINVAL
+fcntl(file, -1)                                            -> EINVAL
+fcntl(999, F_GETFD)                                        -> EBADF
+fcntl(999, 99), the descriptor is judged first             -> EBADF
+fcntl(-1, F_GETFD)                                         -> EBADF

@@ -1,0 +1,30 @@
+########## brk ##########
+  brk #0                     SIGTRAP code 1 at the instruction
+  brk #1 (Rust's abort)      SIGTRAP code 1 at the instruction
+  brk #0x800 (UBSan)         SIGTRAP code 1 at the instruction
+  brk #0xf000 (gdb)          SIGTRAP code 1 at the instruction
+########## udf and the permanently undefined ##########
+  udf #0                     SIGILL code 1 at the instruction
+  udf #0xdead                SIGILL code 1 at the instruction
+  .inst 0x00000000           SIGILL code 1 at the instruction
+  .inst 0xffffffff           SIGILL code 1 at the instruction
+########## hlt ##########
+  hlt #0xf000                SIGILL code 1 at the instruction
+########## a handler that moves the pc ##########
+  brk, pc += 4, return       resumed after it
+########## svc ##########
+  svc with syscall 4096      returned -38
+  svc with a non-zero imm    getpid worked: true
+########## the hint space ##########
+  hint #25 (paciasp)         did not trap
+  hint #29 (autiasp)         did not trap
+  hint #27 (pacibsp)         did not trap
+  hint #31 (autibsp)         did not trap
+  hint #32 (bti)             did not trap
+  hint #34 (bti c)           did not trap
+  hint #36 (bti j)           did not trap
+  hint #38 (bti jc)          did not trap
+  hint #24 (xpaclri)         did not trap
+  paciasp then autiasp       x30 unchanged: true
+########## after the handler ##########
+  returning from a brk       re-executes (correct)

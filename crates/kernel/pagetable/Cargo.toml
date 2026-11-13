@@ -1,0 +1,28 @@
+[package]
+name = "kernel-pagetable"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "pagetable"
+crate-type = ["rlib"]
+
+[dependencies]
+emu-tlb = { path = "../../emu/tlb" }
+rustix.workspace = true
+util-errno = { path = "../../util/errno" }
+kernel-vdso = { path = "../vdso" }
+util-locks = { path = "../../util/locks" }
+kernel-rlimit = { path = "../rlimit" }
+asbestos-diag = { path = "../../asbestos/diag" }
+asbestos-blockcache = { path = "../../asbestos/blockcache" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+# errno_map as a Rust call; through bindgen until 2026-09-04.
+kernel-errno = { path = "../errno" }
+libc.workspace = true

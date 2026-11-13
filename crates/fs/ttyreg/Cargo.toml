@@ -1,0 +1,15 @@
+[package]
+name = "ttyreg"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "ttyreg"
+crate-type = ["rlib"]
+
+[dependencies]
+# `Identity<T>`: which terminal a slot holds, as an address this crate
+# compares and never reads. See `Slot`.
+util-identity = { path = "../../util/identity" }

@@ -1,0 +1,51 @@
+## the fork shapes
+SIGCHLD alone                                              -> child ran
+no exit signal                                             -> child ran
+exit signal SIGUSR1                                        -> child ran
+exit signal 64                                             -> child ran
+exit signal 65                                             -> EINVAL
+exit signal 255                                            -> EINVAL
+CLONE_FS                                                   -> child ran
+CLONE_FILES                                                -> child ran
+CLONE_SYSVSEM                                              -> child ran
+CLONE_PTRACE                                               -> child ran
+CLONE_UNTRACED                                             -> child ran
+CLONE_IO                                                   -> child ran
+CLONE_DETACHED                                             -> child ran
+CLONE_VFORK                                                -> child ran
+CLONE_PARENT                                               -> EINVAL
+CLONE_CLEAR_SIGHAND, bit 32                                -> child ran
+CLONE_INTO_CGROUP, bit 33                                  -> child ran
+every bit above 33                                         -> child ran
+an unused bit, 0x40                                        -> EINVAL
+## the thread rules
+CLONE_THREAD alone                                         -> EINVAL
+CLONE_THREAD | CLONE_SIGHAND, no VM                        -> EINVAL
+CLONE_SIGHAND, no VM                                       -> EINVAL
+CLONE_THREAD | CLONE_VM, no SIGHAND                        -> EINVAL
+CLONE_THREAD | CLONE_VM | CLONE_SIGHAND | CLONE_PIDFD      -> EFAULT
+CLONE_THREAD | CLONE_VM | CLONE_SIGHAND | CLONE_NEWPID     -> EPERM
+CLONE_THREAD | CLONE_VM | CLONE_SIGHAND | CLONE_NEWUSER    -> EPERM
+CLONE_VM | CLONE_SIGHAND | CLONE_THREAD | CLONE_NEWNS | CLONE_FS -> EPERM
+## the pidfd rules
+CLONE_PIDFD | CLONE_DETACHED                               -> EINVAL
+CLONE_PIDFD | CLONE_PARENT_SETTID                          -> EINVAL
+CLONE_PIDFD with a NULL ptid                               -> EFAULT
+CLONE_PIDFD with a bad ptid                                -> EFAULT
+CLONE_PIDFD                                                -> child ran, fd set
+## the namespace rules
+CLONE_NEWNS | CLONE_FS                                     -> EPERM
+CLONE_NEWUSER | CLONE_FS                                   -> EPERM
+CLONE_NEWIPC | CLONE_SYSVSEM                               -> EPERM
+CLONE_NEWPID | CLONE_PARENT                                -> EPERM
+CLONE_NEWUSER | CLONE_PARENT                               -> EPERM
+CLONE_NEWCGROUP                                            -> EPERM
+CLONE_NEWUTS                                               -> EPERM
+## the tid pointers
+CLONE_PARENT_SETTID with a NULL ptid                       -> child ran
+CLONE_PARENT_SETTID with a bad ptid                        -> child ran
+CLONE_PARENT_SETTID                                        -> child ran, tid set
+CLONE_CHILD_SETTID with a bad ctid                         -> child ran
+CLONE_CHILD_CLEARTID with a bad ctid                       -> child ran
+CLONE_SETTLS with tls 0                                    -> child ran
+CLONE_SETTLS with an unmapped tls                          -> child ran

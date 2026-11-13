@@ -1,0 +1,71 @@
+########## one of each, every thread blocking them ##########
+/proc/<pid>/status                                           -> SigPnd {12} ShdPnd {10}
+/proc/<pid>/task/<main>/status                               -> SigPnd {12} ShdPnd {10}
+/proc/<pid>/task/<other>/status                              -> SigPnd {28} ShdPnd {10}
+sigpending in the main thread                                -> {10,12}
+sigpending in the other thread                               -> {10,28}
+/proc/<pid>/stat signal fields 31-34                         -> 2048 134220288 4096 1088
+the other thread unblocks SIGUSR1                            -> done
+  it ran on                                                  -> the other thread
+  /proc/<pid>/status after                                   -> SigPnd {12} ShdPnd {}
+  sigpending in the main thread after                        -> {12}
+########## sigwaitinfo in another thread ##########
+kill, then sigwaitinfo in the other thread                   -> signal 10, code 0, from this process true
+  /proc/<pid>/status after                                   -> SigPnd {} ShdPnd {}
+sigwaitinfo in a thread, then kill                           -> signal 10
+tgkill(main), sigtimedwait(0) in the other thread            -> EAGAIN
+  sigpending in the main thread                              -> {10}
+########## signalfd in another thread ##########
+kill, then a signalfd read in the other thread               -> signal 10
+tgkill(main), then a signalfd read in the other thread       -> EAGAIN
+  the main thread reads the same descriptor                  -> signal 10
+########## kill from a thread ##########
+the other thread calls kill(getpid()), nobody blocks it      -> the main thread
+the other thread calls raise()                               -> the other thread
+########## execve ##########
+before exec: /proc/<pid>/status                              -> SigPnd {12} ShdPnd {10}
+  after exec: /proc/<pid>/status                             -> SigPnd {12} ShdPnd {10}
+  after exec: sigpending                                     -> {10,12}
+########## execve from a thread that is not the leader ##########
+before exec: /proc/<pid>/status                              -> SigPnd {12} ShdPnd {10}
+  after exec from a thread: /proc/<pid>/status               -> SigPnd {28} ShdPnd {10}
+  after exec from a thread: sigpending                       -> {10,28}
+########## fork ##########
+the forked child: /proc/<pid>/status                         -> SigPnd {} ShdPnd {}
+the forked child: sigpending                                 -> {}
+the parent after the fork: sigpending                        -> {10,12}
+########## a thread exits with a signal of its own pending ##########
+before the thread exits: /proc/<pid>/status                  -> SigPnd {} ShdPnd {10}
+after it exits: /proc/<pid>/status                           -> SigPnd {} ShdPnd {10}
+after it exits: sigpending                                   -> {10}
+########## SIG_IGN discards what is pending ##########
+before: /proc/<pid>/status                                   -> SigPnd {10} ShdPnd {10,12}
+SIG_IGN for SIGUSR1: /proc/<pid>/status                      -> SigPnd {} ShdPnd {12}
+  sigpending                                                 -> {12}
+SIG_IGN for SIGUSR2: the other thread's sigpending           -> {}
+  /proc/<pid>/task/<other>/status                            -> SigPnd {} ShdPnd {}
+########## timers ##########
+ITIMER_REAL fired: /proc/<pid>/status                        -> SigPnd {} ShdPnd {14}
+SIGEV_SIGNAL timer fired                                     -> ok
+  /proc/<pid>/status                                         -> SigPnd {} ShdPnd {10,14}
+SIGEV_THREAD_ID timer at the other thread fired              -> ok
+  /proc/<pid>/task/<main>/status                             -> SigPnd {} ShdPnd {10,14}
+  /proc/<pid>/task/<other>/status                            -> SigPnd {12} ShdPnd {10,14}
+########## SIGCHLD and SIGPIPE ##########
+a child exited: /proc/<pid>/status                           -> SigPnd {} ShdPnd {17}
+the other thread writes to a pipe with no reader             -> write -1, errno 32
+  /proc/<pid>/status                                         -> SigPnd {} ShdPnd {17}
+  /proc/<pid>/task/<other>/status                            -> SigPnd {13} ShdPnd {17}
+########## a terminal ##########
+the slave is the controlling terminal                        -> yes
+^C on the terminal: /proc/<pid>/status                       -> SigPnd {} ShdPnd {2}
+########## queued values ##########
+two sigqueue(pid) of SIGRTMIN+1: /proc/<pid>/status          -> SigPnd {} ShdPnd {36}
+  the other thread takes them, values                        -> 1, 2
+rt_sigqueueinfo(pid, SIGUSR1)                                -> 0
+rt_tgsigqueueinfo(pid, other, SIGUSR2)                       -> 0
+  /proc/<pid>/status                                         -> SigPnd {} ShdPnd {10}
+  /proc/<pid>/task/<other>/status                            -> SigPnd {12} ShdPnd {10}
+########## pidfd ##########
+pidfd_send_signal(self, SIGUSR1)                             -> 0
+  /proc/<pid>/status                                         -> SigPnd {} ShdPnd {10}

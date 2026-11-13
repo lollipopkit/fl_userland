@@ -1,0 +1,22 @@
+[package]
+name = "kernel-sigqueue"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_sigqueue"
+# rlib: crates/iul is the one staticlib in the product and links this in. See
+# the staticlib note in CLAUDE.md.
+crate-type = ["rlib"]
+
+[dependencies]
+# `siginfo_`, a guest wire format. `kernel-abi` until 2026-09-29, the whole
+# shared-types crate for one type; before 2026-09-09 it was
+# `crates/kernel/taskview`, the accessors. Each step down is an edge that had
+# been keeping somebody else's type opaque.
+kernel-siginfo = { path = "../siginfo" }
+# The alternate stack's rules. The stack itself is per thread, so it is a
+# field here rather than of the shared disposition table.
+kernel-sigdisp = { path = "../sigdisp" }

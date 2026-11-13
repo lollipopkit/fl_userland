@@ -1,0 +1,336 @@
+## POSIX message queues
+## names
+  create mqp_a                                                   ok
+  reopen mqp_a                                                   ok
+  O_CREAT|O_EXCL on an existing name                             -EEXIST
+  O_CREAT on an existing name                                    ok
+  open a missing name                                            -ENOENT
+  leading slash, O_CREAT                                         -EACCES
+  leading slash, existing                                        -EACCES
+  embedded slash                                                 -EACCES
+  empty name                                                     -ENOENT
+  "."                                                            -EACCES
+  ".."                                                           -EACCES
+  "..."                                                          0
+  a 255-byte name                                                ok
+  unlink the 255-byte name                                       0
+  a 256-byte name                                                -ENAMETOOLONG
+  a 4096-byte name                                               -ENAMETOOLONG
+  a null name                                                    -EFAULT
+  an unmapped name                                               -EFAULT
+  unlink a missing name                                          -ENOENT
+  unlink with a leading slash                                    -EACCES
+  unlink ""                                                      -ENOENT
+  unlink "."                                                     -EACCES
+  unlink ".."                                                    -EACCES
+  unlink a 256-byte name                                         -ENAMETOOLONG
+  unlink null                                                    -EFAULT
+  unlink mqp_a                                                   0
+  unlink mqp_a again                                             -ENOENT
+## access modes
+  create                                                         ok
+  O_RDONLY                                                       ok
+  O_WRONLY                                                       ok
+  existing, O_ACCMODE 3                                          -EINVAL
+  existing, O_CREAT | 3                                          -EINVAL
+  send on O_RDONLY                                               -EBADF
+  send on O_WRONLY                                               0
+  receive on O_WRONLY                                            -EBADF
+  receive on O_RDONLY                                            1
+  notify on O_WRONLY, SIGEV_NONE                                 0
+    and NULL from the same process                               0
+  F_GETFL O_RDONLY                                               0o0
+  F_GETFL O_WRONLY                                               0o1
+  F_GETFL O_RDWR                                                 0o2
+  create with O_ACCMODE 3                                        ok
+    F_GETFL                                                      0o3
+    send                                                         -EBADF
+    receive                                                      -EBADF
+    getsetattr                                                   flags=0o0 maxmsg=4 msgsize=16 curmsgs=0
+    notify SIGEV_NONE                                            0
+    read                                                         -EBADF
+    pread                                                        -EBADF
+    write                                                        -EBADF
+    lseek                                                        80
+    ftruncate                                                    -EINVAL
+    poll                                                         1 revents=0x4
+  O_CLOEXEC: F_GETFD                                             1
+  O_CLOEXEC: F_GETFL                                             0o2000002
+  F_SETFD 0                                                      0
+    F_GETFD after                                                0
+  no O_CLOEXEC: F_GETFD                                          1
+  O_NONBLOCK: F_GETFL                                            0o4002
+  O_NONBLOCK: getsetattr                                         flags=0o4000 maxmsg=10 msgsize=8192 curmsgs=0
+  O_TRUNC | O_APPEND | O_NOCTTY                                  ok
+    F_GETFL                                                      0o2002
+## attributes
+  maxmsg 0                                                       -EINVAL
+  msgsize 0                                                      -EINVAL
+  maxmsg -1                                                      -EINVAL
+  msgsize -1                                                     -EINVAL
+  maxmsg 1 msgsize 1                                             ok, flags=0o0 maxmsg=1 msgsize=1 curmsgs=0
+  maxmsg 10 msgsize 8192                                         ok, flags=0o0 maxmsg=10 msgsize=8192 curmsgs=0
+  maxmsg 1<<40                                                   -EINVAL
+  msgsize 1<<40                                                  -EINVAL
+  maxmsg 5 msgsize 100                                           ok, flags=0o0 maxmsg=5 msgsize=100 curmsgs=0
+  maxmsg i64::MIN                                                -EINVAL
+  flags, curmsgs and reserved set in the attr                    flags=0o0 maxmsg=3 msgsize=7 curmsgs=0
+  bad attr on an existing queue                                  flags=0o0 maxmsg=3 msgsize=7 curmsgs=0
+  bad attr without O_CREAT, existing                             flags=0o0 maxmsg=3 msgsize=7 curmsgs=0
+  bad attr without O_CREAT, missing                              -ENOENT
+  NULL attr: the defaults                                        flags=0o0 maxmsg=10 msgsize=8192 curmsgs=0
+  attr unmapped, missing                                         -EFAULT
+  attr unmapped, without O_CREAT                                 -EFAULT
+  attr with only 32 bytes readable                               -EFAULT
+  attr with exactly 64 bytes readable                            ok
+## the descriptor
+  fstat, mode 0777 under umask 022                               mode=0o100755 size=80 nlink=1 uid=0 gid=0 blksize=4096 blocks=0 rdev=0
+  fstatfs                                                        type=0x19800202 bsize=4096 namelen=255
+  /proc/self/fd link                                             "/mqp_d"
+  status, empty                                                  "QSIZE:0          NOTIFY:0     SIGNO:0     NOTIFY_PID:0     \n"
+  read 10 bytes                                                  10
+    which are                                                    "QSIZE:0   "
+  read the rest                                                  50
+  read at the end                                                0
+  lseek SEEK_CUR 0                                               60
+  lseek SEEK_END 0                                               80
+  pread at 0                                                     60
+  write                                                          -EINVAL
+  ioctl FIONREAD                                                 0
+  mmap                                                           -ENODEV
+  fchmod 0640                                                    0
+    fstat after                                                  mode=0o100640 size=80 nlink=1 uid=0 gid=0 blksize=4096 blocks=0 rdev=0
+  ftruncate 1000                                                 0
+    fstat after                                                  mode=0o100640 size=1000 nlink=1 uid=0 gid=0 blksize=4096 blocks=0 rdev=0
+    lseek SEEK_END                                               1000
+    pread at 0                                                   60
+  ftruncate -1                                                   -EINVAL
+  ftruncate                                                      0
+  pread at -1                                                    -EINVAL
+  pread at 79                                                    0
+  pread at 1000                                                  0
+  lseek SEEK_SET -1                                              -EINVAL
+  lseek SEEK_SET 1<<40                                           1099511627776
+    read there                                                   0
+  lseek SEEK_DATA 0                                              -errno 6
+  futimens                                                       0
+    mtime                                                        5
+  fchown 1,1                                                     0
+    fstat after                                                  mode=0o100640 size=0 nlink=1 uid=1 gid=1 blksize=4096 blocks=0 rdev=0
+  fsync                                                          -EINVAL
+  poll, empty                                                    1 revents=0x4
+  poll, one of two                                               1 revents=0x5
+  status, 5 bytes queued                                         "QSIZE:5          NOTIFY:0     SIGNO:0     NOTIFY_PID:0     \n"
+  poll, full                                                     1 revents=0x1
+  status, 8 bytes queued                                         "QSIZE:8          NOTIFY:0     SIGNO:0     NOTIFY_PID:0     \n"
+  fstat, 8 bytes queued                                          mode=0o100640 size=0 nlink=1 uid=0 gid=0 blksize=4096 blocks=0 rdev=0
+  FIONREAD at offset 3                                           0 n=-3
+  poll O_RDONLY, full                                            1 revents=0x1
+  poll O_WRONLY, full                                            1 revents=0x1
+  read on O_WRONLY                                               -EBADF
+  pread on O_WRONLY                                              -EBADF
+  lseek on O_WRONLY                                              0
+  ftruncate on O_RDONLY                                          -EINVAL
+  write on O_RDONLY                                              -EBADF
+  F_SETFL O_NONBLOCK on a dup: getsetattr on the original        flags=0o4000 maxmsg=2 msgsize=8 curmsgs=2
+  unlink while open                                              0
+  /proc/self/fd link after unlink                                "/mqp_d (deleted)"
+  fstat after unlink                                             mode=0o100640 size=0 nlink=0 uid=0 gid=0 blksize=4096 blocks=0 rdev=0
+  fstat, mode 0o7777                                             mode=0o107755 size=80 nlink=1 uid=0 gid=0 blksize=4096 blocks=0 rdev=0
+  fstat, mode 0o4755                                             mode=0o104755 size=80 nlink=1 uid=0 gid=0 blksize=4096 blocks=0 rdev=0
+  fstat, mode 0o1700                                             mode=0o101700 size=80 nlink=1 uid=0 gid=0 blksize=4096 blocks=0 rdev=0
+  fstat, mode 0o0                                                mode=0o100000 size=80 nlink=1 uid=0 gid=0 blksize=4096 blocks=0 rdev=0
+  fstat, mode 0777 under umask 0                                 mode=0o100777 size=80 nlink=1 uid=0 gid=0 blksize=4096 blocks=0 rdev=0
+## send and receive
+  prio 32768                                                     -EINVAL
+  prio u32::MAX                                                  -EINVAL
+  prio 1<<32 (the high half of the register)                     0
+  prio 32767                                                     0
+  17 bytes into 16                                               -EMSGSIZE
+  16 bytes                                                       0
+  0 bytes                                                        0
+  0 bytes from an unmapped pointer                               0
+  1 byte from an unmapped pointer                                -EFAULT
+  length u64::MAX                                                -EMSGSIZE
+  curmsgs                                                        flags=0o0 maxmsg=8 msgsize=16 curmsgs=5
+  receive into 15                                                -EMSGSIZE
+  receive into u64::MAX                                          3
+    curmsgs                                                      flags=0o0 maxmsg=8 msgsize=16 curmsgs=4
+  drained                                                        0:1 0:16 0:0 0:0 -EAGAIN
+  order                                                          b5 c5 f5 d3 a1 e0 g0 
+  receive from empty, O_NONBLOCK                                 -EAGAIN
+  send to full, O_NONBLOCK                                       -EAGAIN
+  receive into an unmapped buffer                                -EFAULT
+    curmsgs after                                                flags=0o4000 maxmsg=8 msgsize=16 curmsgs=7
+  receive with an unmapped prio                                  -EFAULT
+    curmsgs after                                                flags=0o4000 maxmsg=8 msgsize=16 curmsgs=6
+  send on fd -1                                                  -EBADF
+  send on fd 1000                                                -EBADF
+  send on stdout                                                 -EBADF
+  receive on stdout                                              -EBADF
+  prio 32768 on fd -1                                            -EINVAL
+  17 bytes on fd -1                                              -EBADF
+## timeouts
+  receive, empty, deadline in the past                           -ETIMEDOUT
+  receive, empty, deadline at 0                                  -ETIMEDOUT
+  receive, empty, deadline now+60ms                              -ETIMEDOUT
+    waited at least 50ms                                         true
+  receive, empty, nsec 1e9                                       -EINVAL
+  receive, empty, nsec -1                                        -EINVAL
+  receive, empty, sec -1                                         -EINVAL
+  receive, unmapped timeout                                      -EFAULT
+  send, nsec 1e9, room                                           -EINVAL
+  send, unmapped timeout, room                                   -EFAULT
+  send, deadline in the past, room                               0
+  send, full, deadline in the past                               -ETIMEDOUT
+  send, full, deadline now+60ms                                  -ETIMEDOUT
+    waited at least 50ms                                         true
+  send, full, sec -1                                             -EINVAL
+  receive, one queued, nsec 1e9                                  -EINVAL
+  receive, one queued, deadline in the past                      1
+  send, nsec 1e9, fd -1                                          -EINVAL
+  send, nsec 1e9, prio 32768                                     -EINVAL
+  receive, empty, O_NONBLOCK, nsec 1e9                           -EINVAL
+  receive, empty, O_NONBLOCK, deadline in the past               -EAGAIN
+## blocking
+  a receiver woken by a send                                     4 prio=9 "late"
+    the send                                                     0
+  a sender woken by a receive                                    0
+    the receive                                                  4
+    curmsgs                                                      flags=0o0 maxmsg=1 msgsize=16 curmsgs=1
+    and what is queued                                           "next" prio=2
+  receive, a handler without SA_RESTART                          -EINTR
+    handler ran                                                  1
+  receive, no deadline, a handler without SA_RESTART             -EINTR
+  receive, deadline now+200ms, an SA_RESTART handler             -ETIMEDOUT
+    handler ran                                                  1
+    waited at least 150ms                                        true
+  receive, no deadline, SA_RESTART, then a send                  5
+    handler ran                                                  1
+    the send                                                     0
+  send to full, deadline now+200ms, SA_RESTART                   -ETIMEDOUT
+    waited at least 150ms                                        true
+  send to full, no deadline, no SA_RESTART                       -EINTR
+## mq_notify
+  NULL with nothing registered                                   0
+  SIGEV_NONE                                                     0
+    status                                                       "QSIZE:0          NOTIFY:1     SIGNO:0     NOTIFY_PID:self  \n"
+    again                                                        -EBUSY
+    SIGEV_SIGNAL while registered                                -EBUSY
+    after a send                                                 "QSIZE:1          NOTIFY:0     SIGNO:0     NOTIFY_PID:0     \n"
+  SIGEV_SIGNAL SIGUSR2                                           0
+    status                                                       "QSIZE:0          NOTIFY:0     SIGNO:12    NOTIFY_PID:self  \n"
+    the signal                                                   signo=12 errno=0 code=-3 pid=self uid=0 value=0x123456789abc
+    status after                                                 "QSIZE:1          NOTIFY:0     SIGNO:0     NOTIFY_PID:0     \n"
+    a second send: no signal                                     -EAGAIN
+  registered on a non-empty queue, then a send                   -EAGAIN
+    status                                                       "QSIZE:2          NOTIFY:0     SIGNO:12    NOTIFY_PID:self  \n"
+    emptied, then a send                                         signo=12 errno=0 code=-3 pid=self uid=0 value=0x1
+  a blocked receiver                                             6
+    no signal                                                    -EAGAIN
+    still registered                                             "QSIZE:0          NOTIFY:0     SIGNO:12    NOTIFY_PID:self  \n"
+  NULL from the owner                                            0
+    status                                                       "QSIZE:0          NOTIFY:0     SIGNO:0     NOTIFY_PID:0     \n"
+  SIGEV_SIGNAL signo 0                                           0
+    status                                                       "QSIZE:0          NOTIFY:0     SIGNO:0     NOTIFY_PID:self  \n"
+    status after a send                                          "QSIZE:1          NOTIFY:0     SIGNO:0     NOTIFY_PID:0     \n"
+  SIGEV_SIGNAL signo 64                                          0
+  SIGEV_SIGNAL signo 65                                          -EINVAL
+  SIGEV_SIGNAL signo -1                                          -EINVAL
+  SIGEV_NONE signo 65                                            0
+  sigev_notify 3                                                 -EINVAL
+  SIGEV_THREAD_ID                                                -EINVAL
+  sigev_notify -1                                                -EINVAL
+  unmapped sigevent                                              -EFAULT
+  sigevent with only 16 bytes readable                           -EFAULT
+  NULL on fd -1                                                  -EBADF
+  NULL on stdout                                                 -EBADF
+  SIGEV_NONE on stdout                                           -EBADF
+  sigev_notify 3 on fd -1                                        -EINVAL
+  signo 65 on fd -1                                              -EINVAL
+  SIGEV_THREAD, signo -1                                         -EBADF
+  SIGEV_THREAD, signo the queue                                  -ENOTSOCK
+  SIGEV_THREAD, signo stdout                                     -ENOTSOCK
+  SIGEV_THREAD, a unix socket                                    -EINVAL
+  SIGEV_THREAD, a unix socket, fd -1                             -EINVAL
+  SIGEV_THREAD, bad signo, fd -1                                 -EBADF
+  a netlink socket                                               ok
+  SIGEV_THREAD, netlink, unmapped cookie                         -EFAULT
+  SIGEV_THREAD, netlink, fd -1                                   -EBADF
+  SIGEV_THREAD, netlink                                          0
+    status                                                       "QSIZE:0          NOTIFY:2     SIGNO:0     NOTIFY_PID:self  \n"
+    the netlink datagram                                         32 bytes, last 1, cookie kept true
+    status after                                                 "QSIZE:1          NOTIFY:0     SIGNO:0     NOTIFY_PID:0     \n"
+  SIGEV_THREAD, netlink, again                                   0
+    NULL                                                         0
+    the netlink datagram                                         32 bytes, last 2
+    child: SIGEV_NONE                                            -EBUSY
+    child: NULL                                                  0
+  a send from a child: the signal                                signo=12 errno=0 code=-3 pid=other(true) uid=0 value=0x3
+  registered through a second descriptor                         "QSIZE:0          NOTIFY:0     SIGNO:12    NOTIFY_PID:self  \n"
+    that descriptor closed                                       "QSIZE:0          NOTIFY:0     SIGNO:0     NOTIFY_PID:0     \n"
+    then a send                                                  -EAGAIN
+  registered through a dup, the dup closed                       "QSIZE:0          NOTIFY:0     SIGNO:0     NOTIFY_PID:0     \n"
+  registered by a child that exited                              "QSIZE:0          NOTIFY:0     SIGNO:0     NOTIFY_PID:0     \n"
+    SIGEV_NONE from the parent                                   0
+## mq_getsetattr
+  set O_NONBLOCK                                                 0 old flags=0o0 maxmsg=4 msgsize=16 curmsgs=1
+    after                                                        flags=0o4000 maxmsg=4 msgsize=16 curmsgs=1
+    F_GETFL                                                      0o4002
+  flags 1                                                        -EINVAL
+  flags O_NONBLOCK|2                                             -EINVAL
+  flags 1<<40                                                    -EINVAL
+  flags 1 on fd -1                                               -EINVAL
+  both NULL                                                      0
+  both NULL, fd -1                                               -EBADF
+  both NULL, stdout                                              -EBADF
+  new unmapped                                                   -EFAULT
+  new unmapped, fd -1                                            -EFAULT
+  clear O_NONBLOCK, old unmapped                                 -EFAULT
+    after                                                        flags=0o0 maxmsg=4 msgsize=16 curmsgs=1
+  old with only 32 bytes writable                                -EFAULT
+  new with only 32 bytes readable                                -EFAULT
+## lifetime
+  closed with a message, reopened                                flags=0o0 maxmsg=4 msgsize=16 curmsgs=1
+    child: opened by name, received                              4 prio=4 "kept"
+    after the child                                              flags=0o0 maxmsg=4 msgsize=16 curmsgs=2
+  unlink while open                                              0
+    open by name                                                 -ENOENT
+    the open descriptor                                          flags=0o0 maxmsg=4 msgsize=16 curmsgs=2
+    a new queue by the same name                                 flags=0o0 maxmsg=4 msgsize=16 curmsgs=0
+    the old one still answers                                    9 "inherited"
+## unprivileged
+  0600 root's, O_RDONLY                                          -EACCES
+  0644 root's, O_RDONLY                                          ok
+  0644 root's, O_WRONLY                                          -EACCES
+  0644 root's, O_RDWR                                            -EACCES
+  0644 root's, O_CREAT|O_EXCL                                    -EEXIST
+  futimens NULL, 0644 root's                                     -EACCES
+  futimens NULL, 0666 root's                                     -EACCES
+  futimens explicit, 0666 root's                                 -EPERM
+  fchmod 0666 root's                                             -EPERM
+  unlink 0666 root's                                             -EPERM
+  create as 65534                                                mode=0o100600 size=80 nlink=1 uid=65534 gid=65534 blksize=4096 blocks=0 rdev=0
+  unlink its own                                                 0
+  maxmsg 10 msgsize 8192                                         ok
+  maxmsg 11                                                      -EINVAL
+  msgsize 8193                                                   -EINVAL
+  maxmsg 65537                                                   -EINVAL
+  msgsize 16MiB+1                                                -EINVAL
+  default queues before RLIMIT_MSGQUEUE                          9 then -EMFILE
+    a tenth, maxmsg 10 msgsize 7233                              -EMFILE
+    a tenth, maxmsg 10 msgsize 7232                              ok
+    one unlinked, then a create                                  ok
+    one unlinked but open, then a create                         0
+    ...and one more                                              ok
+  RLIMIT_MSGQUEUE 0, create                                      -EMFILE
+  RLIMIT_MSGQUEUE 0, open an existing one                        ok
+  tiny queues before queues_max, three others live               253 then -ENOSPC
+## filesystem
+  /proc/sys/fs/mqueue/msg_max                                    "10\n"
+  /proc/sys/fs/mqueue/msgsize_max                                "8192\n"
+  /proc/sys/fs/mqueue/queues_max                                 "256\n"
+  /proc/sys/fs/mqueue/msg_default                                "10\n"
+  /proc/sys/fs/mqueue/msgsize_default                            "8192\n"
+  /proc/filesystems lists mqueue                                 true
+  /dev/mqueue (a container mounts one)                           mode=0o41777

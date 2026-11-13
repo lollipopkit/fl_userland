@@ -1,0 +1,17 @@
+[package]
+name = "util-logchan"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "logchan"
+crate-type = ["rlib"]
+
+[dependencies]
+# The output side, an ordinary dependency since it moved down to util.
+util-logline = { path = "../logline" }
+
+[build-dependencies]
+iul-buildcfg = { path = "../buildcfg" }

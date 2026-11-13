@@ -1,0 +1,59 @@
+########## io ##########
+the keys                                                 -> rchar wchar syscr syscw read_bytes write_bytes cancelled_write_bytes
+3 reads, readv, pread, 2 writes: syscr syscw             -> 6 2
+  rchar less the first read of io, wchar                 -> 41 10
+read and write on a bad descriptor: syscr syscw          -> 0 0
+readv and writev on a bad descriptor: syscr syscw        -> 1 1
+sendfile of 20                                           -> sent 20: syscr 1 syscw 1 rchar 20 wchar 20
+a thread's own after 4 reads of 1: syscr rchar           -> 4 4
+the process's, the thread gone: syscr                    -> 7
+  rchar less what main read                              -> true
+a forked child starts at: syscr syscw                    -> 0 0
+########## personality ##########
+reads what personality(0xffffffff) answers               -> true
+after personality(ADDR_COMPAT_LAYOUT)                    -> "00200000\n"
+write                                                    -> write EINVAL
+########## timerslack_ns ##########
+its own                                                  -> "50000\n"
+PR_GET_TIMERSLACK                                        -> 50000
+write 100000                                             -> wrote 6, prctl 100000
+write 0                                                  -> wrote 1, prctl 50000
+write "abc"                                              -> write EINVAL, prctl 50000
+write "-1"                                               -> write EINVAL, prctl 50000
+after PR_SET_TIMERSLACK 70000                            -> "70000\n"
+a child's default is its parent's slack at fork          -> 70000
+root reads the child's                                   -> "70000\n"
+root writes the child's 30000                            -> wrote 5, reads "30000\n"
+########## syscall ##########
+its own                                                  -> 63, 9 fields
+  the descriptor and the count are the read's            -> (true, true)
+a child in pause()                                       -> 73, 9 fields
+  its first four arguments                               -> 0x0 0x0 0x0 0x0
+  stopped                                                -> -1, 3 fields
+  a zombie                                               -> "-1 0x0 0x0\n"
+a child in a loop                                        -> running
+########## ns ##########
+listed                                                   -> net uts ipc pid pid_for_children user mnt cgroup time time_for_children
+net                                                      -> net:[N], a child's same, stat ino is the number, mode 100444
+uts                                                      -> uts:[N], a child's same, stat ino is the number, mode 100444
+ipc                                                      -> ipc:[N], a child's same, stat ino is the number, mode 100444
+pid                                                      -> pid:[N], a child's same, stat ino is the number, mode 100444
+pid_for_children                                         -> pid:[N], a child's same, stat ino is the number, mode 100444
+user                                                     -> user:[N], a child's same, stat ino is the number, mode 100444
+mnt                                                      -> mnt:[N], a child's same, stat ino is the number, mode 100444
+cgroup                                                   -> cgroup:[N], a child's same, stat ino is the number, mode 100444
+time                                                     -> time:[N], a child's same, stat ino is the number, mode 100444
+time_for_children                                        -> time:[N], a child's same, stat ino is the number, mode 100444
+the thread's uts is the process's                        -> true
+open                                                     -> ok
+  its fd link is the ns link                             -> true
+########## map_files ##########
+root: lists the file-backed maps lines                   -> true
+root: procstate_rw                                       -> lstat 120600, readlink the path, stat the file
+root: procstate_ro                                       -> lstat 120400, readlink the path, stat the file
+1000, not dumpable: lists the file-backed maps lines     -> true
+1000, not dumpable: procstate_rw                         -> lstat 120600, readlink the path, stat EPERM
+1000, not dumpable: procstate_ro                         -> lstat 120400, readlink the path, stat EPERM
+1000, dumpable: lists the file-backed maps lines         -> true
+1000, dumpable: procstate_rw                             -> lstat 120600, readlink the path, stat EPERM
+1000, dumpable: procstate_ro                             -> lstat 120400, readlink the path, stat EPERM

@@ -1,0 +1,37 @@
+## the entries
+  the names, sorted                                  -> . .. fifo link regular socket subdir
+  how many                                           -> 7
+  . is there                                         -> true
+  .. is there                                        -> true
+  a read past the end                                -> 0
+  and again                                          -> 0
+## d_type
+  ..=DT_DIR                                          -> 
+  .=DT_DIR                                           -> 
+  fifo=DT_FIFO                                       -> 
+  link=DT_LNK                                        -> 
+  regular=DT_REG                                     -> 
+  socket=DT_SOCK                                     -> 
+  subdir=DT_DIR                                      -> 
+## buffer sizes
+  a one-byte buffer                                  -> EINVAL
+  eighteen bytes, less than a header                 -> EINVAL
+  read forty bytes at a time, the names              -> . .. fifo link regular socket subdir
+## seeking
+  the offset before any read is zero                 -> true
+  the offset moved after a read                      -> true
+  seeking back to it repeats the remainder           -> true
+  seeking to zero rewinds                            -> true
+  lseek to 1                                         -> accepted
+  lseek to -1                                        -> EINVAL
+  lseek to the end                                   -> accepted
+## refusals
+  getdents on a regular file                         -> ENOTDIR
+  getdents on -1                                     -> EBADF
+  getdents on 999                                    -> EBADF
+  getdents on an O_PATH directory                    -> EBADF
+  read(2) on a directory                             -> EISDIR
+  write(2) on a directory                            -> EBADF
+  getdents into address 1                            -> EFAULT
+  open(O_DIRECTORY) on a regular file                -> ENOTDIR
+  open(O_WRONLY) on a directory                      -> EISDIR

@@ -1,0 +1,30 @@
+[package]
+name = "kernel-procvmcalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "procvmcalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+# The pid registry, for the lookup that finds the target.
+kernel-pids = { path = "../pids" }
+# `GeneralGuard`: `task->mm` is read under the lock that guards its swap.
+kernel-taskcalls = { path = "../taskcalls" }
+# The identity the permission rule compares.
+kernel-creds = { path = "../creds" }
+# `mm_retain`/`mm_release`: the target's address space outlives the lock.
+kernel-mmapcalls = { path = "../mmapcalls" }
+# The task a pidfd names, for `process_madvise` and `process_mrelease`.
+kernel-pidfdcalls = { path = "../pidfdcalls" }
+# Guest memory, for both address spaces.
+kernel-usercopy = { path = "../usercopy" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../taskview" }
+util-strace = { path = "../../util/strace" }
+# `Iov` is plain data, read from the guest as bytes.
+util-plain = { path = "../../util/plain" }

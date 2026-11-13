@@ -1,0 +1,48 @@
+########## loads across the boundary ##########
+  ldrh @-1                           00000000000007e8
+  ldr w @-2                          000000002607e8c9
+  ldr w @-3                          0000000007e8c9aa
+  ldr x @-4                          64452607e8c9aa8b
+  ldr x @-5                          452607e8c9aa8b6c
+  ldr x @-6                          2607e8c9aa8b6c4d
+  ldr x @-7                          07e8c9aa8b6c4d2e
+  ldrsh @-1                          00000000000007e8
+  ldrsw @-2                          000000002607e8c9
+########## pairs and vectors across the boundary ##########
+  ldp @-4                            64452607e8c9aa8b 5c3d1effe0c1a283
+  ldp @-8                            e8c9aa8b6c4d2e0f e0c1a28364452607
+  ldp @-12                           6c4d2e0ff0d1b293 64452607e8c9aa8b
+  ldr q @-1                          c1a28364452607e8 b99a7b5c3d1effe0
+  ldr q @-8                          e8c9aa8b6c4d2e0f e0c1a28364452607
+  ldr q @-15                         0ff0d1b293745536 07e8c9aa8b6c4d2e
+########## stores across the boundary ##########
+  strh @-1                           c1a2836445260718 b99a7b5c3d1effe0
+  str w @-2                          a2836445e5f60718 9a7b5c3d1effe0c1
+  str x @-3                          a1b2c3d4e5f60718 7b5c3d1effe0c1a2
+  str x @-7                          a1b2c3d4e5f60718 ffe0c1a283644526
+  stp @-4                            0102030405060708 0102030405060708
+########## when the far side is not there ##########
+  load @-1 into unmapped             faulted
+  load @-4 into unmapped             faulted
+  load @-7 into unmapped             faulted
+  store @-1 into unmapped            faulted
+  store @-4 into unmapped            faulted
+  store @-7 into unmapped            faulted
+  the near half is untouched         true
+########## when the far side is read-only ##########
+  load @-1 into read-only            00000000000000e8
+  load @-4 into read-only            00000000e8c9aa8b
+  load @-7 into read-only            00e8c9aa8b6c4d2e
+  store @-1 into read-only           faulted
+  store @-4 into read-only           faulted
+  store @-7 into read-only           faulted
+  the near half is untouched         true
+########## atomics at a boundary ##########
+  ldadd aligned in one page          e8c9aa8b6c4d2e0f
+  ldadd straddling                   SIGBUS
+  ldadd unaligned w by 1             00000000432405e6
+  ldadd unaligned w by 2             0000000062432405
+  ldadd unaligned x by 1             SIGBUS
+  ldadd unaligned x by 4             SIGBUS
+  ldxp/stxp aligned                  settles quickly: true
+  ldxp/stxp unaligned                SIGBUS

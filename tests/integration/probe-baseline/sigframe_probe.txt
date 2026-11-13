@@ -1,0 +1,13 @@
+## a frame that cannot be written
+stack overflow, SIGSEGV handler off the altstack               -> died of SIGSEGV
+stack overflow, SIGSEGV handler on an altstack                 -> exit 41
+SIGUSR1 frame unwritable, SIGSEGV handler on an altstack       -> exit 168
+SIGUSR1 frame unwritable, SIGSEGV handler off the altstack     -> died of SIGSEGV
+SIGUSR1 frame unwritable, SIGSEGV default and blocked          -> died of SIGSEGV
+SIGUSR1 frame unwritable, SIGSEGV ignored                      -> died of SIGSEGV
+SIGUSR1 handler on an altstack, sp unwritable (control)        -> exit 60
+SIGSEGV frame unwritable, SIGSEGV handler off the altstack     -> died of SIGSEGV
+## two signals pending at once
+the first handler to run                                       -> SIGUSR1
+SIGUSR1's handler: the mask it interrupted had SIGUSR2 blocked -> 0
+SIGUSR2's handler: the mask it interrupted had SIGUSR1 blocked -> 0

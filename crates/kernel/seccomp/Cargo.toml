@@ -1,0 +1,16 @@
+[package]
+name = "kernel-seccomp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "kernel_seccomp"
+crate-type = ["rlib"]
+
+[dependencies]
+# A task's filter chain is published in a slot another thread may replace
+# (`SECCOMP_FILTER_FLAG_TSYNC`).
+util-arcslot = { path = "../../util/arcslot" }
+util-errno = { path = "../../util/errno" }

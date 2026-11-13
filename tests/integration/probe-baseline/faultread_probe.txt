@@ -1,0 +1,63 @@
+## a read whose destination cannot be written
+## pipe
+  pipe: something is pending                           true
+  pipe: read into an unmapped buffer                   -EFAULT
+  pipe:   still pending                                true
+  pipe: read into a good buffer                        8
+  pipe: something is pending again                     true
+  pipe: read across a mapped/unmapped boundary         8
+  pipe:   still pending after that                     false
+  pipe: read into a good buffer after that             -EAGAIN
+## eventfd
+  eventfd: something is pending                        true
+  eventfd: read into an unmapped buffer                -EFAULT
+  eventfd:   still pending                             false
+  eventfd: read into a good buffer                     -EAGAIN
+  eventfd: something is pending again                  true
+  eventfd: read across a mapped/unmapped boundary      8
+  eventfd:   still pending after that                  false
+  eventfd: read into a good buffer after that          -EAGAIN
+  eventfd: the counter afterwards                      -EAGAIN
+## signalfd
+  signalfd: something is pending                       true
+  signalfd: read into an unmapped buffer               -EFAULT
+  signalfd:   still pending                            false
+  signalfd: read into a good buffer                    -EAGAIN
+  signalfd: something is pending again                 true
+  signalfd: read across a mapped/unmapped boundary     128
+  signalfd:   still pending after that                 false
+  signalfd: read into a good buffer after that         -EAGAIN
+## unix datagram socket
+  unix datagram socket: something is pending           true
+  unix datagram socket: read into an unmapped buffer   -EFAULT
+  unix datagram socket:   still pending                false
+  unix datagram socket: read into a good buffer        -EAGAIN
+  unix datagram socket: something is pending again     true
+  unix datagram socket: read across a mapped/unmapped boundary 8
+  unix datagram socket:   still pending after that     false
+  unix datagram socket: read into a good buffer after that -EAGAIN
+## inotify
+  inotify: something is pending                        true
+  inotify: read into an unmapped buffer                -EFAULT
+  inotify:   still pending                             false
+  inotify: read into a good buffer                     -EAGAIN
+  inotify: something is pending again                  true
+  inotify: read across a mapped/unmapped boundary      32
+  inotify:   still pending after that                  false
+  inotify: read into a good buffer after that          -EAGAIN
+## which argument is judged first
+  read(-1, unmapped, 64)                               -EBADF
+  read(a directory, unmapped, 64)                      -errno 21
+  read(a closed descriptor, unmapped, 64)              -EBADF
+  read(-1, unmapped, 0)                                -EBADF
+  read(an empty pipe, unmapped, 0)                     0
+  read(an empty pipe, unmapped, 64)                    -EAGAIN
+  read(an empty pipe, 1 << 60, 64)                     -EFAULT
+  read(a pipe, a read-only page, 64)                   -EFAULT
+    still pending                                      true
+  blocking read(an empty pipe, unmapped, 64)           blocked (alarmed)
+## regular file
+  read into an unmapped buffer                         -EFAULT
+    the offset afterwards                              0
+  read across a mapped/unmapped boundary               64
+    the offset afterwards                              64

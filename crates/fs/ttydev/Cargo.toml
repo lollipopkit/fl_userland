@@ -1,0 +1,26 @@
+[package]
+name = "fs-ttydev"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "fs_ttydev"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+kernel-pids = { path = "../../kernel/pids" }
+fs-ttyreal = { path = "../../fs/ttyreal" }
+fs-tty = { path = "../tty" }
+kernel-signaldeliver = { path = "../../kernel/signaldeliver" }
+kernel-ctty = { path = "../../kernel/ctty" }
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true
+
+[dev-dependencies]
+# The real signal state, so a test runs the real `wait_for`. It ran
+# `crates/util/guestlock-teststub`'s parallel one until 2026-09-08.
+kernel-sighand = { path = "../../kernel/sighand" }
+kernel-sigqueue = { path = "../../kernel/sigqueue" }

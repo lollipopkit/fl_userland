@@ -1,0 +1,17 @@
+[package]
+name = "util-signpost"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "signpost"
+crate-type = ["rlib"]
+
+# A leaf. Its three callers -- kernel/syscalldispatch, kernel/execcalls and
+# asbestos/gen -- cannot depend on each other, and one of them is the JIT.
+[dependencies]
+
+[build-dependencies]
+iul-buildcfg = { path = "../buildcfg" }

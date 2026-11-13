@@ -1,0 +1,77 @@
+[package]
+name = "proc"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "proc"
+crate-type = ["rlib"]
+
+[dependencies]
+util-timeabi = { path = "../../util/timeabi" }
+util-errno = { path = "../../util/errno" }
+util-plain = { path = "../../util/plain" }
+# The socket state /proc/net/{tcp,udp,unix} reports; see fs/sock net_info.
+fs-sock = { path = "../sock" }
+kernel-epoll = { path = "../../kernel/epoll" }
+kernel-random = { path = "../../kernel/random" }
+kernel-sighand = { path = "../../kernel/sighand" }
+fs-generic = { path = "../generic" }
+fs-adhoc = { path = "../adhoc" }
+kernel-timerfd = { path = "../../kernel/timerfd" }
+kernel-pidfd = { path = "../../kernel/pidfd" }
+fs-inode = { path = "../inode" }
+kernel-eventfd = { path = "../../kernel/eventfd" }
+kernel-unamecalls = { path = "../../kernel/unamecalls" }
+kernel-rescalls = { path = "../../kernel/rescalls" }
+kernel-sigqueue = { path = "../../kernel/sigqueue" }
+kernel-groupstop = { path = "../../kernel/groupstop" }
+kernel-taskcalls = { path = "../../kernel/taskcalls" }
+kernel-pagetable = { path = "../../kernel/pagetable" }
+kernel-fsinfo = { path = "../../kernel/fsinfo" }
+kernel-mmapcalls = { path = "../../kernel/mmapcalls" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+kernel-proctree = { path = "../../kernel/proctree" }
+# The host's routing table, for /proc/net/route.
+fs-netlink = { path = "../netlink" }
+kernel-taskview = { path = "../../kernel/taskview" }
+# `PidsGuard`: the one hold of pids_lock every `/proc/<pid>` reader works
+# under, which a `&task` is borrowed from.
+kernel-pids = { path = "../../kernel/pids" }
+kernel-procattr = { path = "../../kernel/procattr" }
+# `/proc/sys/kernel/seccomp/actions_avail`.
+kernel-seccomp = { path = "../../kernel/seccomp" }
+kernel-creds = { path = "../../kernel/creds" }
+# What a guest is told the machine has, which `sysinfo(2)` answers from too.
+kernel-hoststats = { path = "../../kernel/hoststats" }
+fs-pipe = { path = "../pipe" }
+# /proc/sys/fs/aio-max-nr and aio-nr.
+kernel-aio = { path = "../../kernel/aio" }
+inotify = { path = "../inotify" }
+kernel-mqueue = { path = "../../kernel/mqueue" }
+fs-unixpeer = { path = "../unixpeer" }
+libc.workspace = true
+# The `Features` line of /proc/cpuinfo, from the table AT_HWCAP is built from.
+asbestos-features = { path = "../../asbestos/features" }
+
+# How many software TLBs are allocated, for /proc/iul/objects: one per guest
+# thread and 288 KB each, freed by that thread's own pthread_exit handler.
+emu-tlb = { path = "../../emu/tlb" }
+# How many `struct tgroup` are allocated, which is a different number from
+# `crates/kernel/proctree`'s registry entries beside it.
+kernel-tgroup = { path = "../../kernel/tgroup" }
+
+fs-mounttable = { path = "../mounttable" }
+fs-devices = { path = "../devices" }
+# The change queue's depth and drop count, for /proc/iul/objects.
+fs-fakechange = { path = "../fakechange" }
+
+[dev-dependencies]
+# The real signal state, so a test runs the real `wait_for`. It ran
+# `crates/util/guestlock-teststub`'s parallel one until 2026-09-08.
+kernel-sighand = { path = "../../kernel/sighand" }
+kernel-sigqueue = { path = "../../kernel/sigqueue" }

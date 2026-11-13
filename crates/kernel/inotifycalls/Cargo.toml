@@ -1,0 +1,31 @@
+[package]
+name = "kernel-inotifycalls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "inotifycalls"
+crate-type = ["rlib"]
+
+[dependencies]
+util-errno = { path = "../../util/errno" }
+fs-generic = { path = "../../fs/generic" }
+path = { path = "../../fs/path" }
+fs-adhoc = { path = "../../fs/adhoc" }
+kernel-mmapcalls = { path = "../../kernel/mmapcalls" }
+# The descriptor object, called as Rust. `fs/fd.h` is still the C
+# declaration; nothing here goes through it.
+fs-fdobj = { path = "../../fs/fdobj" }
+# The shared Rust types are re-exported by kernel-taskview.
+kernel-taskview = { path = "../../kernel/taskview" }
+libc.workspace = true
+inotify = { path = "../../fs/inotify" }
+util-strace = { path = "../../util/strace" }
+
+# The `POLL_*` bits, which are Rust constants in the crate that owns the
+# readiness model. `fs/poll.h` had them as `#define`s no C read.
+fs-poll = { path = "../../fs/poll" }
+
+[dev-dependencies]
