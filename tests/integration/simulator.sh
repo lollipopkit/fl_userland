@@ -1,6 +1,6 @@
 #!/bin/sh
 # Run the guest suite and the recorded probes with `iul` built for the iOS
-# **simulator**, inside a simulator this script creates and deletes.
+# **simulator**, inside an existing iPhone simulator (see below).
 #
 # Usage: tests/integration/simulator.sh [guest|probes|all]    (default: all)
 #
@@ -24,31 +24,30 @@ cd "$(dirname "$0")/../.."
 what=${1:-all}
 root=$(pwd)
 scratch=$(mktemp -d)
-# The newest iOS runtime, and an iPhone *that runtime supports*: the newest
-# device type is not always one, and `simctl create` answers "Incompatible
-# device" for it.
-pick=$(xcrun simctl list runtimes -j | python3 -c '
+# An existing iPhone simulator, never a new one: a booted one if there is
+# one, else an available one on the newest runtime, which is booted here and
+# shut down again afterwards. `IUL_SIM_UDID` names one explicitly.
+udid=${IUL_SIM_UDID:-$(xcrun simctl list devices available -j | python3 -c '
 import json, sys
-rs = [r for r in json.load(sys.stdin)["runtimes"]
-      if r.get("platform") == "iOS" and r.get("isAvailable")]
-if not rs:
-    sys.exit(1)
-r = rs[-1]
-phones = [d["identifier"] for d in r.get("supportedDeviceTypes", [])
-          if d.get("productFamily") == "iPhone"]
-print(r["identifier"], phones[0] if phones else "")
-') || { echo "simulator.sh: no iOS simulator runtime installed" >&2; exit 2; }
-runtime=${pick% *}
-model=${pick#* }
-[ -n "$model" ] || { echo "simulator.sh: $runtime supports no iPhone" >&2; exit 2; }
-udid=$(xcrun simctl create "shellbox-$$" "$model" "$runtime")
+ds = json.load(sys.stdin)["devices"]
+phones = [(rt, d) for rt, l in ds.items() if ".iOS-" in rt
+          for d in l if d["name"].startswith("iPhone")]
+booted = [d for _, d in phones if d["state"] == "Booted"]
+key = lambda p: [int(x) for x in p[0].rsplit(".iOS-", 1)[1].split("-")]
+pick = booted[0] if booted else (max(phones, key=key)[1] if phones else None)
+print(pick["udid"] if pick else "")
+')}
+[ -n "$udid" ] || { echo "simulator.sh: no iPhone simulator exists; create one in Xcode" >&2; exit 2; }
+booted_here=
+if ! xcrun simctl list devices booted | grep -q "$udid"; then
+    xcrun simctl boot "$udid"
+    booted_here=1
+fi
 cleanup() {
-    xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
-    xcrun simctl delete "$udid" >/dev/null 2>&1 || true
+    [ -z "$booted_here" ] || xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
     rm -rf "$scratch"
 }
 trap cleanup EXIT INT TERM HUP
-xcrun simctl boot "$udid"
 
 rustup target add aarch64-apple-ios-sim >/dev/null 2>&1 || true
 cargo build --release -p iul-cli --target aarch64-apple-ios-sim
@@ -70,6 +69,9 @@ done
 exec xcrun simctl spawn "$udid" "$bin" "\$@"
 WRAP
 chmod +x "$scratch/iul"
+# guest_tests.sh indexes its fakefs with the `tools/fakefsify` beside the
+# `iul` it is given; that is a host tool, so it is the macOS build.
+tools/build-fakefsify.sh -o "$scratch/tools" --release >/dev/null
 
 export IUL_NO_BUILD=1 IUL_SIMULATOR=1
 rc=0
