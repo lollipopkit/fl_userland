@@ -5,10 +5,17 @@
 //! (`setns`). It is per **thread**: a thread that unshares leaves the rest of
 //! its process where they were, measured by `utsns_probe`.
 //!
-//! Only the UTS namespace is built. Every other kind has one namespace, the
+//! The UTS and IPC kinds are built. Every other kind has one namespace, the
 //! initial one, and every task is in it: [`Ns::Init`] names it, so
 //! `/proc/<pid>/ns/<kind>` and `setns` on its file answer as Linux does for a
 //! task that never left it.
+//!
+//! # What an IPC namespace holds
+//!
+//! The System V tables and the message queue names live in the crates that
+//! own them, above this one. An [`Ipc`] keeps one value of each such type,
+//! made on first use ([`Ipc::part`]), so a new namespace starts with every
+//! table empty and a namespace's objects go when its last reference does.
 //!
 //! # Numbers
 //!
@@ -18,6 +25,7 @@
 //! there, never reused, so two namespaces alive at once never share one -- the
 //! number is how a program tells two apart (`readlink /proc/<pid>/ns/uts`).
 
+use std::any::{Any, TypeId};
 use std::ffi::CStr;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
@@ -81,7 +89,7 @@ impl Kind {
     }
 
     /// Every kind this kernel can make a new namespace of.
-    pub const BUILT: u64 = 0x0400_0000;
+    pub const BUILT: u64 = 0x0400_0000 | 0x0800_0000;
 }
 
 /// The next number `proc_alloc_inum` would give, after the network's and the
@@ -126,10 +134,48 @@ impl Uts {
     }
 }
 
+/// An IPC namespace. See the module comment.
+pub struct Ipc {
+    inum: u32,
+    parts: Mutex<Vec<(TypeId, Arc<dyn Any + Send + Sync>)>>,
+}
+
+impl std::fmt::Debug for Ipc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Ipc").field("inum", &self.inum).finish_non_exhaustive()
+    }
+}
+
+impl Ipc {
+    fn new(inum: u32) -> Arc<Ipc> {
+        Arc::new(Ipc { inum, parts: Mutex::new(Vec::new()) })
+    }
+
+    pub fn inum(&self) -> u32 {
+        self.inum
+    }
+
+    /// This namespace's `T`, made empty the first time it is asked for.
+    pub fn part<T: Default + Send + Sync + 'static>(&self) -> Arc<T> {
+        let mut parts = self.parts.lock().unwrap_or_else(|e| e.into_inner());
+        let id = TypeId::of::<T>();
+        let any = match parts.iter().find(|(t, _)| *t == id) {
+            Some((_, p)) => Arc::clone(p),
+            None => {
+                let p: Arc<dyn Any + Send + Sync> = Arc::new(T::default());
+                parts.push((id, Arc::clone(&p)));
+                p
+            }
+        };
+        any.downcast().expect("stored under its own TypeId")
+    }
+}
+
 /// One namespace: what a namespace descriptor holds, and keeps alive.
 #[derive(Clone, Debug)]
 pub enum Ns {
     Uts(Arc<Uts>),
+    Ipc(Arc<Ipc>),
     /// The initial namespace of a kind this kernel has only that one of.
     Init(Kind),
 }
@@ -138,6 +184,7 @@ impl Ns {
     pub fn kind(&self) -> Kind {
         match self {
             Ns::Uts(_) => Kind::Uts,
+            Ns::Ipc(_) => Kind::Ipc,
             Ns::Init(k) => *k,
         }
     }
@@ -145,6 +192,7 @@ impl Ns {
     pub fn inum(&self) -> u32 {
         match self {
             Ns::Uts(u) => u.inum,
+            Ns::Ipc(i) => i.inum,
             Ns::Init(k) => k.init_inum(),
         }
     }
@@ -154,11 +202,13 @@ impl Ns {
 #[derive(Clone, Debug)]
 pub struct NsProxy {
     pub uts: Arc<Uts>,
+    pub ipc: Arc<Ipc>,
 }
 
 static INITIAL: LazyLock<Arc<NsProxy>> = LazyLock::new(|| {
     Arc::new(NsProxy {
         uts: Arc::new(Uts { inum: Kind::Uts.init_inum(), names: Mutex::new(UtsNames::default()) }),
+        ipc: Ipc::new(Kind::Ipc.init_inum()),
     })
 });
 
@@ -171,6 +221,7 @@ impl NsProxy {
     pub fn get(&self, kind: Kind) -> Ns {
         match kind {
             Kind::Uts => Ns::Uts(Arc::clone(&self.uts)),
+            Kind::Ipc => Ns::Ipc(Arc::clone(&self.ipc)),
             k => Ns::Init(k),
         }
     }
@@ -186,14 +237,20 @@ impl NsProxy {
         if flags & Kind::Uts.flag() != 0 {
             new.uts = self.uts.copy();
         }
+        // Not a copy: a new IPC namespace starts empty.
+        if flags & Kind::Ipc.flag() != 0 {
+            new.ipc = Ipc::new(alloc_inum());
+        }
         Arc::new(new)
     }
 
     /// With `ns` in place of this one's namespace of its kind.
     pub fn with(&self, ns: &Ns) -> Arc<NsProxy> {
         let mut new = self.clone();
-        if let Ns::Uts(u) = ns {
-            new.uts = Arc::clone(u);
+        match ns {
+            Ns::Uts(u) => new.uts = Arc::clone(u),
+            Ns::Ipc(i) => new.ipc = Arc::clone(i),
+            Ns::Init(_) => {}
         }
         Arc::new(new)
     }
@@ -217,7 +274,18 @@ mod tests {
     #[test]
     fn no_built_flag_is_the_same_proxy() {
         let p = NsProxy::initial();
-        assert!(Arc::ptr_eq(&p, &p.unshare(Kind::Ipc.flag())));
+        assert!(Arc::ptr_eq(&p, &p.unshare(Kind::Net.flag())));
+    }
+
+    #[test]
+    fn a_new_ipc_namespace_starts_empty() {
+        let a = NsProxy::initial().unshare(Kind::Ipc.flag());
+        a.ipc.part::<Mutex<Vec<u8>>>().lock().unwrap().push(1);
+        assert_eq!(a.ipc.part::<Mutex<Vec<u8>>>().lock().unwrap().len(), 1, "one value per type");
+        let b = a.unshare(Kind::Ipc.flag());
+        assert!(b.ipc.part::<Mutex<Vec<u8>>>().lock().unwrap().is_empty());
+        assert_ne!(a.ipc.inum(), b.ipc.inum());
+        assert!(Arc::ptr_eq(&a.uts, &b.uts), "the other kinds are shared");
     }
 
     #[test]

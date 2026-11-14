@@ -303,7 +303,7 @@ pub(crate) fn create(geometry: abi::Geometry) -> Result<Arc<Context>, Errno> {
         registry().aio_nr -= u64::from(geometry.max_reqs);
         e
     };
-    let file = memfdcalls::create_internal(b"/[aio]", geometry.pages * abi::PAGE, 0o600, Some(ring_unmapped))
+    let file = memfdcalls::create_internal(b"/[aio]", geometry.pages * abi::PAGE, 0o600, Some(ring_unmapped), None)
         .map_err(|_| refund(Errno::ENOMEM))?;
     let host = file.host().ok_or(Errno::ENOMEM).map_err(refund)?;
     let ring = Ring::map(host, geometry.pages, geometry.nr).map_err(refund)?;

@@ -31,7 +31,7 @@
 
 use std::collections::VecDeque;
 use std::ffi::c_int;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 
 use strace::strace;
 use sysvipc::{Errno, may, may_control};
@@ -69,9 +69,9 @@ struct Queue {
     state: GuestLock<QueueState>,
 }
 
-fn table() -> &'static Mutex<sysvipc::Registry<Queue>> {
-    static T: OnceLock<Mutex<sysvipc::Registry<Queue>>> = OnceLock::new();
-    T.get_or_init(|| Mutex::new(sysvipc::Registry::new()))
+/// The calling task's IPC namespace's table.
+fn table() -> Arc<Mutex<sysvipc::Registry<Queue>>> {
+    taskview::current_ipc().part()
 }
 
 fn now() -> i64 {
@@ -125,7 +125,8 @@ pub fn sys_msgget(key: i32, flags: c_int) -> Result<i64, Errno> {
     strace!("msgget({key:#x}, {flags:#o})");
     let f = sysvipc::get_flags(flags);
     let (caller, euid, egid) = creds();
-    let mut t = table().lock().unwrap_or_else(|e| e.into_inner());
+    let table = table();
+    let mut t = table.lock().unwrap_or_else(|e| e.into_inner());
 
     if key != sysvipc::IPC_PRIVATE {
         if let Some((id, q)) = t.by_key(key) {
@@ -217,7 +218,8 @@ pub fn sys_msgctl(id: i32, cmd: c_int, buf: u64) -> Result<i64, Errno> {
     // happened to the semaphores beside this one.
     match cmd {
         sysvipc::IPC_INFO | MSG_INFO => {
-            let t = table().lock().unwrap_or_else(|e| e.into_inner());
+            let table = table();
+            let t = table.lock().unwrap_or_else(|e| e.into_inner());
             let ids = t.ids();
             let bytes: usize = ids
                 .iter()

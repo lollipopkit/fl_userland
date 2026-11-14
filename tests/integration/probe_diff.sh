@@ -443,10 +443,10 @@ known_ok() {
         # lookup for; EOPNOTSUPP is a kernel without epoll's half of kcmp.
         # See crates/kernel/forkcalls' share module.
         "EPOLL_TFD, "*) echo kcmp-no-epoll-tfd ;;
-        # procsec_probe: of the namespace kinds only UTS is built
+        # procsec_probe: of the namespace kinds only UTS and IPC are built
         # (crates/kernel/nsproxy); a new one of any other kind is EINVAL, as
         # from a kernel with that kind configured out.
-        "unshare(CLONE_NEWNS)"*|"unshare(CLONE_NEWIPC)"*|"unshare(CLONE_NEWNET)"*|"unshare(CLONE_NEWPID)"*|"unshare(CLONE_NEWCGROUP)"*|"unshare(CLONE_NEWTIME)"*) echo unshare-namespaces-not-configured ;;
+        "unshare(CLONE_NEWNS)"*|"unshare(CLONE_NEWNET)"*|"unshare(CLONE_NEWPID)"*|"unshare(CLONE_NEWCGROUP)"*|"unshare(CLONE_NEWTIME)"*) echo unshare-namespaces-not-configured ;;
         # procsec_probe: the calls this kernel answers as built without the
         # feature -- ENOSYS, each with its reason in
         # crates/kernel/syscalltable's table.
@@ -1027,7 +1027,7 @@ docker_opts() {
         procsec_probe) printf -- '--security-opt seccomp=unconfined --cap-add SYS_NICE --cap-add SYS_ADMIN' ;;
         # The profile refuses a clone naming a namespace before the kernel
         # sees it, and every namespace is CAP_SYS_ADMIN's.
-        clone_probe|utsns_probe) printf -- '--security-opt seccomp=unconfined --cap-add SYS_ADMIN' ;;
+        clone_probe|utsns_probe|ipcns_probe) printf -- '--security-opt seccomp=unconfined --cap-add SYS_ADMIN' ;;
         # Every number with zero arguments: the profile answers EPERM or
         # ENOSYS for a third of the newer ones whatever they are given -- it
         # was why 435 clone3 had a KNOWN entry -- so the sweep asks the kernel.

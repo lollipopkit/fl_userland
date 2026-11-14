@@ -40,7 +40,7 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 
 use std::ffi::c_int;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 
 use strace::strace;
 use sysvipc::{Errno, may, may_control};
@@ -86,9 +86,9 @@ struct SemSet {
     state: GuestLock<SetState>,
 }
 
-fn table() -> &'static Mutex<sysvipc::Registry<SemSet>> {
-    static T: OnceLock<Mutex<sysvipc::Registry<SemSet>>> = OnceLock::new();
-    T.get_or_init(|| Mutex::new(sysvipc::Registry::new()))
+/// The calling task's IPC namespace's table.
+fn table() -> Arc<Mutex<sysvipc::Registry<SemSet>>> {
+    taskview::current_ipc().part()
 }
 
 fn now() -> i64 {
@@ -143,7 +143,8 @@ pub fn sys_semget(key: i32, nsems: c_int, flags: c_int) -> Result<i64, Errno> {
     strace!("semget({key:#x}, {nsems}, {flags:#o})");
     let f = sysvipc::get_flags(flags);
     let (caller, euid, egid) = creds();
-    let mut t = table().lock().unwrap_or_else(|e| e.into_inner());
+    let table = table();
+    let mut t = table.lock().unwrap_or_else(|e| e.into_inner());
 
     if key != sysvipc::IPC_PRIVATE {
         if let Some((id, set)) = t.by_key(key) {
@@ -205,7 +206,8 @@ pub fn sys_semctl(id: i32, num: c_int, cmd: c_int, arg: u64) -> Result<i64, Errn
     // index that happens not to be an id.
     match cmd {
         sysvipc::IPC_INFO | SEM_INFO => {
-            let t = table().lock().unwrap_or_else(|e| e.into_inner());
+            let table = table();
+            let t = table.lock().unwrap_or_else(|e| e.into_inner());
             let ids = t.ids();
             let sems: usize = ids
                 .iter()

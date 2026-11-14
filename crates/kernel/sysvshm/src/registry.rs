@@ -39,8 +39,25 @@ pub(super) struct Registry {
     pub(super) total_pages: u64,
 }
 
-pub(super) static REGISTRY: std::sync::LazyLock<Mutex<Registry>> =
-    std::sync::LazyLock::new(|| Mutex::new(Registry::default()));
+/// The calling task's IPC namespace's segments.
+pub(super) fn registry() -> std::sync::Arc<Mutex<Registry>> {
+    taskview::current_ipc().part()
+}
+
+/// What a segment's memfd records: the registry it is in -- not a strong
+/// reference, so a namespace's segments still go with it while attached --
+/// and its length, which detaching needs once they have.
+pub(super) struct Owner {
+    pub(super) registry: std::sync::Weak<Mutex<Registry>>,
+    pub(super) pages: u64,
+}
+
+/// The registry `fd`'s segment is in, which is not the calling task's once
+/// that task has left the namespace -- Linux's `shm_file_data.ns`. `None`
+/// once the namespace is gone, or for a file that is no segment.
+pub(super) fn registry_of(fd: &taskview::ffi::fd) -> Option<std::sync::Arc<Mutex<Registry>>> {
+    memfdcalls::internal_owner::<Owner>(fd)?.registry.upgrade()
+}
 
 impl Registry {
     pub(super) fn lookup(&self, id: i32) -> Option<usize> {
@@ -127,8 +144,11 @@ pub(super) fn tgid() -> i32 {
 /// The memfd's notification: a shared mapping of `fd` has gone. If the
 /// segment was marked and nothing is attached any more, it goes too.
 pub(super) fn segment_unmapped(fd: &taskview::ffi::fd) {
+    let Some(reg) = registry_of(fd) else {
+        return;
+    };
     let gone = {
-        let mut r = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+        let mut r = reg.lock().unwrap_or_else(|e| e.into_inner());
         match r.by_fd(fd) {
             Some(i)
                 if r.slots[i].as_ref().is_some_and(|s| s.marked)

@@ -5,7 +5,7 @@ use std::ffi::c_int;
 use strace::strace;
 
 use super::{
-    Errno, PAGE_SIZE, REGISTRY, attach, id_of, now, permitted, tgid, who_am_i,
+    Errno, PAGE_SIZE, attach, registry, registry_of, id_of, now, permitted, tgid, who_am_i,
 };
 
 pub fn sys_shmat(id: c_int, addr: u64, flags: c_int) -> Result<i64, Errno> {
@@ -19,8 +19,9 @@ pub fn sys_shmat(id: c_int, addr: u64, flags: c_int) -> Result<i64, Errno> {
 
     // The segment's file, with a reference of this call's own, so the
     // registry's lock is not held while the page table's is taken.
+    let reg = registry();
     let (fd, size) = {
-        let r = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+        let r = reg.lock().unwrap_or_else(|e| e.into_inner());
         let Some(i) = r.lookup(id) else {
             return Err(Errno::EINVAL);
         };
@@ -41,7 +42,7 @@ pub fn sys_shmat(id: c_int, addr: u64, flags: c_int) -> Result<i64, Errno> {
     let mapped = mmapcalls::share::map(&fd, want.addr, size, want.prot, want.replace);
     drop(fd);
     let mapped = Errno::split(mapped)?;
-    let mut r = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+    let mut r = reg.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(i) = r.lookup(id) {
         let seg = r.slots[i].as_mut().expect("looked up");
         seg.atime = now();
@@ -63,8 +64,18 @@ pub fn sys_shmdt(addr: u64) -> Result<(), Errno> {
     if first != 0 {
         return Err(Errno::EINVAL);
     }
+    // The segment's own namespace's, which this task may have left. One
+    // gone with its segments still detaches: Linux's attachment holds the
+    // namespace, and the mapping is all that is left of it here.
+    let Some(reg) = registry_of(&fd) else {
+        let Some(owner) = memfdcalls::internal_owner::<super::Owner>(&fd) else {
+            return Err(Errno::EINVAL);
+        };
+        mmapcalls::share::unmap(addr, owner.pages);
+        return Ok(());
+    };
     let (id, pages) = {
-        let r = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+        let r = reg.lock().unwrap_or_else(|e| e.into_inner());
         let Some(i) = r.by_fd(&fd) else {
             return Err(Errno::EINVAL);
         };
@@ -73,7 +84,7 @@ pub fn sys_shmdt(addr: u64) -> Result<(), Errno> {
     };
     mmapcalls::share::unmap(addr, pages);
     // The segment may have gone with the unmap, if it was marked.
-    let mut r = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+    let mut r = reg.lock().unwrap_or_else(|e| e.into_inner());
     if let Some(i) = r.lookup(id) {
         let seg = r.slots[i].as_mut().expect("looked up");
         seg.dtime = now();

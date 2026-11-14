@@ -8,7 +8,7 @@
 //! # Namespaces
 //!
 //! `crates/kernel/nsproxy` holds which namespace of each kind a task is in.
-//! Only the UTS kind can be made new; a request for a new one of any other
+//! Only the UTS and IPC kinds can be made new; a request for a new one of any other
 //! kind is answered as a kernel built without it does: `EINVAL` -- after
 //! `EPERM` for an unprivileged caller, because Linux checks `CAP_SYS_ADMIN`
 //! before it would find the namespace code missing. Joining a namespace of
@@ -134,7 +134,7 @@ pub fn sys_kcmp(pid1: c_int, pid2: c_int, ty: c_int, idx1: u64, idx2: u64) -> Re
         KCMP_SYSVSEM => {
             let undo = |t: &kernel_pids::Task<'_>| {
                 let tgid = t.tgid();
-                if sysvsem::has_undo(tgid) { tgid as usize } else { 0 }
+                if sysvsem::has_undo(&t.task().nsproxy().ipc, tgid) { tgid as usize } else { 0 }
             };
             (undo(&t1), undo(&t2))
         }
@@ -168,7 +168,8 @@ const NEWTIME: u64 = 0x80;
 /// list. `CLONE_VM`, `CLONE_SIGHAND` and `CLONE_THREAD` cannot be undone and
 /// are accepted only where there is nothing to undo, which is Linux's rule: a
 /// single-threaded process. `CLONE_NEWUTS` gives the calling thread a copy
-/// of its UTS namespace; see the module comment for the other kinds.
+/// of its UTS namespace and `CLONE_NEWIPC` an empty IPC namespace, which
+/// implies `CLONE_SYSVSEM`; see the module comment for the other kinds.
 ///
 /// Every refusal is decided before anything changes, as Linux's
 /// `bad_unshare_cleanup` arranges, so a call that fails has done nothing.
@@ -206,6 +207,10 @@ pub fn sys_unshare(flags: u64) -> Result<(), Errno> {
     }
     if flags & clone::NEWNS != 0 {
         flags |= clone::FS;
+    }
+    // The undo list's sets are the namespace being left: applied now.
+    if flags & clone::NEWIPC != 0 {
+        flags |= clone::SYSVSEM;
     }
     let threads = {
         let pids = Pids::take();
@@ -288,6 +293,18 @@ pub fn sys_setns(fd: c_int, nstype: c_int) -> Result<(), Errno> {
     }
     if join.iter().any(|ns| ns.kind() == Kind::User) {
         return Err(Errno::EINVAL);
+    }
+    // As `unshare`: the undo list's sets are the namespace being left
+    // (Linux's `commit_nsset`), and a thread group's list is shared by all of
+    // it, as in `unshare`'s `CLONE_SYSVSEM`.
+    if join.iter().any(|ns| ns.kind() == Kind::Ipc) {
+        let threads = {
+            let pids = Pids::take();
+            pids.me().and_then(|me| me.group()).map_or(1, kernel_pids::Group::thread_count)
+        };
+        if threads == 1 {
+            sysvsem::group_exiting(taskview::current_tgid());
+        }
     }
     taskview::with_current_task(|t| {
         let mut proxy = t.nsproxy();

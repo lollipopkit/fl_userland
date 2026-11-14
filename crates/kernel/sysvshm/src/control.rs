@@ -110,7 +110,7 @@ pub fn sys_shmctl(id: c_int, cmd: c_int, buf_addr: u64) -> Result<c_int, Errno> 
             if mem.write(buf_addr, &out) != 0 {
                 return Err(Errno::EFAULT);
             }
-            Ok(REGISTRY
+            Ok(registry()
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
                 .max_index() as c_int)
@@ -118,7 +118,8 @@ pub fn sys_shmctl(id: c_int, cmd: c_int, buf_addr: u64) -> Result<c_int, Errno> 
         ipc::SHM_INFO => {
             // struct shm_info: int used_ids, then five unsigned longs.
             let (used, total, max) = {
-                let r = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+                let reg = registry();
+                let r = reg.lock().unwrap_or_else(|e| e.into_inner());
                 (r.used(), r.total_pages, r.max_index())
             };
             let mut out = [0u8; 48];
@@ -132,7 +133,8 @@ pub fn sys_shmctl(id: c_int, cmd: c_int, buf_addr: u64) -> Result<c_int, Errno> 
         }
         ipc::STAT | ipc::SHM_STAT | ipc::SHM_STAT_ANY => {
             let (bytes, answer) = {
-                let r = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+                let reg = registry();
+                let r = reg.lock().unwrap_or_else(|e| e.into_inner());
                 // IPC_STAT names an id; the SHM_STATs name a slot and answer
                 // the id, which is how `ipcs` walks the table.
                 let index = if cmd == ipc::STAT {
@@ -167,7 +169,8 @@ pub fn sys_shmctl(id: c_int, cmd: c_int, buf_addr: u64) -> Result<c_int, Errno> 
             if mem.read(buf_addr, &mut bytes) != 0 {
                 return Err(Errno::EFAULT);
             }
-            let mut r = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+            let reg = registry();
+            let mut r = reg.lock().unwrap_or_else(|e| e.into_inner());
             let Some(i) = r.lookup(id) else {
                 return Err(Errno::EINVAL);
             };
@@ -183,7 +186,8 @@ pub fn sys_shmctl(id: c_int, cmd: c_int, buf_addr: u64) -> Result<c_int, Errno> 
         }
         ipc::RMID => {
             let gone = {
-                let mut r = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+                let reg = registry();
+                let mut r = reg.lock().unwrap_or_else(|e| e.into_inner());
                 let Some(i) = r.lookup(id) else {
                     return Err(Errno::EINVAL);
                 };
@@ -211,7 +215,8 @@ pub fn sys_shmctl(id: c_int, cmd: c_int, buf_addr: u64) -> Result<c_int, Errno> 
             Ok(0)
         }
         ipc::SHM_LOCK | ipc::SHM_UNLOCK => {
-            let mut r = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+            let reg = registry();
+            let mut r = reg.lock().unwrap_or_else(|e| e.into_inner());
             let Some(i) = r.lookup(id) else {
                 return Err(Errno::EINVAL);
             };

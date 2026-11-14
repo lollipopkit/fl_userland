@@ -89,6 +89,10 @@ struct Memfd {
     /// that count; this is how the registry learns it may destroy a segment
     /// that `IPC_RMID` marked while it was attached. `crates/kernel/sysvshm`.
     on_unmapped: Option<fn(&ffi::fd)>,
+    /// What the kernel made this file for, given back by [`internal_owner`]:
+    /// a System V segment's IPC namespace, which `on_unmapped` and `shmdt`
+    /// reach the segment through after the task has left it.
+    owner: Option<Box<dyn std::any::Any + Send + Sync>>,
     /// The owner: the creator's fs ids, or what `fchown` set since. Kept
     /// here rather than on the host file, whose owner a host user cannot
     /// change and which is the host's user anyway.
@@ -257,7 +261,7 @@ pub fn sys_memfd_create(name_addr: u64, flags: c_uint) -> Result<i64, Errno> {
 
     let mut path = b"/memfd:".to_vec();
     path.extend_from_slice(&name);
-    let fd = make(path, initial_mode(flags), initial_seals(flags), 0, None)?;
+    let fd = make(path, initial_mode(flags), initial_seals(flags), 0, None, None)?;
     let cloexec = if flags & mfd::CLOEXEC != 0 {
         ffi::O_CLOEXEC_ as c_int
     } else {
@@ -273,6 +277,7 @@ fn make(
     seals: u32,
     size: u64,
     on_unmapped: Option<fn(&ffi::fd)>,
+    owner: Option<Box<dyn std::any::Any + Send + Sync>>,
 ) -> Result<fs_fdobj::Owned, Errno> {
     // The page table calls this when the last shared page of a mapping goes.
     // Installed here rather than at boot because this is the only place a
@@ -289,6 +294,7 @@ fn make(
         path,
         seals: AtomicU32::new(seals),
         on_unmapped,
+        owner,
         uid: AtomicU32::new(uid),
         gid: AtomicU32::new(gid),
         shared_maps: AtomicU32::new(0),
@@ -328,16 +334,24 @@ fn make(
 /// `/[aio] (deleted)` there.
 ///
 /// `on_unmapped` is called with the descriptor each time a shared mapping
-/// of it goes, after [`shared_mappings`] has come down.
+/// of it goes, after [`shared_mappings`] has come down; `owner` is what
+/// [`internal_owner`] answers for it.
 pub fn create_internal(
     path: &[u8],
     size: u64,
     mode: u32,
     on_unmapped: Option<fn(&ffi::fd)>,
+    owner: Option<Box<dyn std::any::Any + Send + Sync>>,
 ) -> Result<fs_fdobj::Owned, Errno> {
     // `retain` and `release` beside this were the other two halves of the
     // handle it answers, written by hand, until 2026-09-29.
-    make(path.to_vec(), mode, 0, size, on_unmapped)
+    make(path.to_vec(), mode, 0, size, on_unmapped, owner)
+}
+
+/// The `owner` [`create_internal`] was given, if `fd` is such a file and it
+/// is a `T`.
+pub fn internal_owner<T: std::any::Any>(fd: &ffi::fd) -> Option<&T> {
+    state(fd)?.owner.as_deref()?.downcast_ref()
 }
 
 /// How many shared mappings of the file are live, if it is a memfd.

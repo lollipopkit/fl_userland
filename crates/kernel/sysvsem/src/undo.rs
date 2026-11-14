@@ -1,7 +1,7 @@
 //! `SEM_UNDO` state and thread-group exit handling.
 
 use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 
 use plan::Op;
 
@@ -14,9 +14,19 @@ use super::{CHANGED, plan, table};
 /// nothing behind, which is what stops this growing without bound in a loop.
 type Undo = HashMap<(i32, usize), i32>;
 
-fn undos() -> &'static Mutex<HashMap<i32, Undo>> {
-    static U: OnceLock<Mutex<HashMap<i32, Undo>>> = OnceLock::new();
-    U.get_or_init(|| Mutex::new(HashMap::new()))
+/// Per thread group, in one IPC namespace: the set ids are that namespace's.
+#[derive(Default)]
+struct Undos(Mutex<HashMap<i32, Undo>>);
+
+/// The calling task's IPC namespace's adjustments. A group's list is applied
+/// when it leaves the namespace (`unshare`, `setns`), so it never holds
+/// adjustments to two namespaces' sets.
+fn undos() -> Arc<Undos> {
+    taskview::current_ipc().part()
+}
+
+fn undos_in(ipc: &taskview::nsproxy::Ipc) -> Arc<Undos> {
+    ipc.part()
 }
 
 /// Record what this thread group would have to reverse.
@@ -28,7 +38,8 @@ pub(super) fn record_undo(id: i32, ops: &[Op]) {
         return;
     }
     let tgid = taskview::current_tgid();
-    let mut u = undos().lock().unwrap_or_else(|e| e.into_inner());
+    let undos = undos();
+    let mut u = undos.0.lock().unwrap_or_else(|e| e.into_inner());
     let list = u.entry(tgid).or_default();
     for o in ops {
         if o.flags & plan::SEM_UNDO == 0 || o.op == 0 {
@@ -47,7 +58,8 @@ pub(super) fn record_undo(id: i32, ops: &[Op]) {
 
 /// Drop adjustments belonging to a removed set.
 pub(super) fn forget_undos_for(id: i32) {
-    let mut u = undos().lock().unwrap_or_else(|e| e.into_inner());
+    let undos = undos();
+    let mut u = undos.0.lock().unwrap_or_else(|e| e.into_inner());
     u.retain(|_, list| {
         list.retain(|(set_id, _), _| *set_id != id);
         !list.is_empty()
@@ -58,13 +70,17 @@ pub(super) fn forget_undos_for(id: i32) {
 /// `kcmp(KCMP_SYSVSEM)` compares. A group with none has no list, which is
 /// Linux's NULL `undo_list` until the first `SEM_UNDO` operation; Linux keeps
 /// an emptied list where this drops it.
-pub fn has_undo(tgid: i32) -> bool {
-    undos().lock().unwrap_or_else(|e| e.into_inner()).contains_key(&tgid)
+///
+/// Asked of the namespace the group's task is in.
+pub fn has_undo(ipc: &taskview::nsproxy::Ipc, tgid: i32) -> bool {
+    undos_in(ipc).0.lock().unwrap_or_else(|e| e.into_inner()).contains_key(&tgid)
 }
 
-/// Reverse the adjustments when the last thread of a group exits.
+/// Reverse the adjustments: the last thread of a group is exiting, or the
+/// group is leaving its IPC namespace. The calling task's namespace's.
 pub fn group_exiting(tgid: i32) {
     let Some(list) = undos()
+        .0
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .remove(&tgid)
@@ -72,7 +88,8 @@ pub fn group_exiting(tgid: i32) {
         return;
     };
     for ((id, num), adj) in list {
-        let Some(set) = table().lock().unwrap_or_else(|e| e.into_inner()).get(id) else {
+        let table = table();
+        let Some(set) = table.lock().unwrap_or_else(|e| e.into_inner()).get(id) else {
             continue;
         };
         let mut s = set.state.lock();

@@ -53,7 +53,7 @@ use rules::{existing_ok, id_of, size_ok};
 
 #[path = "registry.rs"]
 mod registry;
-use registry::{REGISTRY, Segment, now, segment_unmapped, tgid, who_am_i};
+use registry::{Owner, Segment, now, registry, registry_of, segment_unmapped, tgid, who_am_i};
 
 #[path = "control.rs"]
 mod control;
@@ -138,7 +138,8 @@ pub fn sys_shmget(key: c_int, size: u64, flags: c_int) -> Result<c_int, Errno> {
     let mode = (flags & 0o777) as u32;
     let me = who_am_i();
     let who = me.who();
-    let mut r = REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+    let reg = registry();
+    let mut r = reg.lock().unwrap_or_else(|e| e.into_inner());
 
     if key != ipc::PRIVATE {
         if let Some(&i) = r.by_key.get(&key) {
@@ -165,7 +166,13 @@ pub fn sys_shmget(key: c_int, size: u64, flags: c_int) -> Result<c_int, Errno> {
     };
     // The registry's one reference. A `*mut ffi::fd` stored as a `usize`
     // until 2026-09-16.
-    let fd = memfdcalls::create_internal(&file_name(key), size, mode, Some(segment_unmapped))
+    let fd = memfdcalls::create_internal(
+        &file_name(key),
+        size,
+        mode,
+        Some(segment_unmapped),
+        Some(Box::new(Owner { registry: std::sync::Arc::downgrade(&reg), pages })),
+    )
         .map_err(|_| Errno::ENOMEM)?;
     let seq = r.seq;
     r.seq = if seq >= ipc::SEQ_MAX { 0 } else { seq + 1 };

@@ -460,3 +460,10 @@ impl Drop for NativeOffloadGuard {
 fn store_native_offload_entry(entry: Option<&'static offloadreg::Entry>) {
     with_current_task(|t| t.native_offload_entry.set(entry));
 }
+
+/// The calling task's IPC namespace; the initial one on a thread with no
+/// task.
+pub fn current_ipc() -> std::sync::Arc<kernel_nsproxy::Ipc> {
+    crate::with_current_task(|t| std::sync::Arc::clone(&t.nsproxy().ipc))
+        .unwrap_or_else(|| std::sync::Arc::clone(&kernel_nsproxy::NsProxy::initial().ipc))
+}

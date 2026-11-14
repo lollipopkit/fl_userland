@@ -1,0 +1,39 @@
+the link's form                                          -> ipc
+made shm, sem, msg and mq here                           -> true
+unshare(CLONE_NEWIPC)                                    -> ok
+  the link changed                                       -> true
+  shmget(the key)                                        -> ENOENT
+  semget(the key)                                        -> ENOENT
+  msgget(the key)                                        -> ENOENT
+  mq_open(the name)                                      -> ENOENT
+  shmctl(the old id, IPC_STAT)                           -> EINVAL
+  semctl(the old id, GETVAL)                             -> EINVAL
+  the old mq descriptor still works                      -> true
+  the attachment still reads                             -> true
+  shmdt of it                                            -> ok
+  shmget(the key, IPC_CREAT|IPC_EXCL)                    -> ok
+  the new one is 8192 bytes                              -> true
+  mq_open(the name, O_CREAT|O_EXCL)                      -> ok
+after the child: the segment here is 4096 bytes          -> true
+  and nothing is attached                                -> true
+  mq_open(O_CREAT|O_EXCL) here                           -> EEXIST
+semop(-2, SEM_UNDO), then unshare(CLONE_NEWIPC): the value here -> 5
+  after it exits                                         -> 5
+semop(-2, SEM_UNDO), then nothing: the value here        -> 3
+  after it exits                                         -> 5
+setns(fd, CLONE_NEWUTS) on an ipc file                   -> EINVAL
+setns(fd, CLONE_NEWIPC)                                  -> ok
+  the link is the parent's                               -> true
+  shmget(the key) is the parent's id                     -> true
+  mq_open(the name)                                      -> ok
+setns(pidfd, CLONE_NEWIPC)                               -> ok
+  semget(the key) is the parent's id                     -> true
+in a new one: msgget(another key, IPC_CREAT)             -> ok
+  back through a held descriptor: still there            -> true
+clone(CLONE_NEWIPC): shmget(the key)                     -> ENOENT
+clone(CLONE_NEWIPC)                                      -> ok
+clone(CLONE_NEWIPC|CLONE_SYSVSEM)                        -> EINVAL
+a thread's unshare: shmget(the key) there                -> ENOENT
+  the other thread still finds it                        -> true
+unshare(CLONE_NEWIPC) as uid 1000                        -> EPERM
+setns(own ipc) as uid 1000                               -> EPERM

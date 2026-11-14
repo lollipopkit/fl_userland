@@ -115,7 +115,8 @@ mod clone {
         | UNTRACED
         | IO
         | CLEAR_SIGHAND
-        | NEWUTS;
+        | NEWUTS
+        | NEWIPC;
 
     /// What `clone3` accepts: everything the legacy call has, minus the two
     /// ranges `clone3` took back for itself, plus `CLEAR_SIGHAND` -- and
@@ -229,6 +230,11 @@ fn do_clone(
         return EINVAL;
     }
     if flags & clone::THREAD != 0 && flags & clone::SIGHAND == 0 {
+        return EINVAL;
+    }
+    // A new IPC namespace with the parent's undo list, whose sets are the old
+    // namespace's.
+    if flags & (clone::NEWIPC | clone::SYSVSEM) == clone::NEWIPC | clone::SYSVSEM {
         return EINVAL;
     }
     if flags & clone::PIDFD != 0 {

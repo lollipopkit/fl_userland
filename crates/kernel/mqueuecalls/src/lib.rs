@@ -18,8 +18,9 @@
 //!
 //! Linux keeps the queues on an internal `mqueue` mount per IPC namespace and
 //! a guest may mount that filesystem anywhere -- a container runtime puts one
-//! at `/dev/mqueue`. Neither is here: there is one name space, `mount(2)` does
-//! not know the type, and `/proc/filesystems` does not list it. That is the
+//! at `/dev/mqueue`. The name space is here, one per IPC namespace
+//! (`crates/kernel/nsproxy`), but not the mount: `mount(2)` does not know the
+//! type, and `/proc/filesystems` does not list it. That is the
 //! shape of a kernel whose `mqueue` filesystem is not mountable rather than an
 //! answer that is wrong: `/dev/mqueue` does not exist, which is what a bare
 //! kernel's `/dev` has, and nothing a program does through the six syscalls
@@ -98,37 +99,45 @@ pub(crate) struct Mq {
 
 // --------------------------------------------------------------- accounting
 
-/// Live queues, an unlinked one still open included: what `queues_max` counts.
-static LIVE: AtomicUsize = AtomicUsize::new(0);
+/// Live queues in one IPC namespace, an unlinked one still open included:
+/// what `queues_max` counts -- Linux's `mq_queues_count`, per namespace.
+#[derive(Default)]
+struct Live(AtomicUsize);
+
+fn live() -> Arc<Live> {
+    taskview::current_ipc().part()
+}
 
 /// `RLIMIT_MSGQUEUE` bytes charged, per real uid -- Linux's `ucounts`, which
 /// is per user and not per process: a fork's queues count against the same
 /// total as its parent's.
 static CHARGED: LazyLock<Mutex<HashMap<u32, u64>>> = LazyLock::new(Mutex::default);
 
-/// One queue's share of [`LIVE`] and [`CHARGED`], given back when the queue
-/// goes -- which is when it is unlinked and the last descriptor closes.
+/// One queue's share of its namespace's [`Live`] and of [`CHARGED`], given
+/// back when the queue goes -- which is when it is unlinked and the last
+/// descriptor closes.
 struct Charge {
+    live: Arc<Live>,
     uid: u32,
     bytes: u64,
 }
 
 impl Charge {
-    fn take(uid: u32, bytes: u64, limit: u64) -> Result<Charge, Errno> {
+    fn take(live: Arc<Live>, uid: u32, bytes: u64, limit: u64) -> Result<Charge, Errno> {
         let mut charged = CHARGED.lock().unwrap_or_else(|e| e.into_inner());
         let used = charged.get(&uid).copied().unwrap_or(0);
         match used.checked_add(bytes) {
             Some(total) if total <= limit => charged.insert(uid, total),
             _ => return Err(Errno::EMFILE),
         };
-        LIVE.fetch_add(1, Ordering::Relaxed);
-        Ok(Charge { uid, bytes })
+        live.0.fetch_add(1, Ordering::Relaxed);
+        Ok(Charge { live, uid, bytes })
     }
 }
 
 impl Drop for Charge {
     fn drop(&mut self) {
-        LIVE.fetch_sub(1, Ordering::Relaxed);
+        self.live.0.fetch_sub(1, Ordering::Relaxed);
         let mut charged = CHARGED.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(used) = charged.get_mut(&self.uid) {
             *used -= self.bytes;
@@ -141,13 +150,22 @@ impl Drop for Charge {
 
 // ---------------------------------------------------------------- the names
 
-/// Name to queue. A std `Mutex`: nothing waits under it, and the only locks
-/// taken inside it are a queue's own (the mode check) and the descriptor
-/// table's (installing).
-static NAMES: LazyLock<Mutex<HashMap<Vec<u8>, Arc<Mq>>>> = LazyLock::new(Mutex::default);
+/// Name to queue, in one IPC namespace: Linux's per-namespace `mqueue`
+/// mount. A std `Mutex`: nothing waits under it, and the only locks taken
+/// inside it are a queue's own (the mode check) and the descriptor table's
+/// (installing).
+#[derive(Default)]
+struct Names(Mutex<HashMap<Vec<u8>, Arc<Mq>>>);
 
-fn names() -> MutexGuard<'static, HashMap<Vec<u8>, Arc<Mq>>> {
-    NAMES.lock().unwrap_or_else(|e| e.into_inner())
+/// The calling task's namespace's names.
+fn names() -> Arc<Names> {
+    taskview::current_ipc().part()
+}
+
+impl Names {
+    fn lock(&self) -> MutexGuard<'_, HashMap<Vec<u8>, Arc<Mq>>> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner())
+    }
 }
 
 static NEXT_INO: AtomicU64 = AtomicU64::new(1);
@@ -224,7 +242,8 @@ pub fn sys_mq_open(name_addr: u64, oflag: c_int, mode: u32, attr_addr: u64) -> R
     let name = read_name(name_addr)?;
     let who = caller();
 
-    let mut table = names();
+    let names = names();
+    let mut table = names.lock();
     let (mq, created) = match table.get(&name) {
         Some(mq) => {
             if oflag & (O_CREAT | O_EXCL) == O_CREAT | O_EXCL {
@@ -263,7 +282,8 @@ pub fn sys_mq_open(name_addr: u64, oflag: c_int, mode: u32, attr_addr: u64) -> R
 /// attr (`EINVAL`), then `RLIMIT_MSGQUEUE` (`EMFILE`).
 fn create(name: &[u8], mode: u32, attr: Option<Attr>, who: &Caller) -> Result<Mq, Errno> {
     let privileged = taskview::capable(taskview::caps::CAP_SYS_RESOURCE);
-    if LIVE.load(Ordering::Relaxed) >= abi::QUEUES_MAX && !privileged {
+    let live = live();
+    if live.0.load(Ordering::Relaxed) >= abi::QUEUES_MAX && !privileged {
         return Err(Errno::ENOSPC);
     }
     let (maxmsg, msgsize) = match attr {
@@ -272,7 +292,7 @@ fn create(name: &[u8], mode: u32, attr: Option<Attr>, who: &Caller) -> Result<Mq
     };
     let bytes = abi::charge(maxmsg, msgsize, privileged)?;
     let limit = kernel_rlimit::current_soft(ffi::RLIMIT_MSGQUEUE_);
-    let charge = Charge::take(who.uid, bytes, limit)?;
+    let charge = Charge::take(live, who.uid, bytes, limit)?;
     let perm = taskview::with_current_fs(|fs| fs.apply_umask(mode & 0o7777)).unwrap_or(mode & 0o7777);
     let t = now();
     let inode = Inode {
@@ -306,7 +326,8 @@ pub fn sys_mq_unlink(name_addr: u64) -> Result<(), Errno> {
     strace!("mq_unlink({name_addr:#x})");
     let name = read_name(name_addr)?;
     let who = caller();
-    let mut table = names();
+    let names = names();
+    let mut table = names.lock();
     let Some(mq) = table.get(&name) else {
         return Err(Errno::ENOENT);
     };
@@ -534,20 +555,20 @@ mod tests {
     /// The charges go back: a queue dropped returns its bytes and its count.
     #[test]
     fn a_charge_is_given_back() {
-        let live = LIVE.load(Ordering::Relaxed);
-        let a = Charge::take(4242, 600, 1000).unwrap();
-        assert_eq!(Charge::take(4242, 401, 1000).err(), Some(Errno::EMFILE));
-        let b = Charge::take(4242, 400, 1000).unwrap();
-        assert_eq!(LIVE.load(Ordering::Relaxed), live + 2);
+        let live = Arc::new(Live::default());
+        let a = Charge::take(Arc::clone(&live), 4242, 600, 1000).unwrap();
+        assert_eq!(Charge::take(Arc::clone(&live), 4242, 401, 1000).err(), Some(Errno::EMFILE));
+        let b = Charge::take(Arc::clone(&live), 4242, 400, 1000).unwrap();
+        assert_eq!(live.0.load(Ordering::Relaxed), 2);
         drop(a);
         drop(b);
-        assert_eq!(LIVE.load(Ordering::Relaxed), live);
+        assert_eq!(live.0.load(Ordering::Relaxed), 0);
         assert!(!CHARGED.lock().unwrap().contains_key(&4242));
-        assert_eq!(Charge::take(4242, 1001, 1000).err(), Some(Errno::EMFILE));
+        assert_eq!(Charge::take(Arc::clone(&live), 4242, 1001, 1000).err(), Some(Errno::EMFILE));
         assert!(!CHARGED.lock().unwrap().contains_key(&4242), "a refusal charges nothing");
         // A total that would wrap is a refusal, not a small number.
-        let all = Charge::take(4242, u64::MAX, u64::MAX).unwrap();
-        assert_eq!(Charge::take(4242, 1, u64::MAX).err(), Some(Errno::EMFILE));
+        let all = Charge::take(Arc::clone(&live), 4242, u64::MAX, u64::MAX).unwrap();
+        assert_eq!(Charge::take(Arc::clone(&live), 4242, 1, u64::MAX).err(), Some(Errno::EMFILE));
         drop(all);
     }
 }
