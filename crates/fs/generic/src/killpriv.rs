@@ -19,11 +19,35 @@
 
 use super::*;
 
-use guest_errno::c_int_::{ENODATA, EOPNOTSUPP};
+use guest_errno::c_int_::{EACCES, ENODATA, EOPNOTSUPP, ERANGE};
 
 const CAPABILITY: &CStr = c"security.capability";
 const S_ISUID: u32 = 0o4000;
 const S_ISGID: u32 = 0o2000;
+
+/// Avoid `removexattr` when `security.capability` is absent: on Darwin's
+/// `realfs`, `fremovexattr` on a newly-created 0444/0000 file fails with EACCES
+/// even through a writable descriptor. Fall back to `remove` on EACCES
+/// (e.g. a 0200 write-only file where `realfs_xattr` could not open O_RDONLY),
+/// and treat an EACCES from `remove` as absent when `get` also saw EACCES.
+fn cap_remove(
+    get: impl FnOnce(&mut [u8]) -> c_int,
+    remove: impl FnOnce() -> c_int,
+) -> c_int {
+    let mut empty = [0u8; 0];
+    let probe = get(&mut empty);
+    if probe == ENODATA || probe == EOPNOTSUPP {
+        return ENODATA;
+    }
+    if probe < 0 && probe != ERANGE && probe != EACCES {
+        return probe;
+    }
+    let res = remove();
+    if probe == EACCES && res == EACCES {
+        return ENODATA;
+    }
+    res
+}
 
 /// Before a write or a truncation through `fd`. A negative guest errno if
 /// removing failed, which the operation answers instead, as Linux's does.
@@ -46,7 +70,14 @@ pub fn remove_privs(fd: &ffi::fd) -> c_int {
         Some(Err(e)) => return e,
         None => return 0,
     };
-    let cap = fs.fxattr(fd, ffi::XattrCall::Remove { name: CAPABILITY }) as c_int;
+    let cap = if fd.created {
+        ENODATA
+    } else {
+        cap_remove(
+            |out| fs.fxattr(fd, ffi::XattrCall::Get { name: CAPABILITY, out }) as c_int,
+            || fs.fxattr(fd, ffi::XattrCall::Remove { name: CAPABILITY }) as c_int,
+        )
+    };
     let err = remove(stat, cap, |m| fs.fsetattr(fd, ffi::Attr::Mode(m as ffi::mode_t_)));
     if let (Some(inode), Some(g)) = (&fd.inode, generation) {
         if err == 0 && cap < 0 && stat.mode & (S_ISUID | S_ISGID) == 0 {
@@ -71,7 +102,10 @@ pub(crate) fn remove_privs_at(mount: &Mount, path: &PathBuf, stat: ffi::statbuf,
         return 0;
     }
     let fs = mount.fs();
-    let cap = fs.xattr(mount.get(), path.as_cstr(), ffi::XattrCall::Remove { name: CAPABILITY }, follow) as c_int;
+    let cap = cap_remove(
+        |out| fs.xattr(mount.get(), path.as_cstr(), ffi::XattrCall::Get { name: CAPABILITY, out }, follow) as c_int,
+        || fs.xattr(mount.get(), path.as_cstr(), ffi::XattrCall::Remove { name: CAPABILITY }, follow) as c_int,
+    );
     let err = remove(stat, cap, |m| fs.setattr(mount.get(), path.as_cstr(), ffi::Attr::Mode(m as ffi::mode_t_)));
     fs_inode::privs_changed_at(mount.get(), stat.inode);
     err

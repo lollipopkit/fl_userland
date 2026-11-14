@@ -319,7 +319,9 @@ fn make_socket_node(mount: &ffi::mount, path: &CStr, perms: u32) -> c_int {
 
     // bind applies the umask; the guest asked for a particular mode and has
     // already had its own umask taken off by the caller.
-    status(rx(fs::chmodat(root, at_path(path), mode_of(perms), AtFlags::empty())))
+    status(chmod_result(perms, |m| {
+        rx(fs::chmodat(root, at_path(path), m, AtFlags::empty()))
+    }))
 }
 
 pub fn realfs_mkdir(mount: &ffi::mount,
@@ -421,6 +423,17 @@ fn chown_result(res: Result<()>) -> c_int {
     }
 }
 
+/// On iOS, the app sandbox refuses `S_ISUID`/`S_ISGID` (`0o6000`) in `chmod`
+/// with `EPERM`; retry with those bits cleared so the `rwx` permissions still
+/// take effect on the host.
+fn chmod_result(mode: u32, mut f: impl FnMut(Mode) -> Result<()>) -> Result<()> {
+    const SETID: u32 = 0o6000;
+    match f(mode_of(mode)) {
+        Err(errno::EPERM) if mode & SETID != 0 => f(mode_of(mode & !SETID)),
+        other => other,
+    }
+}
+
 pub fn realfs_setattr(mount: &ffi::mount,
     path: &CStr,
     attr: ffi::Attr,
@@ -465,12 +478,9 @@ pub fn realfs_setattr(mount: &ffi::mount,
             Some(Gid::from_raw(gid)),
             NOFOLLOW,
         ))),
-        ffi::Attr::Mode(mode) => status(rx(fs::chmodat(
-            root,
-            at_path(path),
-            mode_of(mode.into()),
-            AtFlags::empty(),
-        ))),
+        ffi::Attr::Mode(mode) => status(chmod_result(mode.into(), |m| {
+            rx(fs::chmodat(root, at_path(path), m, AtFlags::empty()))
+        })),
         ffi::Attr::Size(size) => realfs_truncate(mount, path, size),
         // No default: the C's was a TODO(), which is die(), so an
         // attribute added to the enum and not to this switch killed the
@@ -495,7 +505,7 @@ pub fn realfs_fsetattr(fd: &ffi::fd, attr: ffi::Attr) -> c_int {
             None,
             Some(Gid::from_raw(gid)),
         ))),
-        ffi::Attr::Mode(mode) => status(rx(fs::fchmod(host, mode_of(mode.into())))),
+        ffi::Attr::Mode(mode) => status(chmod_result(mode.into(), |m| rx(fs::fchmod(host, m)))),
         ffi::Attr::Size(size) => status(
             u64::try_from(size)
                 .map_err(|_| errno::EINVAL)
