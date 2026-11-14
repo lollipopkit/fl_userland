@@ -206,6 +206,10 @@ fn copy_task_steps(
         t.sighand.set(Some(fresh));
     }
 
+    // `task_create_` gave the child a share of the parent's namespaces.
+    let ns = t.nsproxy.get_mut();
+    *ns = ns.unshare(flags);
+
     // The alternate signal stack is the *thread's*, and `task_create_` copied
     // the parent's into the child's queue, which is fork(2)'s rule. A thread
     // does not inherit one -- Linux's copy_process:

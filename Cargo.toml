@@ -155,6 +155,7 @@ members = [
     "crates/kernel/mqueuecalls",
     "crates/kernel/pidfd",
     "crates/kernel/seccomp",
+    "crates/kernel/nsproxy",
     "crates/kernel/timerfd",
     "crates/kernel/signalfd",
     "crates/kernel/rlimit",

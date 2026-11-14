@@ -88,7 +88,7 @@ seccomp(99)                                                  -> EINVAL
 SET_MODE_STRICT with flags                                   -> EINVAL
 PR_GET_SECCOMP                                               -> 0
 Seccomp: in status                                           -> 0
-in a child: SET_MODE_FILTER without no_new_privs, as root    -> EACCES
+in a child: SET_MODE_FILTER without no_new_privs, as root    -> ok
   the child                                                  -> exit 0
 filter: getppid -> ERRNO(EPERM)                              -> ok
   getppid                                                    -> EPERM
@@ -156,13 +156,13 @@ unshare(CLONE_SIGHAND), single-threaded                      -> ok
 unshare(CLONE_THREAD), single-threaded                       -> ok
 unshare(SIGCHLD), not an unshare flag                        -> EINVAL
 unshare(CLONE_PARENT)                                        -> EINVAL
-unshare(CLONE_NEWNS)                                         -> EPERM
-unshare(CLONE_NEWUTS)                                        -> EPERM
-unshare(CLONE_NEWIPC)                                        -> EPERM
-unshare(CLONE_NEWNET)                                        -> EPERM
-unshare(CLONE_NEWPID)                                        -> EPERM
-unshare(CLONE_NEWCGROUP)                                     -> EPERM
-unshare(CLONE_NEWTIME)                                       -> EPERM
+unshare(CLONE_NEWNS)                                         -> ok
+unshare(CLONE_NEWUTS)                                        -> ok
+unshare(CLONE_NEWIPC)                                        -> ok
+unshare(CLONE_NEWNET)                                        -> ok
+unshare(CLONE_NEWPID)                                        -> ok
+unshare(CLONE_NEWCGROUP)                                     -> ok
+unshare(CLONE_NEWTIME)                                       -> ok
   the child                                                  -> exit 0
 a thread sees a descriptor opened before                     -> open
 unshare(CLONE_FILES) with a thread sharing the table         -> ok
@@ -179,10 +179,10 @@ setns(/dev/null, 0)                                          -> EINVAL
 setns(9999, 0)                                               -> EBADF
 setns(-1, 0)                                                 -> EBADF
 setns(pidfd of self, 0)                                      -> EINVAL
-setns(pidfd of self, CLONE_NEWUTS)                           -> EPERM
+setns(pidfd of self, CLONE_NEWUTS)                           -> ok
 setns(pidfd of self, CLONE_VM)                               -> EINVAL
 open /proc/self/ns/uts                                       -> a descriptor
-setns(own uts ns, CLONE_NEWUTS)                              -> EPERM
+setns(own uts ns, CLONE_NEWUTS)                              -> ok
 setns(own uts ns, CLONE_NEWNET)                              -> EINVAL
 
 ########## listns ##########
@@ -208,14 +208,14 @@ landlock_create_ruleset(VERSION)                             -> an ABI version
 landlock_create_ruleset(ERRATA)                              -> an errata mask
 landlock_create_ruleset(fs EXECUTE)                          -> a descriptor
 landlock_add_rule(-1)                                        -> EBADF
-landlock_restrict_self(-1)                                   -> EPERM
+landlock_restrict_self(-1)                                   -> EBADF
 
 ########## bpf, perf_event_open, userfaultfd ##########
 bpf(BPF_MAP_CREATE, NULL, 0)                                 -> EINVAL
 bpf(BPF_MAP_CREATE, zeroed, 128)                             -> EINVAL
 bpf(999)                                                     -> EINVAL
 perf_event_open(NULL)                                        -> EFAULT
-perf_event_open(SW_TASK_CLOCK, self)                         -> EACCES
+perf_event_open(SW_TASK_CLOCK, self)                         -> a descriptor
 userfaultfd(0)                                               -> EPERM
 userfaultfd(UFFD_USER_MODE_ONLY)                             -> ok
 userfaultfd(0x100)                                           -> EPERM

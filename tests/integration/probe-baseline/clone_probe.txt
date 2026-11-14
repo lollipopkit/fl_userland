@@ -24,9 +24,9 @@ CLONE_THREAD | CLONE_SIGHAND, no VM                        -> EINVAL
 CLONE_SIGHAND, no VM                                       -> EINVAL
 CLONE_THREAD | CLONE_VM, no SIGHAND                        -> EINVAL
 CLONE_THREAD | CLONE_VM | CLONE_SIGHAND | CLONE_PIDFD      -> EFAULT
-CLONE_THREAD | CLONE_VM | CLONE_SIGHAND | CLONE_NEWPID     -> EPERM
-CLONE_THREAD | CLONE_VM | CLONE_SIGHAND | CLONE_NEWUSER    -> EPERM
-CLONE_VM | CLONE_SIGHAND | CLONE_THREAD | CLONE_NEWNS | CLONE_FS -> EPERM
+CLONE_THREAD | CLONE_VM | CLONE_SIGHAND | CLONE_NEWPID     -> EINVAL
+CLONE_THREAD | CLONE_VM | CLONE_SIGHAND | CLONE_NEWUSER    -> EINVAL
+CLONE_VM | CLONE_SIGHAND | CLONE_THREAD | CLONE_NEWNS | CLONE_FS -> EINVAL
 ## the pidfd rules
 CLONE_PIDFD | CLONE_DETACHED                               -> EINVAL
 CLONE_PIDFD | CLONE_PARENT_SETTID                          -> EINVAL
@@ -34,13 +34,13 @@ CLONE_PIDFD with a NULL ptid                               -> EFAULT
 CLONE_PIDFD with a bad ptid                                -> EFAULT
 CLONE_PIDFD                                                -> child ran, fd set
 ## the namespace rules
-CLONE_NEWNS | CLONE_FS                                     -> EPERM
-CLONE_NEWUSER | CLONE_FS                                   -> EPERM
-CLONE_NEWIPC | CLONE_SYSVSEM                               -> EPERM
-CLONE_NEWPID | CLONE_PARENT                                -> EPERM
-CLONE_NEWUSER | CLONE_PARENT                               -> EPERM
-CLONE_NEWCGROUP                                            -> EPERM
-CLONE_NEWUTS                                               -> EPERM
+CLONE_NEWNS | CLONE_FS                                     -> EINVAL
+CLONE_NEWUSER | CLONE_FS                                   -> EINVAL
+CLONE_NEWIPC | CLONE_SYSVSEM                               -> EINVAL
+CLONE_NEWPID | CLONE_PARENT                                -> EINVAL
+CLONE_NEWUSER | CLONE_PARENT                               -> EINVAL
+CLONE_NEWCGROUP                                            -> child ran
+CLONE_NEWUTS                                               -> child ran
 ## the tid pointers
 CLONE_PARENT_SETTID with a NULL ptid                       -> child ran
 CLONE_PARENT_SETTID with a bad ptid                        -> child ran

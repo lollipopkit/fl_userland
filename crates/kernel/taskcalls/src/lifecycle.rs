@@ -100,6 +100,7 @@ pub fn blank_task() -> ffi::task {
         ptrace: None,
         // No filter: the first process starts unconfined.
         seccomp: kernel_seccomp::State::new(),
+        nsproxy: locks::mutex::Mutex::new(taskview::nsproxy::NsProxy::initial()),
         // `set_tid_address`'s futex word. 0 is "none", which is the state a
         // process starts in.
         clear_tid: std::sync::atomic::AtomicU64::new(0),
@@ -210,6 +211,9 @@ pub(super) unsafe fn forked_task(parent: &ffi::task) -> ffi::task {
             // inherits and keeps across `execve`. Read under the `pids_lock`
             // the caller holds, which is what `TSYNC` writes under.
             seccomp: parent.seccomp.for_child(),
+            // A share of the parent's; `copy_task` gives the child new ones
+            // for `clone`'s `CLONE_NEW*` flags.
+            nsproxy: locks::mutex::Mutex::new(parent.nsproxy()),
             // `set_tid_address` is per thread; `copy_task` sets it for
             // `CLONE_CHILD_CLEARTID`.
             clear_tid: std::sync::atomic::AtomicU64::new(0),

@@ -443,22 +443,10 @@ known_ok() {
         # lookup for; EOPNOTSUPP is a kernel without epoll's half of kcmp.
         # See crates/kernel/forkcalls' share module.
         "EPOLL_TFD, "*) echo kcmp-no-epoll-tfd ;;
-        # procsec_probe: installing a filter without no_new_privs needs
-        # CAP_SYS_ADMIN, which the container's root lacks and the guest's root
-        # has. Both refuse an unprivileged caller with EACCES.
-        "in a child: SET_MODE_FILTER without no_new_privs, as root"*) echo seccomp-root-has-cap-sys-admin ;;
-        # procsec_probe: no namespaces here. The container refuses for want of
-        # CAP_SYS_ADMIN before it looks; the guest is root, gets past that, and
-        # meets a kernel with the namespace configured out (EINVAL), which is
-        # how clone answers the same flags.
-        "unshare(CLONE_NEW"*) echo unshare-namespaces-not-configured ;;
-        "setns(pidfd of self, CLONE_NEWUTS)"*) echo setns-namespaces-not-configured ;;
-        # procsec_probe: /proc/<pid>/ns opens a namespace (since 2026-11-13),
-        # and setns refuses to join one: EINVAL, the namespace code it would
-        # need not being here, as for a pidfd above. The container's root is
-        # refused first for want of CAP_SYS_ADMIN; a kind that does not match
-        # the descriptor's is EINVAL on both.
-        "setns(own uts ns, CLONE_NEWUTS)"*) echo setns-no-nsfs ;;
+        # procsec_probe: of the namespace kinds only UTS is built
+        # (crates/kernel/nsproxy); a new one of any other kind is EINVAL, as
+        # from a kernel with that kind configured out.
+        "unshare(CLONE_NEWNS)"*|"unshare(CLONE_NEWIPC)"*|"unshare(CLONE_NEWNET)"*|"unshare(CLONE_NEWPID)"*|"unshare(CLONE_NEWCGROUP)"*|"unshare(CLONE_NEWTIME)"*) echo unshare-namespaces-not-configured ;;
         # procsec_probe: the calls this kernel answers as built without the
         # feature -- ENOSYS, each with its reason in
         # crates/kernel/syscalltable's table.
@@ -798,14 +786,10 @@ known_ok() {
         # entries found" on stderr. A kernel with no such handler answers
         # ENOEXEC, which is what this one does.
         "an x86-64 ELF header"*) echo exec-container-has-binfmt-misc-for-x86 ;;
-        # clone: every namespace flag. Docker's seccomp profile answers EPERM
-        # to a clone naming one before the kernel sees it -- including the
-        # pairs the kernel itself refuses with EINVAL, CLONE_NEWNS|CLONE_FS
-        # among them. This kernel has no namespaces and answers EINVAL to all
-        # of them, which is what a kernel built without them answers.
-        "CLONE_NEW"*) echo clone-namespaces-are-seccomp-in-the-container ;;
-        "CLONE_THREAD | CLONE_VM | CLONE_SIGHAND | CLONE_NEW"*) echo clone-namespaces-are-seccomp-in-the-container ;;
-        "CLONE_VM | CLONE_SIGHAND | CLONE_THREAD | CLONE_NEWNS"*) echo clone-namespaces-are-seccomp-in-the-container ;;
+        # clone: a cgroup namespace, a kind not built here (see
+        # unshare-namespaces-not-configured). The pairs the probe names that
+        # Linux itself refuses are EINVAL on both.
+        "CLONE_NEWCGROUP "*) echo clone-namespaces-not-configured ;;
         # shm: nattch after a fork. Linux counts attaches per process, so a
         # child that inherits one makes it two; here the child shares the
         # parent's mapping record and it stays one until both have detached.
@@ -891,7 +875,7 @@ known_ok() {
 # allowlist nobody checks is how a check becomes vacuous. That has happened here
 # before: a rule written as "every line longer than 73 characters has a space at
 # 72" ran over an empty set and passed with the column deliberately wrong.
-ALL_KNOWN="kcmp-no-epoll-tfd seccomp-root-has-cap-sys-admin unshare-namespaces-not-configured setns-namespaces-not-configured setns-no-nsfs listns-not-configured landlock-not-configured bpf-not-configured perf-not-configured userfaultfd-not-configured keys-not-configured ngroups-max-is-32 procsys-only-what-this-kernel-decides memfd-secret-not-configured pidfd-info-no-cgroups pidfd-no-namespaces xattr-trusted-needs-cap-sys-admin xattr-security-needs-cap-sys-admin xattr-trusted-not-set-in-the-container xattr-name-limit-is-the-hosts xattr-value-limit-is-the-filesystems prio-lowering-needs-cap-sys-nice prio-no-realtime-policy prio-rr-interval-is-machine-state prio-rt-class-needs-cap-sys-admin statx-subvol statx-no-attributes linkat-empty-path ctr-no-mte-granule dczid-zva-prohibited mmap-placement mmap-overcommit tmpfile-realfs-names-by-copy msg-oob msg-oob-in-every-bit rwf-nowait-is-a-mount-property ftruncate-max-file-size pipe-page-granularity auxv-no-rseq auxv-no-rseq-keys tiocgptpeer membarrier-no-rseq membarrier-no-rseq-register membarrier-no-registrations mknod-block-needs-host-root select-nfds-clamped-to-table decode-no-fhm decode-no-fhm2 decode-by-element-extensions table-needs-cap-sys-admin table-vhangup-needs-cap-sys-tty-config table-syslog-epperm-in-a-container table-getgroups-counts-the-processs-own table-personality-no-randomize uring-not-implemented rseq-not-implemented rlimit-raise-needs-cap-sys-resource faultread-kept-where-linux-drops faultread-blocking-answers-at-once decode-no-pauth decode-no-cssc decode-no-mte open-accmode-3 statmount-container-root-is-pivoted clock-settime-is-seccomp-in-the-container clock-res-is-the-hosts timer-create-no-cpu-clocks epoll-exclusive-wakes-every-set mqueue-not-mountable aio-rwf-nowait-is-a-mount-property aio-ioprio-rt-needs-cap-sys-nice aio-poll-result-is-not-the-wake-key acct-not-configured modules-not-configured pivot-root-not-implemented procpid-stack-pagemap-not-here caps-mknod-needs-host-root caps-realfs-owner-is-the-hosts caps-realfs-group-is-the-hosts caps-realfs-chmod-owner-is-the-hosts killpriv-realfs-host-clears-on-write killpriv-realfs-group-is-the-hosts"
+ALL_KNOWN="kcmp-no-epoll-tfd unshare-namespaces-not-configured clone-namespaces-not-configured listns-not-configured landlock-not-configured bpf-not-configured perf-not-configured userfaultfd-not-configured keys-not-configured ngroups-max-is-32 procsys-only-what-this-kernel-decides memfd-secret-not-configured pidfd-info-no-cgroups pidfd-no-namespaces xattr-trusted-needs-cap-sys-admin xattr-security-needs-cap-sys-admin xattr-trusted-not-set-in-the-container xattr-name-limit-is-the-hosts xattr-value-limit-is-the-filesystems prio-lowering-needs-cap-sys-nice prio-no-realtime-policy prio-rr-interval-is-machine-state prio-rt-class-needs-cap-sys-admin statx-subvol statx-no-attributes linkat-empty-path ctr-no-mte-granule dczid-zva-prohibited mmap-placement mmap-overcommit tmpfile-realfs-names-by-copy msg-oob msg-oob-in-every-bit rwf-nowait-is-a-mount-property ftruncate-max-file-size pipe-page-granularity auxv-no-rseq auxv-no-rseq-keys tiocgptpeer membarrier-no-rseq membarrier-no-rseq-register membarrier-no-registrations mknod-block-needs-host-root select-nfds-clamped-to-table decode-no-fhm decode-no-fhm2 decode-by-element-extensions table-needs-cap-sys-admin table-vhangup-needs-cap-sys-tty-config table-syslog-epperm-in-a-container table-getgroups-counts-the-processs-own table-personality-no-randomize uring-not-implemented rseq-not-implemented rlimit-raise-needs-cap-sys-resource faultread-kept-where-linux-drops faultread-blocking-answers-at-once decode-no-pauth decode-no-cssc decode-no-mte open-accmode-3 statmount-container-root-is-pivoted clock-settime-is-seccomp-in-the-container clock-res-is-the-hosts timer-create-no-cpu-clocks epoll-exclusive-wakes-every-set mqueue-not-mountable aio-rwf-nowait-is-a-mount-property aio-ioprio-rt-needs-cap-sys-nice aio-poll-result-is-not-the-wake-key acct-not-configured modules-not-configured pivot-root-not-implemented procpid-stack-pagemap-not-here caps-mknod-needs-host-root caps-realfs-owner-is-the-hosts caps-realfs-group-is-the-hosts caps-realfs-chmod-owner-is-the-hosts killpriv-realfs-host-clears-on-write killpriv-realfs-group-is-the-hosts"
 
 # A KNOWN entry whose case has stopped happening and whose cause is **not
 # established**. `tag|since|what is unexplained`.
@@ -1038,8 +1022,12 @@ docker_opts() {
         # A remote process_madvise and the NUMA calls are CAP_SYS_NICE's.
         mm_modern_probe) printf -- '--security-opt seccomp=unconfined --cap-add SYS_NICE' ;;
         # seccomp, unshare, kcmp, keyctl, bpf, perf and the rest are the
-        # profile's; sched_setattr lowering a nice value is CAP_SYS_NICE's.
-        procsec_probe) printf -- '--security-opt seccomp=unconfined --cap-add SYS_NICE' ;;
+        # profile's; sched_setattr lowering a nice value is CAP_SYS_NICE's,
+        # a namespace and a filter without no_new_privs CAP_SYS_ADMIN's.
+        procsec_probe) printf -- '--security-opt seccomp=unconfined --cap-add SYS_NICE --cap-add SYS_ADMIN' ;;
+        # The profile refuses a clone naming a namespace before the kernel
+        # sees it, and every namespace is CAP_SYS_ADMIN's.
+        clone_probe|utsns_probe) printf -- '--security-opt seccomp=unconfined --cap-add SYS_ADMIN' ;;
         # Every number with zero arguments: the profile answers EPERM or
         # ENOSYS for a third of the newer ones whatever they are given -- it
         # was why 435 clone3 had a KNOWN entry -- so the sweep asks the kernel.

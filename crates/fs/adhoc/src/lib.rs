@@ -339,7 +339,7 @@ fn adhoc_getpath(fd: &ffi::fd, buf: &mut [u8]) -> c_int {
     let kind = Kind::of(fd).unwrap_or(Kind::Anon);
     let anon = match kind {
         Kind::Anon => anon_name(fd.ops),
-        Kind::Ns => ns_name(fd.ops),
+        Kind::Ns => fd.driver_state::<taskview::nsproxy::Ns>().map(|ns| ns.kind().name()),
         _ => None,
     };
     ffi::fill_path(buf, kind.proc_name(fd.stat.inode, anon).as_bytes())
@@ -510,12 +510,12 @@ mod layout {
     }
 }
 
-/// A namespace file's driver: which kind of namespace, which is the first
-/// half of what `/proc/<pid>/fd/<n>` reads back for it (`uts:[4026531838]`).
-/// One static per kind, so the kind travels with the descriptor's `ops`.
-pub struct NsFile {
-    pub kind: &'static CStr,
-}
+/// A namespace file's driver. The namespace is the description's driver
+/// state, a [`taskview::nsproxy::Ns`]: it is what `setns` joins, and holding
+/// it keeps the namespace alive, as an open `nsfs` file does on Linux.
+struct NsFile;
+
+static NS_FILE: NsFile = NsFile;
 
 impl ffi::FdOps for NsFile {
     fn caps(&self) -> ffi::Caps {
@@ -524,22 +524,19 @@ impl ffi::FdOps for NsFile {
     /// Opening `/proc/<pid>/fd/<n>` onto one is a new descriptor onto the same
     /// namespace, as `ns_get_path` gives.
     fn reopen(&self, fd: &ffi::fd, _flags: c_int) -> Result<ffi::FdOwned, c_int> {
-        let file = fd.ops.and_then(|o| o.as_any().downcast_ref::<NsFile>()).ok_or(errno::EINVAL)?;
-        Ok(adhoc_ns(file, fd.stat.inode))
+        let ns = fd.driver_state::<taskview::nsproxy::Ns>().ok_or(errno::EINVAL)?;
+        Ok(adhoc_ns(ns.clone()))
     }
 }
 
-fn ns_name(ops: Option<&'static dyn ffi::FdOps>) -> Option<&'static CStr> {
-    ops?.as_any().downcast_ref::<NsFile>().map(|n| n.kind)
-}
-
-/// A descriptor onto namespace `inum` of kind `file`: what opening
-/// `/proc/<pid>/ns/<name>` answers. `nsfs`'s inode is the namespace's number,
-/// `S_IFREG | 0444`, owned by root, and the file is opened read-only.
-pub fn adhoc_ns(file: &'static NsFile, inum: u64) -> fs_fdobj::Owned {
-    let mut fd = adhoc_new(Some(file), Kind::Ns);
-    fd.stat.inode = inum;
+/// A descriptor onto namespace `ns`: what opening `/proc/<pid>/ns/<name>`
+/// answers. `nsfs`'s inode is the namespace's number, `S_IFREG | 0444`, owned
+/// by root, and the file is opened read-only.
+pub fn adhoc_ns(ns: taskview::nsproxy::Ns) -> fs_fdobj::Owned {
+    let mut fd = adhoc_new(Some(&NS_FILE), Kind::Ns);
+    fd.stat.inode = ns.inum().into();
     fd.stat.mode = ffi::S_IFREG | 0o444;
     fd.set_flags(fd.flags() & !ffi::O_RDWR_);
+    fd.set_driver_state(Box::new(ns));
     fd.into_owned()
 }

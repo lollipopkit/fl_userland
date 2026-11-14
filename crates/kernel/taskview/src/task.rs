@@ -403,6 +403,10 @@ pub struct task {
     /// `pids_lock`; read lock-free on every syscall -- see
     /// `crates/kernel/seccomp` for why that read is sound.
     pub seccomp: kernel_seccomp::State,
+    /// The namespaces this task is in. Replaced only by the task's own
+    /// thread (`unshare`, `setns`); read by others (`/proc/<pid>/ns`, `setns`
+    /// through a pidfd), which is why it is behind a lock.
+    pub nsproxy: locks::mutex::Mutex<std::sync::Arc<kernel_nsproxy::NsProxy>>,
     /// Who this task's parent is and which tasks are its children live in
     /// crates/kernel/proctree, keyed by the task pointer and still locked by
     /// pids_lock. They were a `parent` pointer and two intrusive list links
@@ -589,5 +593,17 @@ impl task {
     #[inline]
     pub fn start_ticks(&self) -> u64 {
         self.start_ticks.load(Ordering::Relaxed)
+    }
+
+    /// See [`task::nsproxy`].
+    pub fn nsproxy(&self) -> std::sync::Arc<kernel_nsproxy::NsProxy> {
+        std::sync::Arc::clone(&locks::locked!(&self.nsproxy))
+    }
+
+    /// Replace this task's namespaces. The old proxy is dropped after the
+    /// lock is released.
+    pub fn set_nsproxy(&self, ns: std::sync::Arc<kernel_nsproxy::NsProxy>) {
+        let old = std::mem::replace(&mut *locks::locked!(&self.nsproxy), ns);
+        drop(old);
     }
 }

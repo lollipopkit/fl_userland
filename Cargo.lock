@@ -1554,6 +1554,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kernel-nsproxy"
+version = "0.1.0"
+
+[[package]]
 name = "kernel-observe"
 version = "0.1.0"
 
@@ -2176,6 +2180,7 @@ dependencies = [
  "kernel-fsinfo",
  "kernel-groupexit",
  "kernel-hostthreads",
+ "kernel-nsproxy",
  "kernel-observe",
  "kernel-offloadreg",
  "kernel-posixtimers",

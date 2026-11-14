@@ -49,7 +49,7 @@ use strace::strace;
 use taskview::ffi;
 
 use guest_errno::Errno;
-use guest_errno::i64_::{EFAULT, EINVAL, ENOMEM};
+use guest_errno::i64_::{EFAULT, EINVAL, ENOMEM, EPERM};
 
 /// Linux's `CLONE_*`, from `include/uapi/linux/sched.h`.
 ///
@@ -95,9 +95,9 @@ mod clone {
     /// whether a traced parent's child is traced too (`auto_attach`);
     /// `CLONE_IO` shares an I/O context this kernel has no equivalent of, and
     /// does nothing here. Refusing the three with `EINVAL`, which this did, refused a program that
-    /// runs everywhere else. The namespace flags are not here on purpose: a
-    /// kernel built without namespaces answers `EINVAL` to them, and this is
-    /// one.
+    /// runs everywhere else. Of the namespace flags only the kinds
+    /// `crates/kernel/nsproxy` builds are here: a kernel built without a kind
+    /// answers `EINVAL` to its flag.
     pub const IMPLEMENTED: u64 = VM
         | FILES
         | FS
@@ -114,7 +114,8 @@ mod clone {
         | DETACHED
         | UNTRACED
         | IO
-        | CLEAR_SIGHAND;
+        | CLEAR_SIGHAND
+        | NEWUTS;
 
     /// What `clone3` accepts: everything the legacy call has, minus the two
     /// ranges `clone3` took back for itself, plus `CLEAR_SIGHAND` -- and
@@ -246,6 +247,12 @@ fn do_clone(
         if usercopy::GuestMem.write(pidfd, &(-1i32).to_le_bytes()) != 0 {
             return EFAULT;
         }
+    }
+
+    // Linux's `copy_namespaces`: a new namespace of any kind but a user one
+    // needs `CAP_SYS_ADMIN`.
+    if flags & taskview::nsproxy::Kind::BUILT != 0 && !taskview::capable(taskview::caps::CAP_SYS_ADMIN) {
+        return EPERM;
     }
 
     // Let the host layer decide whether to allow this fork. Threads are exempt:

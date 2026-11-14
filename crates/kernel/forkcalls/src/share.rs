@@ -5,15 +5,18 @@
 //! the descriptor table, the filesystem context, the disposition table, the
 //! SysV undo list -- so the three live beside the code that hands them out.
 //!
-//! # No namespaces
+//! # Namespaces
 //!
-//! This kernel has none, and answers every namespace request the way a kernel
-//! built without them does: `EINVAL` -- except that an unprivileged caller is
-//! told `EPERM` first, because Linux checks `CAP_SYS_ADMIN` before it would
-//! find the namespace code missing. `clone` already answers its namespace
-//! flags this way (see `clone::IMPLEMENTED`).
+//! `crates/kernel/nsproxy` holds which namespace of each kind a task is in.
+//! Only the UTS kind can be made new; a request for a new one of any other
+//! kind is answered as a kernel built without it does: `EINVAL` -- after
+//! `EPERM` for an unprivileged caller, because Linux checks `CAP_SYS_ADMIN`
+//! before it would find the namespace code missing. Joining a namespace of
+//! such a kind joins the initial one, which every task is already in.
 
 use std::sync::OnceLock;
+
+use taskview::nsproxy::{Kind, Ns};
 
 use super::*;
 
@@ -164,8 +167,8 @@ const NEWTIME: u64 = 0x80;
 /// shares, as `fork` would have; `CLONE_SYSVSEM` gives back the caller's undo
 /// list. `CLONE_VM`, `CLONE_SIGHAND` and `CLONE_THREAD` cannot be undone and
 /// are accepted only where there is nothing to undo, which is Linux's rule: a
-/// single-threaded process. The namespace flags are refused; see the module
-/// comment.
+/// single-threaded process. `CLONE_NEWUTS` gives the calling thread a copy
+/// of its UTS namespace; see the module comment for the other kinds.
 ///
 /// Every refusal is decided before anything changes, as Linux's
 /// `bad_unshare_cleanup` arranges, so a call that fails has done nothing.
@@ -217,7 +220,9 @@ pub fn sys_unshare(flags: u64) -> Result<(), Errno> {
         if flags & NAMESPACES & !clone::NEWUSER != 0 && !taskview::capable(taskview::caps::CAP_SYS_ADMIN) {
             return Err(Errno::EPERM);
         }
-        return Err(Errno::EINVAL);
+        if flags & NAMESPACES & !Kind::BUILT != 0 {
+            return Err(Errno::EINVAL);
+        }
     }
 
     if flags & clone::FS != 0 {
@@ -244,22 +249,54 @@ pub fn sys_unshare(flags: u64) -> Result<(), Errno> {
         // Linux's exit_sem: the adjustments are applied, and the list goes.
         sysvsem::group_exiting(taskview::current_tgid());
     }
+    if flags & Kind::BUILT != 0 {
+        taskview::with_current_task(|t| t.set_nsproxy(t.nsproxy().unshare(flags))).ok_or(Errno::ESRCH)?;
+    }
     Ok(())
 }
 
 /// `setns(2)`.
 ///
-/// A namespace descriptor (`/proc/<pid>/ns/*`, an `nsfs` file since
-/// 2026-11-13) or a pidfd names the one namespace of each kind every task is
-/// already in, and joining it is a request for namespace code this kernel
-/// does not have: `EINVAL`. A descriptor that is neither is `EINVAL` too, and
-/// one that is not open is `EBADF`; measured.
+/// Through a namespace descriptor (`/proc/<pid>/ns/*`): `nstype` is 0 or that
+/// namespace's kind. Through a pidfd: `nstype` names the kinds to take from
+/// the task, at least one. Anything else is `EINVAL`, a descriptor not open
+/// `EBADF`; then `CAP_SYS_ADMIN`, and joining one's own user namespace is
+/// `EINVAL` (`userns_install`). Measured by `utsns_probe`.
 pub fn sys_setns(fd: c_int, nstype: c_int) -> Result<(), Errno> {
     strace!("setns({fd}, {nstype:#x})");
-    if pidfdcalls::pidfd_get(fd, false).is_err() && fs_fdobj::f_get(fd).is_none() {
+    let nstype = nstype as u32 as u64;
+    let join: Vec<Ns> = if let Ok(target) = pidfdcalls::pidfd_get(fd, false) {
+        if nstype == 0 || nstype & !NAMESPACES != 0 {
+            return Err(Errno::EINVAL);
+        }
+        let theirs = {
+            let pids = Pids::take();
+            pids.find_by_ref(target.task).ok_or(Errno::ESRCH)?.task().nsproxy()
+        };
+        Kind::ALL.into_iter().filter(|k| nstype & k.flag() != 0).map(|k| theirs.get(k)).collect()
+    } else if let Some(file) = fs_fdobj::f_get(fd) {
+        let ns = file.driver_state::<Ns>().ok_or(Errno::EINVAL)?;
+        if nstype != 0 && nstype != ns.kind().flag() {
+            return Err(Errno::EINVAL);
+        }
+        vec![ns.clone()]
+    } else {
         return Err(Errno::EBADF);
+    };
+    if !taskview::capable(taskview::caps::CAP_SYS_ADMIN) {
+        return Err(Errno::EPERM);
     }
-    Err(Errno::EINVAL)
+    if join.iter().any(|ns| ns.kind() == Kind::User) {
+        return Err(Errno::EINVAL);
+    }
+    taskview::with_current_task(|t| {
+        let mut proxy = t.nsproxy();
+        for ns in &join {
+            proxy = proxy.with(ns);
+        }
+        t.set_nsproxy(proxy);
+    })
+    .ok_or(Errno::ESRCH)
 }
 
 #[cfg(test)]

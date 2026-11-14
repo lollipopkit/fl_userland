@@ -579,6 +579,7 @@ run "a write removes privileges: fakefs" "$IUL" -f "$FAKEFS" /tmp/killpriv
 run "O_TMPFILE: realfs" "$IUL" -r "$ROOTFS" /tmp/tmpfile /tmp/tmpfile-real realfs
 run "O_TMPFILE: fakefs" "$IUL" -f "$FAKEFS" /tmp/tmpfile /tmp/tmpfile-fake
 run "O_TMPFILE: tmpfs" "$IUL" -f "$FAKEFS" /tmp/tmpfile tmpfs
+run "UTS namespaces" "$IUL" -r "$ROOTFS" /tmp/utsns
 
 # Which id a newly created object is stamped with. Linux uses the fsuid, which
 # tracks the effective uid; a pipe used the real one.

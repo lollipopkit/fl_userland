@@ -103,6 +103,7 @@ pub use current_accessors::*;
 /// The capability numbers [`capable`] takes.
 pub use kernel_creds::caps;
 pub use util_arcslot::ArcSlot;
+pub use kernel_nsproxy as nsproxy;
 pub use task_accessors::*;
 
 // `current`, `set_current`, `task_self` and `current_pid` are the foundation's

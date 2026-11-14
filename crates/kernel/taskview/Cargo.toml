@@ -45,6 +45,8 @@ kernel-observe = { path = "../observe" }
 kernel-procattr = { path = "../procattr" }
 # A task's seccomp mode and filter chain, read on every syscall.
 kernel-seccomp = { path = "../seccomp" }
+# Which namespace of each kind a task is in.
+kernel-nsproxy = { path = "../nsproxy" }
 kernel-syscallrestart = { path = "../syscallrestart" }
 kernel-groupexit = { path = "../groupexit" }
 kernel-vforkhandoff = { path = "../vforkhandoff" }

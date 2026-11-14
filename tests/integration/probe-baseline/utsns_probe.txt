@@ -1,0 +1,35 @@
+the link's form                                          -> uts
+unshare(CLONE_NEWUTS)                                    -> ok
+  the link changed                                       -> true
+  hostname is still the parent's                         -> true
+  sethostname inside                                     -> ok
+  hostname inside                                        -> inside
+  the parent's link is unchanged                         -> true
+after the child, hostname here is unchanged              -> true
+open(/proc/<ppid>/ns/uts)                                -> ok
+setns(fd, CLONE_NEWIPC) on a uts file                    -> EINVAL
+setns(fd, CLONE_NEWUTS)                                  -> ok
+  hostname is the parent's again                         -> true
+  the link is the parent's                               -> true
+setns(fd, 0)                                             -> ok
+setns(a regular file, 0)                                 -> EINVAL
+setns(pidfd, CLONE_NEWUTS)                               -> ok
+  hostname is the parent's again                         -> true
+clone(CLONE_NEWUTS): the child's hostname                -> cloned
+clone(CLONE_NEWUTS)                                      -> ok
+  this side's hostname                                   -> unchanged
+setns(own uts, CLONE_NEWUTS)                             -> ok
+setns(own ipc, 0)                                        -> ok
+setns(own net, 0)                                        -> ok
+setns(own user, 0)                                       -> EINVAL
+setns(pidfd, 0)                                          -> EINVAL
+setns(pidfd, NEWUTS|NEWIPC|NEWNET)                       -> ok
+setns(pidfd, CLONE_NEWUSER)                              -> EINVAL
+setns(pidfd, CLONE_VM)                                   -> EINVAL
+a thread's unshare: its hostname                         -> thread
+  the main thread's hostname is unchanged                -> true
+unshare keeps the domain name                            -> true
+  setdomainname inside                                   -> inner
+unshare(CLONE_NEWUTS) as uid 1000                        -> EPERM
+sethostname as uid 1000                                  -> EPERM
+setns(own uts) as uid 1000                               -> EPERM

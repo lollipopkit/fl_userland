@@ -117,20 +117,14 @@ fn put(field: &mut [c_char], s: &str) {
     }
 }
 
-/// The names a guest set with `sethostname` and `setdomainname`, which win
-/// over the embedder's override and the host's own name from then on. One UTS
-/// namespace, as there is one of everything else here. Both used to be
-/// `EPERM` for everyone, root included, so `hostname foo` in a guest failed.
-#[derive(Default)]
-struct SetNames {
-    hostname: Option<Vec<u8>>,
-    domainname: Option<Vec<u8>>,
+/// The calling task's UTS namespace, which holds the names a guest set with
+/// `sethostname` and `setdomainname`; they win over the embedder's override
+/// and the host's own name from then on. Both used to be `EPERM` for
+/// everyone, root included, so `hostname foo` in a guest failed.
+fn uts() -> std::sync::Arc<taskview::nsproxy::Uts> {
+    taskview::with_current_task(|t| t.nsproxy().uts.clone())
+        .unwrap_or_else(|| taskview::nsproxy::NsProxy::initial().uts.clone())
 }
-
-static SET_NAMES: std::sync::Mutex<SetNames> = std::sync::Mutex::new(SetNames {
-    hostname: None,
-    domainname: None,
-});
 
 /// `__NEW_UTS_LEN`: the most either name may be, not counting a terminator.
 pub const UTS_LEN: u32 = 64;
@@ -149,8 +143,8 @@ pub(crate) fn set_name_ok(sys_admin: bool, len: u32) -> Result<(), Errno> {
 }
 
 fn hostname() -> Vec<u8> {
-    if let Some(h) = &SET_NAMES.lock().unwrap_or_else(|e| e.into_inner()).hostname {
-        return h.clone();
+    if let Some(h) = uts().names().hostname {
+        return h;
     }
     if let Some(name) = read(&HOSTNAME_OVERRIDE).filter(|n| !n.is_empty()) {
         return name;
@@ -160,12 +154,7 @@ fn hostname() -> Vec<u8> {
 
 /// `(none)`, as Linux reports a domain nobody has set.
 fn domainname() -> Vec<u8> {
-    SET_NAMES
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .domainname
-        .clone()
-        .unwrap_or_else(|| b"(none)".to_vec())
+    uts().names().domainname.unwrap_or_else(|| b"(none)".to_vec())
 }
 
 fn put_bytes(field: &mut [c_char], bytes: &[u8]) {
@@ -183,7 +172,7 @@ fn put_bytes(field: &mut [c_char], bytes: &[u8]) {
 fn set_name(
     addr: u64,
     len: u32,
-    which: fn(&mut SetNames) -> &mut Option<Vec<u8>>,
+    which: fn(&mut taskview::nsproxy::UtsNames) -> &mut Option<Vec<u8>>,
 ) -> Result<(), Errno> {
     set_name_ok(taskview::capable(taskview::caps::CAP_SYS_ADMIN), len)?;
     let mut name = vec![0u8; len as usize];
@@ -195,7 +184,7 @@ fn set_name(
     if let Some(end) = name.iter().position(|&b| b == 0) {
         name.truncate(end);
     }
-    *which(&mut SET_NAMES.lock().unwrap_or_else(|e| e.into_inner())) = Some(name);
+    uts().update(|n| *which(n) = Some(name));
     Ok(())
 }
 
@@ -231,12 +220,7 @@ pub fn sys_uname(uts_addr: u64) -> Result<(), Errno> {
     Ok(())
 }
 
-/// Always `EPERM`.
-///
-/// Linux wants `CAP_SYS_ADMIN` in the UTS namespace, and there are no UTS
-/// namespaces here — one node name for the whole emulator, which a guest
-/// changing would change for the embedder as well. `uname_hostname_override` is
-/// the interface for setting it, and it is the embedder's.
+/// The calling task's UTS namespace's node name; `CAP_SYS_ADMIN`.
 pub fn sys_sethostname(hostname_addr: u64, len: u32) -> Result<(), Errno> {
     strace!("sethostname({hostname_addr:#x}, {len})");
     set_name(hostname_addr, len, |n| &mut n.hostname)
