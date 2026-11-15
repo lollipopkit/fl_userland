@@ -404,7 +404,8 @@ pub struct task {
     /// `crates/kernel/seccomp` for why that read is sound.
     pub seccomp: kernel_seccomp::State,
     /// The namespaces this task is in. Replaced only by the task's own
-    /// thread (`unshare`, `setns`); read by others (`/proc/<pid>/ns`, `setns`
+    /// thread (`unshare`, `setns`), which also reads it through a cache
+    /// (`with_current_nsproxy`); read by others (`/proc/<pid>/ns`, `setns`
     /// through a pidfd), which is why it is behind a lock.
     pub nsproxy: locks::mutex::Mutex<std::sync::Arc<kernel_nsproxy::NsProxy>>,
     /// Who this task's parent is and which tasks are its children live in
@@ -580,6 +581,10 @@ pub struct task {
     /// A pointer and a `lock_t` beside it until 2026-10-16; the lock owns the
     /// field now, so it cannot be read without it.
     pub waiting_cond: locks::mutex::Mutex<Option<std::ptr::NonNull<cond_t>>>,
+    /// Stacked Landlock domains restricting this task (`Arc<Vec<RulesetInner>>`
+    /// owned by `kernel-misccalls`). Cloned across `fork`/`clone` and preserved
+    /// across `execve`; dropped when the task is destroyed.
+    pub landlock: locks::mutex::Mutex<Option<std::sync::Arc<dyn std::any::Any + Send + Sync>>>,
 }
 
 impl task {
@@ -600,10 +605,29 @@ impl task {
         std::sync::Arc::clone(&locks::locked!(&self.nsproxy))
     }
 
-    /// Replace this task's namespaces. The old proxy is dropped after the
-    /// lock is released.
+    /// Replace this task's namespaces: on its own thread only, which is what
+    /// keeps that thread's cache ([`crate::with_current_nsproxy`]) right. The
+    /// old proxy is dropped after the lock is released.
     pub fn set_nsproxy(&self, ns: std::sync::Arc<kernel_nsproxy::NsProxy>) {
-        let old = std::mem::replace(&mut *locks::locked!(&self.nsproxy), ns);
+        debug_assert!(std::ptr::eq(self, crate::current()), "a task's namespaces are changed by its own thread");
+        let old = std::mem::replace(&mut *locks::locked!(&self.nsproxy), std::sync::Arc::clone(&ns));
+        crate::task_types::current::refresh_current_nsproxy(ns);
+        drop(old);
+    }
+
+    /// Current stacked Landlock domains protecting this task, if any.
+    pub fn landlock_domains(&self) -> Option<std::sync::Arc<dyn std::any::Any + Send + Sync>> {
+        locks::locked!(&self.landlock).clone()
+    }
+
+    /// Replace this task's stacked Landlock domains, dropping the previous
+    /// domain vector outside the lock.
+    pub fn replace_landlock_domains(
+        &self,
+        next: Option<std::sync::Arc<dyn std::any::Any + Send + Sync>>,
+    ) {
+        debug_assert!(std::ptr::eq(self, crate::current()), "a task's Landlock domain is changed by its own thread");
+        let old = std::mem::replace(&mut *locks::locked!(&self.landlock), next);
         drop(old);
     }
 }

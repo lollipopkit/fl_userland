@@ -189,6 +189,16 @@ pub unsafe extern "C" fn tty_input(
     unsafe { fs_tty::abi::tty_input(tty, bytes, blocking) }
 }
 
+/// Hang up the terminal [`pty_open_fake`] made, waking any blocked
+/// [`tty_input`] before [`tty_release`] gives the reference back.
+///
+/// # Safety
+/// `tty` is null, or came from [`pty_open_fake`] and has not been released.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn tty_hangup(tty: *const ffi::tty) {
+    unsafe { fs_tty::abi::tty_hangup(tty) };
+}
+
 /// Give back the reference [`pty_open_fake`] handed over. The session's own
 /// descriptors hold references of their own, so this is safe while it runs.
 ///

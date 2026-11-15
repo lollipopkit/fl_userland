@@ -36,6 +36,7 @@ pub mod flags;
 mod io;
 pub mod ioctl;
 pub mod map;
+mod meta;
 mod metadata;
 mod ops;
 pub use ops::{
@@ -172,6 +173,45 @@ pub unsafe extern "C" fn realfs_open(
     }
 }
 
+fn map_open_err(err: rustix::io::Errno) -> guest_errno::Errno {
+    guest_errno::Errno::from_negative_or_eio(errno::rx::<()>(Err(err)).unwrap_err())
+}
+
+fn openat_dac_override(
+    root_fd: rustix::fd::BorrowedFd<'_>,
+    rel: &CStr,
+    host_flags: rustix::fs::OFlags,
+    mode: rustix::fs::Mode,
+) -> std::result::Result<rustix::fd::OwnedFd, guest_errno::Errno> {
+    match rustix::fs::openat(root_fd, rel, host_flags, mode) {
+        Ok(fd) => Ok(fd),
+        Err(rustix::io::Errno::ACCESS) => {
+            let nofollow = host_flags.bits() & (libc::O_NOFOLLOW | libc::O_SYMLINK) as u32 != 0;
+            let at_flags = if nofollow {
+                rustix::fs::AtFlags::SYMLINK_NOFOLLOW
+            } else {
+                rustix::fs::AtFlags::empty()
+            };
+            if let Ok(st) = rustix::fs::statat(root_fd, rel, at_flags) {
+                let raw_mode = st.st_mode as libc::mode_t;
+                let ftype = raw_mode & libc::S_IFMT;
+                let needed = if ftype == libc::S_IFDIR { 0o700 } else { 0o600 };
+                if ftype != libc::S_IFLNK && (raw_mode & needed) != needed {
+                    let orig = rustix::fs::Mode::from_raw_mode(raw_mode);
+                    let temp = rustix::fs::Mode::from_raw_mode(raw_mode | needed);
+                    if rustix::fs::chmodat(root_fd, rel, temp, at_flags).is_ok() {
+                        let res = rustix::fs::openat(root_fd, rel, host_flags, mode);
+                        let _ = rustix::fs::chmodat(root_fd, rel, orig, at_flags);
+                        return res.map_err(map_open_err);
+                    }
+                }
+            }
+            Err(map_open_err(rustix::io::Errno::ACCESS))
+        }
+        Err(e) => Err(map_open_err(e)),
+    }
+}
+
 pub fn realfs_open_at(mount: &ffi::mount,
     path: &CStr,
     flags: c_int,
@@ -198,13 +238,51 @@ pub fn realfs_open_at(mount: &ffi::mount,
         host_flags = (host_flags & !libc::O_NOFOLLOW) | libc::O_SYMLINK;
     }
 
-    let host_fd = errno::rx(rustix::fs::openat(
-        root(mount).map_err(guest_errno::Errno::from_negative_or_eio)?,
-        at_path(path),
-        rustix::fs::OFlags::from_bits_retain(host_flags as _),
-        rustix::fs::Mode::from_raw_mode(mode as libc::mode_t),
-    ))
-    .map_err(guest_errno::Errno::from_negative_or_eio)?;
+    let root_fd = root(mount).map_err(guest_errno::Errno::from_negative_or_eio)?;
+    let (fsuid, fsgid) = taskview::current_fsids();
+    let check_create = (flags as u32 & ffi::O_CREAT_ != 0)
+        && (flags as u32 & ffi::O_EXCL_ == 0)
+        && (fsuid != 0 || fsgid != 0);
+
+    let (host_fd, created) = if check_create {
+        match rustix::fs::openat(
+            root_fd,
+            at_path(path),
+            rustix::fs::OFlags::from_bits_retain((host_flags | libc::O_EXCL) as _),
+            rustix::fs::Mode::from_raw_mode(mode as libc::mode_t),
+        ) {
+            Ok(fd) => (fd, true),
+            Err(rustix::io::Errno::EXIST) => {
+                // If `path` is a dangling symlink, `O_EXCL` fails with EEXIST
+                // yet the follow-up open without `O_EXCL` creates the target.
+                let created =
+                    rustix::fs::statat(root_fd, at_path(path), rustix::fs::AtFlags::empty())
+                        .is_err();
+                let fd = openat_dac_override(
+                    root_fd,
+                    at_path(path),
+                    rustix::fs::OFlags::from_bits_retain(host_flags as _),
+                    rustix::fs::Mode::from_raw_mode(mode as libc::mode_t),
+                )?;
+                (fd, created)
+            }
+            Err(e) => {
+                return Err(map_open_err(e));
+            }
+        }
+    } else {
+        let fd = openat_dac_override(
+            root_fd,
+            at_path(path),
+            rustix::fs::OFlags::from_bits_retain(host_flags as _),
+            rustix::fs::Mode::from_raw_mode(mode as libc::mode_t),
+        )?;
+        (fd, flags as u32 & (ffi::O_CREAT_ | ffi::O_EXCL_) == (ffi::O_CREAT_ | ffi::O_EXCL_))
+    };
+
+    if created {
+        meta::stamp_new_fd(std::os::fd::AsFd::as_fd(&host_fd));
+    }
 
     let mut fd = Box::new({
         let mut f = ffi::fd::default();
@@ -533,5 +611,45 @@ impl ffi::FdOps for RealfsFd {
 
     fn setflags(&self, fd: &ffi::fd, flags: u32) -> c_int {
         realfs_setflags(fd, flags)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::fd::AsFd;
+
+    #[test]
+    fn openat_dac_override_opens_0440_wronly_and_restores_mode() {
+        let dir = std::env::temp_dir().join(format!("realfs-open-dac-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let dir_fd = rustix::fs::open(
+            &dir,
+            rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::DIRECTORY,
+            rustix::fs::Mode::empty(),
+        )
+        .unwrap();
+        let file = dir.join("sudoers_readme");
+        std::fs::write(&file, b"readme").unwrap();
+        rustix::fs::chmodat(
+            dir_fd.as_fd(),
+            c"sudoers_readme",
+            rustix::fs::Mode::from_raw_mode(0o440),
+            rustix::fs::AtFlags::empty(),
+        )
+        .unwrap();
+
+        let fd = openat_dac_override(
+            dir_fd.as_fd(),
+            c"sudoers_readme",
+            rustix::fs::OFlags::WRONLY,
+            rustix::fs::Mode::empty(),
+        )
+        .unwrap();
+        let st = rustix::fs::fstat(fd.as_fd()).unwrap();
+        assert_eq!(st.st_mode as libc::mode_t & 0o777, 0o440);
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

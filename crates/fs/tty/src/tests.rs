@@ -801,3 +801,49 @@ fn a_terminal_the_abi_handed_out_is_freed_by_its_last_release() {
     unsafe { super::abi::tty_release(raw) };
     assert!(weak.upgrade().is_none(), "the last release kept the terminal alive");
 }
+
+fn noop_external_write(_: &Tty, buf: &[u8], _: bool) -> c_int {
+    buf.len() as c_int
+}
+
+#[test]
+fn hanging_up_an_external_terminal_wakes_a_blocked_large_input() {
+    let _serial = setup();
+    let raw = super::abi::tty_open_external(noop_external_write).expect("external tty");
+    let tty_ref = unsafe { &*raw };
+    let num = tty_ref.num;
+    tty_ref.lock().termios.lflags &= !(tty::ECHO | tty::ICANON);
+
+    assert!(tty::pty_exists(num));
+    assert!(!tty_ref.is_external_closed());
+
+    let raw_addr = raw as usize;
+    let writer = std::thread::spawn(move || {
+        let payload = vec![b'x'; 16384];
+        unsafe { super::abi::tty_input(raw_addr as *const Tty, &payload, true) }
+    });
+
+    for _ in 0..500 {
+        if tty_ref.lock().ldisc.buffer.is_full() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+    assert!(
+        tty_ref.lock().ldisc.buffer.is_full(),
+        "input queue should fill and block the writer"
+    );
+    std::thread::sleep(std::time::Duration::from_millis(20));
+
+    unsafe { super::abi::tty_hangup(raw) };
+    let written = writer.join().expect("writer thread should exit on hangup");
+
+    assert_eq!(written, 16384);
+    assert!(tty_ref.is_external_closed());
+    assert!(!tty::pty_exists(num));
+    {
+        let borrowed = std::mem::ManuallyDrop::new(unsafe { Arc::from_raw(raw) });
+        assert_eq!(pty::open_slave(&borrowed), tty::EIO);
+    }
+    unsafe { super::abi::tty_release(raw) };
+}

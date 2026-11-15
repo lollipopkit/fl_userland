@@ -199,7 +199,41 @@ pub unsafe fn set_current(task: *mut task) {
     // is two pthread destroys and could not re-enter this, but a borrow held
     // across an arbitrary `Drop` is the shape that has bitten this tree before.
     let previous = CURRENT_SIGHAND.with(|c| std::mem::replace(&mut *c.borrow_mut(), next));
+    // Filled again on the next `with_current_nsproxy`, from the new task.
+    let previous_ns = CURRENT_NS.with(|c| c.borrow_mut().take());
     CURRENT.with(|c| c.set(task));
+    drop(previous);
+    drop(previous_ns);
+}
+
+thread_local! {
+    /// The running task's namespaces, so that the path walk's mount lookup --
+    /// once per component -- does not take the task's `nsproxy` lock. Sound
+    /// because a task's namespaces change only on its own thread (`unshare`,
+    /// `setns`), which refreshes this ([`task::set_nsproxy`]), and
+    /// [`set_current`] empties it. Same first-touch rule as
+    /// `CURRENT_SIGHAND`: `set_current`, with `SIGUSR1` blocked.
+    static CURRENT_NS: std::cell::RefCell<Option<Arc<kernel_nsproxy::NsProxy>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// The calling task's namespaces, lent for `f`: the initial ones on a thread
+/// with no task.
+pub fn with_current_nsproxy<R>(f: impl FnOnce(&kernel_nsproxy::NsProxy) -> R) -> R {
+    let ns = CURRENT_NS.with(|c| {
+        if let Some(ns) = &*c.borrow() {
+            return Arc::clone(ns);
+        }
+        let ns = with_current_task(task::nsproxy).unwrap_or_else(kernel_nsproxy::NsProxy::initial);
+        *c.borrow_mut() = Some(Arc::clone(&ns));
+        ns
+    });
+    f(&ns)
+}
+
+/// The calling thread's cache, after its task's namespaces changed.
+pub(crate) fn refresh_current_nsproxy(ns: Arc<kernel_nsproxy::NsProxy>) {
+    let previous = CURRENT_NS.with(|c| c.borrow_mut().replace(ns));
     drop(previous);
 }
 
@@ -216,7 +250,7 @@ pub fn current_sighand_is_held() -> bool {
 ///
 /// This is the one C reader the survey for the 2026-09-06 move missed, and it
 /// is not in `kernel/` — `tests/integration/sbm_api_test.c` writes
-/// `task_start(current)`, and so does ServerBox's `ios/Runner/ish/sbm_ish.c`.
+/// `task_start(current)`, and so does ServerBox's `packages/fl_tty/iul/sbm_iul.c`.
 /// `iul.h` keeps `#define current (task_self())` for them, because the header
 /// is a delivery contract and not this tree's to change.
 ///

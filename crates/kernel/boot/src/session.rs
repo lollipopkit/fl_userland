@@ -35,6 +35,35 @@ pub extern "C" fn iul_kill_process_group(pid: c_int, sig: c_int) -> c_int {
     signaldeliver::send_group_signal_locked(pids.held(), pgid as u32, sig, signaldeliver::receive::kernel_info())
 }
 
+/// Send `sig` to every process in the session `sid`, as the kernel would.
+/// `0`, or `_ESRCH` for a session with no member -- a zombie still counts.
+///
+/// An embedder's session is more than one process group once its shell runs
+/// jobs: an interactive shell puts each pipeline in a group of its own, so
+/// [`iul_kill_process_group`] on the shell's pid misses a foreground `apt`
+/// and the helpers it forked, and they keep the terminal and `/dev` open
+/// after the shell is gone. By session id rather than by a member's pid,
+/// because the leader -- the pid the embedder remembers -- may already have
+/// exited while the rest of its session runs on.
+#[unsafe(no_mangle)]
+pub extern "C" fn iul_kill_session(sid: c_int, sig: c_int) -> c_int {
+    let pids = PidsGuard::take();
+    let held = pids.held();
+    let mut pgids: Vec<_> = (0..kernel_pids::pidreg_session_len(held, sid))
+        .filter_map(|i| kernel_pids::session_at(held, sid, i))
+        .map(|g| g.pgid())
+        .collect();
+    pgids.sort_unstable();
+    pgids.dedup();
+    if pgids.is_empty() {
+        return ESRCH;
+    }
+    for pgid in pgids {
+        signaldeliver::send_group_signal_locked(held, pgid as u32, sig, signaldeliver::receive::kernel_info());
+    }
+    0
+}
+
 /// Make the session of the process `pid` give up its controlling terminal
 /// now, rather than when its leader is reaped. `0`, or `_ESRCH`.
 ///

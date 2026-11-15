@@ -64,6 +64,9 @@ mod context;
 mod poll;
 mod ring;
 mod submit;
+mod uring;
+
+pub use uring::{sys_io_uring_enter, sys_io_uring_register, sys_io_uring_setup};
 
 use std::ffi::c_int;
 use std::sync::Arc;

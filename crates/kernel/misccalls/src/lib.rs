@@ -39,7 +39,11 @@ use guest_errno::Errno;
 use strace::strace;
 use usercopy::GuestMem;
 
+mod keys;
+mod landlock;
 mod seccomp;
+pub use keys::{sys_add_key, sys_keyctl, sys_request_key};
+pub use landlock::{sys_landlock_add_rule, sys_landlock_create_ruleset, sys_landlock_restrict_self};
 pub use seccomp::sys_seccomp;
 
 /// The options this answers. Everything else is `EINVAL`.

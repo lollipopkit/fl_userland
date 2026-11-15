@@ -63,7 +63,7 @@
 // kernel/aio
 use aio::{
     sys_io_cancel, sys_io_destroy, sys_io_getevents, sys_io_pgetevents, sys_io_setup,
-    sys_io_submit,
+    sys_io_submit, sys_io_uring_enter, sys_io_uring_register, sys_io_uring_setup,
 };
 // fs/dircalls
 use dircalls::sys_getdents64;
@@ -118,7 +118,10 @@ use idcalls::{
 };
 use idcalls::{sys_lsm_get_self_attr, sys_lsm_list_modules, sys_lsm_set_self_attr};
 // kernel/inotifycalls
-use inotifycalls::{sys_inotify_add_watch, sys_inotify_init1, sys_inotify_rm_watch};
+use inotifycalls::{
+    sys_fanotify_init, sys_fanotify_mark, sys_inotify_add_watch, sys_inotify_init1,
+    sys_inotify_rm_watch,
+};
 // kernel/ptrace
 use kernel_ptrace::sys_ptrace;
 // kernel/random
@@ -131,15 +134,23 @@ use kernel_signalcalls::{
 // kernel/memfdcalls
 use memfdcalls::sys_memfd_create;
 // kernel/misccalls
-use misccalls::{sys_prctl, sys_reboot, sys_seccomp};
+use misccalls::{
+    sys_add_key, sys_keyctl, sys_landlock_add_rule, sys_landlock_create_ruleset,
+    sys_landlock_restrict_self, sys_prctl, sys_reboot, sys_request_key, sys_seccomp,
+};
 // kernel/mmapcalls
 use mmapcalls::{
     sys_brk, sys_madvise, sys_membarrier, sys_mincore, sys_mlock, sys_mlock2,
-    sys_mlockall, sys_mmap64, sys_mprotect, sys_mremap, sys_msync, sys_munlock, sys_munlockall,
-    sys_munmap, sys_mseal, sys_remap_file_pages,
+    sys_mlockall, sys_mmap64, sys_mprotect, sys_mremap, sys_mseal, sys_msync, sys_munlock,
+    sys_munlockall, sys_munmap, sys_pkey_alloc, sys_pkey_free, sys_pkey_mprotect,
+    sys_remap_file_pages,
 };
 // fs/mountcalls
-use mountcalls::{sys_listmount, sys_mount, sys_statmount, sys_umount2};
+use mountcalls::{
+    sys_fsconfig, sys_fsmount, sys_fsopen, sys_fspick, sys_listmount, sys_mount,
+    sys_mount_setattr, sys_move_mount, sys_open_tree, sys_open_tree_attr, sys_pivot_root,
+    sys_statmount, sys_umount2,
+};
 // kernel/pathcalls
 use pathcalls::{
     sys_chdir, sys_chroot, sys_faccessat, sys_faccessat3, sys_fchdir, sys_fchmodat, sys_fchmodat2,

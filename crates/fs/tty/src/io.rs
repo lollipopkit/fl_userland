@@ -26,9 +26,10 @@ pub fn input(tty: &Arc<Tty>, bytes: &[u8], blocking: bool) -> isize {
         // Hung up and not opened since: there is no reader, and what arrives
         // is dropped -- a master writing into a slave `vhangup` took away
         // gets its count back and the bytes go nowhere, as on Linux.
-        if state.hung_up {
+        if state.hung_up || tty.is_external_closed() {
             return bytes.len() as isize;
         }
+        let generation = state.generation;
         'bytes: for &byte in bytes {
             loop {
                 let termios = state.termios;
@@ -51,6 +52,9 @@ pub fn input(tty: &Arc<Tty>, bytes: &[u8], blocking: bool) -> isize {
                         if state.wait(CONSUMED, None) == Woke::Interrupted {
                             err = EINTR as isize;
                             break 'bytes;
+                        }
+                        if state.hung_up || state.generation != generation || tty.is_external_closed() {
+                            return bytes.len() as isize;
                         }
                     }
                 }

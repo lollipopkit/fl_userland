@@ -15,6 +15,7 @@ fs-generic = { path = "../../fs/generic" }
 path = { path = "../../fs/path" }
 fs-adhoc = { path = "../../fs/adhoc" }
 kernel-mmapcalls = { path = "../../kernel/mmapcalls" }
+kernel-usercopy = { path = "../usercopy" }
 # The descriptor object, called as Rust. `fs/fd.h` is still the C
 # declaration; nothing here goes through it.
 fs-fdobj = { path = "../../fs/fdobj" }

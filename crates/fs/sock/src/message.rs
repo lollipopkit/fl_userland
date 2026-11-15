@@ -265,15 +265,29 @@ pub fn sys_recvmsg(sock_fd: c_int, msghdr_addr: u64, flags: c_int) -> Result<i64
     let guest_namelen = hdr.namelen.min(SOCKADDR_MAX as u32);
 
     let entries = read_iovecs(&hdr)?;
-    let mut bufs: Vec<Vec<u8>> = Vec::with_capacity(entries.len());
-    for (_, len) in &entries {
-        let mut b = Vec::new();
-        if b.try_reserve(*len).is_err() {
-            return Err(Errno::ENOMEM);
+    let guest_iov_total: usize = entries.iter().map(|(_, len)| *len).sum();
+    let wants_message = entries.iter().all(|(_, len)| *len == 0) && sock.ty() != guest::SOCK_STREAM;
+    // Darwin's `recvmsg(..., MSG_TRUNC)` returns only the bytes copied into
+    // `msg_iov`, whereas Linux returns the full untruncated datagram length.
+    // Receiving into a larger scratch buffer when `MSG_TRUNC` is requested lets
+    // us copy up to the guest's capacity while reporting the true length.
+    let probe_trunc = (real_flags & libc::MSG_TRUNC != 0)
+        && sock.ty() != guest::SOCK_STREAM
+        && guest_iov_total < 65536;
+    let mut bufs: Vec<Vec<u8>> = if probe_trunc {
+        vec![vec![0u8; 65536]]
+    } else {
+        let mut v = Vec::with_capacity(entries.len());
+        for (_, len) in &entries {
+            let mut b = Vec::new();
+            if b.try_reserve(*len).is_err() {
+                return Err(Errno::ENOMEM);
+            }
+            b.resize(*len, 0u8);
+            v.push(b);
         }
-        b.resize(*len, 0u8);
-        bufs.push(b);
-    }
+        v
+    };
 
     // The same wait as sys_recvfrom, and for the same reason: only when the
     // caller actually wants blocking behaviour. musl's res_msend creates
@@ -291,7 +305,6 @@ pub fn sys_recvmsg(sock_fd: c_int, msghdr_addr: u64, flags: c_int) -> Result<i64
     // anything arrived, and nc connected to garbage (`tests/guest`
     // udp_probe). Asked before the receive, because a zero-byte datagram is a
     // real one and also answers 0.
-    let wants_message = bufs.iter().all(Vec::is_empty) && sock.ty() != guest::SOCK_STREAM;
     let receive = |bufs: &mut [Vec<u8>], flags: c_int| {
         if wants_message && !host::readable_now(real) {
             return Err(HostErrno::AGAIN);
@@ -320,13 +333,27 @@ pub fn sys_recvmsg(sock_fd: c_int, msghdr_addr: u64, flags: c_int) -> Result<i64
     };
 
     // The vectors, filled to whatever was received.
-    let mut left = if res < 0 { 0 } else { res as usize };
-    for (i, (base, _)) in entries.iter().enumerate() {
-        let chunk = bufs[i].len().min(left);
-        if chunk > 0 && GuestMem.write(*base, &bufs[i][..chunk]) != 0 {
-            return Err(Errno::EFAULT);
+    let trunc_data = probe_trunc && res > 0 && (res as usize) > guest_iov_total;
+    if probe_trunc {
+        let mut left = if res < 0 { 0 } else { (res as usize).min(guest_iov_total) };
+        let mut offset = 0usize;
+        for (base, len) in &entries {
+            let chunk = (*len).min(left);
+            if chunk > 0 && GuestMem.write(*base, &bufs[0][offset..offset + chunk]) != 0 {
+                return Err(Errno::EFAULT);
+            }
+            offset += chunk;
+            left -= chunk;
         }
-        left -= chunk;
+    } else {
+        let mut left = if res < 0 { 0 } else { res as usize };
+        for (i, (base, _)) in entries.iter().enumerate() {
+            let chunk = bufs[i].len().min(left);
+            if chunk > 0 && GuestMem.write(*base, &bufs[i][..chunk]) != 0 {
+                return Err(Errno::EFAULT);
+            }
+            left -= chunk;
+        }
     }
 
     // The control message. `hdr.controllen` is what the guest has room for and
@@ -491,6 +518,9 @@ pub fn sys_recvmsg(sock_fd: c_int, msghdr_addr: u64, flags: c_int) -> Result<i64
     let mut out_flags = msghdr::recv_flags(sockabi::flags_from_real(host_flags).real);
     if ctrunc {
         out_flags |= msghdr::MSG_CTRUNC;
+    }
+    if trunc_data {
+        out_flags |= msghdr::MSG_TRUNC;
     }
 
     // The three fields this call owns, each at its offset, rather than reading

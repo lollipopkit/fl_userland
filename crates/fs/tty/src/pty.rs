@@ -93,7 +93,7 @@ pub fn open_master() -> Result<tty::User, c_int> {
 /// at `/dev/pts/<number>` precisely so a guest can open it.
 pub fn open_slave(slave: &Arc<Tty>) -> c_int {
     if crate::tty::is_external(slave) {
-        return 0;
+        return if slave.is_external_closed() { tty::EIO } else { 0 };
     }
     if slave.other().is_none() {
         return tty::EIO;

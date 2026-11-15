@@ -98,11 +98,40 @@ fn fd_readdir(entry: &mut ffi::proc_entry, index: &mut c_ulong) -> Option<ffi::p
 /// on the error path and the success path alike, and the three callers below
 /// each hand one over rather than a pointer plus an obligation. Object model
 /// step 9.7.
+/// Strip the caller's chroot root prefix from a machine-absolute path.
+fn relative_to_root(path: &[u8], root: &[u8]) -> Vec<u8> {
+    if root.len() > 1 && path.starts_with(root) && matches!(path.get(root.len()), None | Some(b'/')) {
+        let rest = &path[root.len()..];
+        return if rest.is_empty() {
+            b"/".to_vec()
+        } else {
+            rest.to_vec()
+        };
+    }
+    path.to_vec()
+}
+
 fn path_of(fd: Option<fs_fdobj::Owned>, buf: &mut [u8]) -> c_int {
     let Some(fd) = fd else {
         return ENOENT;
     };
-    fs_generic::generic_getpath(&fd, buf)
+    let err = fs_generic::generic_getpath(&fd, buf);
+    drop(fd);
+    if err < 0 {
+        return err;
+    }
+    let root = taskview::with_current_fs(fsinfo::FsInfo::root).flatten();
+    let Some(root_fd) = root else {
+        return err;
+    };
+    let mut root_buf = [0u8; ffi::MAX_PATH as usize + 1];
+    let root_err = fs_generic::generic_getpath(&root_fd, &mut root_buf);
+    drop(root_fd);
+    if root_err < 0 {
+        return err;
+    }
+    let rel = relative_to_root(ffi::path_bytes(buf), ffi::path_bytes(&root_buf));
+    ffi::fill_path(buf, &rel)
 }
 
 // `owned(fd) -> Option<Owned>` was written out here until 2026-09-14, and in

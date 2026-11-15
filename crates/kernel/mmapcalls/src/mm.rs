@@ -55,6 +55,7 @@ pub(crate) fn blank_mm(prctl_flags: u32) -> ffi::mm {
         mem: ffi::mem::default(),
         prctl_flags: AtomicU32::new(prctl_flags),
         futex_hash: AtomicU32::new(0),
+        pkey_alloc_mask: std::sync::atomic::AtomicU16::new(1),
     }
 }
 
@@ -168,6 +169,10 @@ pub(crate) fn any_mapped_page(held: &impl Held, page: u64, pages: u64, pred: imp
 /// Takes both write locks, so this thread holds neither: holding one deadlocks.
 pub fn mm_copy(parent: &ffi::mm) -> Arc<ffi::mm> {
     let new = fresh(blank_mm(mmflags::inherit(parent.prctl_flags.load(Ordering::Relaxed))));
+    new.pkey_alloc_mask.store(
+        parent.pkey_alloc_mask.load(Ordering::Relaxed),
+        Ordering::Relaxed,
+    );
     {
         // The child's lock too, though no other thread can reach it yet: it
         // costs one uncontended acquisition, and it is what lets the copy be

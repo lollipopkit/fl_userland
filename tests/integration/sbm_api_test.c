@@ -4,7 +4,7 @@
 //
 // Everything else in tests/ goes in through the CLI, and the CLI is not what
 // ships: ServerBox links libiul.a and calls into
-// it from its own code (ios/Runner/ish/sbm_ish.c). That path — boot an init,
+// it from its own code (packages/fl_tty/iul/sbm_iul.c). That path — boot an init,
 // open a pty session under it, write a command in, read the output back, learn
 // the exit code — had no test at all. The 39 symbols it takes from the
 // library were checked for existence with nm and for nothing else.
@@ -776,6 +776,67 @@ TEST(a_session_can_be_given_its_own_root) {
     task_start(current);
 }
 
+// A shell with job control runs each job in a process group of its own, so the
+// shell's group is not the whole session: `iul_kill_process_group` on the
+// shell left `sleep` running, holding the terminal and `/dev`. Seen on a device
+// as a system that could not be deleted after an `apt update` was interrupted.
+TEST(killing_a_session_reaches_every_job) {
+    char out[256];
+    CHECK_EQ_INT(start("set -m; sleep 1000 & wait"), 0);
+    usleep(300000);
+    CHECK_EQ_INT(iul_kill_session(session.pid, SIGKILL_), 0);
+    CHECK_EQ_INT(wait_session("set -m; sleep 1000 & wait", out, sizeof(out), 15000), 137);
+    close_session();
+    CHECK_EQ_INT(run("ps -o args= | grep -c '^sleep 1000$' || true", out, sizeof(out), 15000), 0);
+    chomp(out);
+    CHECK_EQ_INT(strcmp(out, "0"), 0);
+}
+
+struct blocked_input_args {
+    struct tty *tty;
+    ssize_t written;
+    _Atomic int done;
+};
+
+static void *blocked_input_worker(void *arg) {
+    struct blocked_input_args *args = arg;
+    char buf[16384];
+    memset(buf, 'a', sizeof(buf));
+    args->written = tty_input(args->tty, buf, sizeof(buf), true);
+    args->done = 1;
+    return NULL;
+}
+
+TEST(hanging_up_wakes_a_blocked_tty_input) {
+    char out[256];
+    CHECK_EQ_INT(start("trap '' HUP; sleep 1000"), 0);
+    usleep(300000);
+
+    struct blocked_input_args args = {
+        .tty = session.tty,
+        .written = -1,
+        .done = 0,
+    };
+    pthread_t writer;
+    CHECK_EQ_INT(pthread_create(&writer, NULL, blocked_input_worker, &args), 0);
+
+    usleep(100000);
+    CHECK_EQ_INT(args.done, 0);
+
+    tty_hangup(session.tty);
+
+    for (int i = 0; i < 200 && !args.done; i++) {
+        usleep(10000);
+    }
+    CHECK_EQ_INT(args.done, 1);
+    pthread_join(writer, NULL);
+    CHECK_EQ_INT((int) args.written, 16384);
+
+    CHECK_EQ_INT(iul_kill_session(session.pid, SIGKILL_), 0);
+    CHECK_EQ_INT(wait_session("trap '' HUP; sleep 1000", out, sizeof(out), 15000), 137);
+    close_session();
+}
+
 // The reason iul_leave_terminal exists. A session leader holds its pty as a
 // controlling terminal until its group is released, which for a child of an
 // init that never waits is never -- so every session ever closed kept its pty
@@ -838,6 +899,8 @@ int main(int argc, char *argv[]) {
     RUN(closing_a_running_session_hangs_it_up);
     RUN(a_session_can_be_given_its_own_root);
     RUN(init_is_still_up_at_the_end);
+    RUN(killing_a_session_reaches_every_job);
+    RUN(hanging_up_wakes_a_blocked_tty_input);
     RUN(closed_sessions_give_their_ptys_back);
     RUN(a_closed_session_lets_dev_pts_go);
 

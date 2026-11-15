@@ -7,7 +7,7 @@ use ldisc::discipline::{B38400, CREAD, CS8};
 use ldisc::{Discipline, Step, Termios};
 use pollset::{WakeSet, Watchers};
 use std::ffi::c_int;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 use ttyreg::Registry;
@@ -242,6 +242,7 @@ pub struct Tty {
     /// Set once, at creation, and never after: an embedder's terminal is one
     /// from the moment it exists.
     external: Option<ExternalWrite>,
+    external_closed: AtomicBool,
     /// How many holders there are. The registry's entry is not one: when this
     /// reaches zero the entry goes and the object with it.
     users: AtomicUsize,
@@ -264,6 +265,7 @@ impl Tty {
             kind,
             num,
             external,
+            external_closed: AtomicBool::new(false),
             users: AtomicUsize::new(0),
             state: GuestLock::new(State::new(kind), 2),
             fds: WakeSet::default(),
@@ -313,6 +315,10 @@ impl Tty {
 
     pub fn retain(&self) {
         self.users.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn is_external_closed(&self) -> bool {
+        self.external_closed.load(Ordering::Acquire)
     }
 
     /// Wake every descriptor open on this terminal.
@@ -613,9 +619,9 @@ pub(crate) fn pty_exists(num: c_int) -> bool {
 
 fn listed(terminals: &mut Terminals, num: c_int) -> bool {
     terminals.registry(Kind::PtySlave).is_live(num)
-        && terminals
-            .find(Kind::PtySlave, num)
-            .is_some_and(|slave| slave.external.is_some() || slave.other().is_some())
+        && terminals.find(Kind::PtySlave, num).is_some_and(|slave| {
+            (slave.external.is_some() && !slave.is_external_closed()) || slave.other().is_some()
+        })
 }
 
 pub(crate) fn pty_attrs(num: c_int) -> Option<(u32, u32, u32)> {
@@ -837,6 +843,15 @@ pub fn hangup(tty: &Arc<Tty>) {
             task().steal_controlling(pids, session, TtyId::of(tty));
             task().hangup(pids, session);
         });
+    }
+}
+
+/// Close the embedder side of a `pty_open_fake` terminal, once: hides its
+/// `/dev/pts` node, refuses new opens, and hangs up open descriptions as
+/// closing a pty master does.
+pub fn close_external(tty: &Arc<Tty>) {
+    if tty.external.is_some() && !tty.external_closed.swap(true, Ordering::AcqRel) {
+        hangup(tty);
     }
 }
 

@@ -83,6 +83,23 @@ fn filter_list(host: &[u8]) -> Vec<u8> {
 
 /// One operation on an already-open host descriptor.
 pub(crate) fn on_fd(fd: BorrowedFd<'_>, call: ffi::XattrCall<'_>) -> isize {
+    let hidden = match call {
+        ffi::XattrCall::Get { name, .. }
+            if name.to_bytes().starts_with(crate::meta::META_PREFIX) =>
+        {
+            Some(xattrabi::ENODATA)
+        }
+        ffi::XattrCall::Set { name, .. } | ffi::XattrCall::Remove { name }
+            if name.to_bytes().starts_with(crate::meta::META_PREFIX) =>
+        {
+            Some(guest_errno::c_int_::EPERM)
+        }
+        _ => None,
+    };
+    if let Some(err) = hidden {
+        return err as isize;
+    }
+
     let answer = match call {
             ffi::XattrCall::Get { name, out } => {
                 // One call, not two: the second would answer a second time and

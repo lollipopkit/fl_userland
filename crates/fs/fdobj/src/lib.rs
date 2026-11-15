@@ -597,6 +597,21 @@ pub fn f_get(f: c_int) -> Option<FdRef> {
     })
 }
 
+/// Borrows a description already kept alive by an [`Owned`] handle for the
+/// rest of the calling syscall.
+pub fn f_from_owned(owned: &Owned) -> Option<FdRef> {
+    if taskview::current().is_null() {
+        return None;
+    }
+    let held = owned.clone();
+    let fd = held.as_ptr();
+    syscall_ref_hold(held);
+    Some(FdRef {
+        fd: std::ptr::NonNull::new(fd)?,
+        _this_thread: std::marker::PhantomData,
+    })
+}
+
 /// Installs at the lowest free number at or above `start`, consuming `fd`
 /// however it ends.
 ///

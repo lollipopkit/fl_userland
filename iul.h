@@ -202,6 +202,9 @@ void tty_set_winsize(const struct tty *tty, struct winsize_ winsize);
 /* Keystrokes: bytes the session reads on fd 0. The count taken, or `_EAGAIN`
  * when the queue is full and `blocking` is false. */
 ssize_t tty_input(const struct tty *tty, const void *buf, size_t len, bool blocking);
+/* Hang up the terminal `pty_open_fake` made, waking any blocked `tty_input`
+ * before `tty_release` gives the reference back. */
+void tty_hangup(const struct tty *tty);
 /* Give back the reference `pty_open_fake` handed over. */
 void tty_release(struct tty *tty);
 
@@ -347,11 +350,14 @@ int do_execve(const char *file, size_t argc, const char *argv, const char *envp)
  * `_ESRCH` for a pid that names nothing.
  *
  * `iul_kill_process_group` sends `sig` to that process's group -- a shell and
- * its foreground job -- as the kernel would. `iul_leave_terminal` makes the
+ * its foreground job -- as the kernel would. `iul_kill_session` sends it to
+ * every process in the session `sid`, every job of a shell included, and
+ * works after the leader has exited. `iul_leave_terminal` makes the
  * session give up its controlling terminal now rather than when it is reaped:
  * an embedder's sessions are children of an init that never waits, so without
  * it the pty stays allocated and `/dev/pts` can never be unmounted. */
 int iul_kill_process_group(int pid, int sig);
+int iul_kill_session(int sid, int sig);
 int iul_leave_terminal(int pid);
 
 /* The hostname `uname` reports, copied; NULL reports the host's again. And the

@@ -40,7 +40,20 @@ unsafe fn borrow_watchers(raw: *const Watchers) -> ManuallyDrop<Arc<Watchers>> {
 pub unsafe fn tty_release(raw: *const Tty) {
     if !raw.is_null() {
         // SAFETY: the caller's user, which this takes over and drops.
-        drop(unsafe { tty::User::from_raw(raw) });
+        let user = unsafe { tty::User::from_raw(raw) };
+        tty::close_external(user.tty());
+        drop(user);
+    }
+}
+
+/// Hang up an embedder's terminal before its last reference goes, waking
+/// any blocked [`tty_input`] and closing the host side.
+///
+/// # Safety
+/// `raw` is null, or a terminal the caller holds a user of.
+pub unsafe fn tty_hangup(raw: *const Tty) {
+    if !raw.is_null() {
+        tty::close_external(&*unsafe { borrow(raw) });
     }
 }
 

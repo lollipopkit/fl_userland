@@ -44,7 +44,7 @@
 #[path = "cleanup.rs"]
 mod cleanup_layout;
 #[path = "current.rs"]
-mod current;
+pub(crate) mod current;
 #[path = "group.rs"]
 mod group_layout;
 #[path = "task.rs"]

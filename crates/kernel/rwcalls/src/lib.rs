@@ -44,9 +44,10 @@ use descriptor::{fd_read, fd_write, pread_at, pwrite_at};
 
 mod syscalls;
 pub use syscalls::{
-    nowait_read, pread, preadv, pwrite_placed, pwritev_placed, read, readv, sys_lseek64, sys_pread,
-    sys_preadv, sys_preadv2, sys_pwrite, sys_pwritev, sys_pwritev2, sys_read, sys_readv, sys_write,
-    sys_writev, write, writev,
+    nowait_read, pread, pread_desc, preadv, preadv_desc, pwrite_desc, pwrite_placed, pwritev_desc,
+    pwritev_placed, read, read_desc, readv, readv_desc, sys_lseek64, sys_pread, sys_preadv,
+    sys_preadv2, sys_pwrite, sys_pwritev, sys_pwritev2, sys_read, sys_readv, sys_write, sys_writev,
+    write, write_desc, writev, writev_desc,
 };
 
 /// How many bytes the guest iovec array at `addr` names, or the errno reading
@@ -136,7 +137,11 @@ impl Fd {
     /// Linux's answer, not `EACCES`: the descriptor is not one you can do this
     /// with.
     fn get_io(num: c_int) -> Result<Fd, Errno> {
-        let fd = Fd::get(num)?;
+        Self::from_io_ref(Fd::get(num)?.0)
+    }
+
+    fn from_io_ref(raw: fs_fdobj::FdRef) -> Result<Fd, Errno> {
+        let fd = Fd(raw);
         if fd.is_path_only() {
             return Err(Errno::EBADF);
         }

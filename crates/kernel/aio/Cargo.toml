@@ -17,6 +17,7 @@ util-timeabi = { path = "../../util/timeabi" }
 libc.workspace = true
 # The descriptor object, and the shared types through taskview.
 fs-fdobj = { path = "../../fs/fdobj" }
+fs-adhoc = { path = "../../fs/adhoc" }
 kernel-taskview = { path = "../taskview" }
 kernel-usercopy = { path = "../usercopy" }
 # The ring is a kernel memfd mapped shared into the guest, the way System V

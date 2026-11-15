@@ -302,7 +302,7 @@ use fs_fdobj::FDTABLE_OPS;
 
 #[path = "session.rs"]
 mod session;
-pub use session::{iul_kill_process_group, iul_leave_terminal};
+pub use session::{iul_kill_process_group, iul_kill_session, iul_leave_terminal};
 
 #[path = "stdio.rs"]
 mod stdio;

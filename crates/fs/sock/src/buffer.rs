@@ -151,11 +151,14 @@ pub fn sys_recvfrom(
 
     // Clamped for the same reason as sendto, and a short recv is normal.
     let want = rwabi::bounce_clamp(len);
+    let probe_trunc =
+        (real_flags & libc::MSG_TRUNC != 0) && sock.ty() != guest::SOCK_STREAM && want < 65536;
+    let buf_cap = if probe_trunc { 65536 } else { want };
     let mut buffer = Vec::new();
-    if buffer.try_reserve(want.max(1)).is_err() {
+    if buffer.try_reserve(buf_cap.max(1)).is_err() {
         return Err(Errno::ENOMEM);
     }
-    buffer.resize(want, 0u8);
+    buffer.resize(buf_cap, 0u8);
 
     let real = sock.real()?;
     // What the host said the sender was, from the first read that asked. The
@@ -239,7 +242,8 @@ pub fn sys_recvfrom(
     // `res` bytes were received, `want` were asked for. Copying `want` back
     // overwrote whatever the guest had after a short read with the tail of an
     // uninitialised buffer.
-    if GuestMem.write(buffer_addr, &buffer[..res as usize]) != 0 {
+    let copy_len = (res as usize).min(want);
+    if copy_len > 0 && GuestMem.write(buffer_addr, &buffer[..copy_len]) != 0 {
         return Err(Errno::EFAULT);
     }
 

@@ -131,25 +131,25 @@ fn the_reported_stubs_are_the_numbers_that_ask_to_be() {
     // `keyctl` became `not_configured`, and so did 104 `kexec_load` and 273
     // `finit_module` once rarecalls_probe measured what the reference is built
     // with.)
-    for n in [41, 471] {
+    for n in [471] {
         assert!(REPORTED_STUB[n], "{n} is a reported stub");
     }
     // `not_configured`: ENOSYS on purpose, a decision rather than a gap, and
-    // so not reported -- 219 `keyctl`, 280 `bpf`, 444 `landlock_create_ruleset`,
+    // so not reported -- 280 `bpf`,
     // 104 `kexec_load`, 273 `finit_module`, 89 `acct`, 18 `lookup_dcookie`.
-    for n in [219, 280, 444, 104, 273, 89, 18] {
+    for n in [280, 104, 273, 89, 18] {
         assert!(!REPORTED_STUB[n], "{n} is not configured, not a stub");
     }
     // `syscall_silent_stub`: a libc probes and falls back. 293 is `rseq`,
     // which every glibc program calls at startup. (441, `epoll_pwait2`, was
     // here until it was implemented on 2026-11-11.)
-    for n in [293, 425, 440] {
+    for n in [293, 440] {
         assert!(!REPORTED_STUB[n], "{n} is a silent stub");
     }
     // An implemented syscall is neither -- including the four families
     // written on 2026-09-07/08: 190 semget, 186 msgget, 270
     // process_vm_readv, 5 setxattr.
-    for n in [63, 64, 172, 222, 190, 186, 270, 5] {
+    for n in [63, 64, 172, 222, 190, 186, 270, 5, 41, 217, 219, 262, 263, 288, 289, 290, 425, 426, 427, 428, 429, 430, 431, 432, 433, 442, 444, 445, 446, 467] {
         assert!(!REPORTED_STUB[n], "{n} is implemented");
     }
     // And the gap Linux left: no entry, so nothing to report.

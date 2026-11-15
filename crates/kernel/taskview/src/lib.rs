@@ -109,7 +109,7 @@ pub use task_accessors::*;
 // `current`, `set_current`, `task_self` and `current_pid` are the foundation's
 // since 2026-09-09 -- see `crates/kernel/abi`'s comment on why -- and are
 // re-exported so no consumer changed.
-pub use task_types::{clear_current, current, current_pid, set_current, task_self, with_current_task};
+pub use task_types::{clear_current, current, current_pid, set_current, task_self, with_current_nsproxy, with_current_task};
 
 // The wiring assertion for the cached signal-disposition reference. Exported
 // rather than private because the thing it guards is `set_current`'s, and
