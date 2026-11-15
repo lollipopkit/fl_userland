@@ -29,4 +29,5 @@ jobs:
           cp build-ios/libiul.a    dist/libiul-iphoneos.a
           cp build-iossim/libiul.a dist/libiul-iphonesimulator.a
           cp iul.h dist/
+          (cd dist && shasum -a 256 libiul-iphoneos.a libiul-iphonesimulator.a iul.h > SHA256SUMS)
           gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
