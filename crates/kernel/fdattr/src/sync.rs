@@ -6,8 +6,8 @@ use super::*;
 // Durability, locking and the filesystem
 // ---------------------------------------------------------------------------
 
-pub fn fsync_desc(fd: fs_fdobj::FdRef) -> Result<(), Errno> {
-    let fd = Fd(fd);
+pub fn sys_fsync(num: c_int) -> Result<(), Errno> {
+    let fd = Fd::get(num)?;
     // Linux's rule is `if (!file->f_op->fsync) return -EINVAL;`, and the file
     // kinds with no `fsync` method are the ones with nothing on a disk behind
     // them: a pipe, a socket, an eventfd, a terminal, `/dev/null`. A regular
@@ -24,10 +24,6 @@ pub fn fsync_desc(fd: fs_fdobj::FdRef) -> Result<(), Errno> {
         return Err(Errno::EINVAL);
     }
     flush(&fd)
-}
-
-pub fn sys_fsync(num: c_int) -> Result<(), Errno> {
-    fsync_desc(Fd::get(num)?.0)
 }
 
 /// Ask the driver to flush.

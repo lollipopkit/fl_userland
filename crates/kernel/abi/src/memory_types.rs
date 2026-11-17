@@ -133,10 +133,6 @@ pub struct mm {
     /// Atomic for the reason `prctl_flags` is. Zero in a new space, which is
     /// what a fork child and an `execve` start with.
     pub futex_hash: std::sync::atomic::AtomicU32,
-    /// Per-address-space MPK protection key allocation bitmask (`mm->context.pkey_allocation_map`
-    /// on Linux). Bit 0 is reserved for the default key 0. Preserved across `fork` (`mm_copy`)
-    /// and reset on `execve` (`mm_new_from`).
-    pub pkey_alloc_mask: std::sync::atomic::AtomicU16,
 }
 // SAFETY: an address space is shared by every thread of a `CLONE_VM` group by
 // construction. The page table and the image are under `mem.lock`, reached

@@ -303,7 +303,7 @@ pub fn sys_fallocate(num: c_int, mode: c_uint, offset: i64, len: i64) -> Result<
 
 #[path = "sync.rs"]
 mod sync;
-pub use sync::{fsync_desc, sys_flock, sys_fsync, sys_sync_file_range, sys_syncfs};
+pub use sync::{sys_flock, sys_fsync, sys_sync_file_range, sys_syncfs};
 
 #[cfg(test)]
 mod tests {

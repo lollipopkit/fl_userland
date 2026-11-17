@@ -24,7 +24,4 @@ kernel-seccomp = { path = "../seccomp" }
 kernel-mmapcalls = { path = "../mmapcalls" }
 # `PR_FUTEX_HASH`.
 kernel-futexcalls = { path = "../futexcalls" }
-fs-adhoc = { path = "../../fs/adhoc" }
-fs-fdobj = { path = "../../fs/fdobj" }
-fs-generic = { path = "../../fs/generic" }
 util-strace = { path = "../../util/strace" }

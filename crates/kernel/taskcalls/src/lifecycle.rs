@@ -127,7 +127,6 @@ pub fn blank_task() -> ffi::task {
         native_offload_entry: ffi::OffloadSlot::default(),
         // Not parked on anything yet.
         waiting_cond: locks::mutex::Mutex::new(None),
-        landlock: locks::mutex::Mutex::new(None),
     }
 }
 
@@ -246,7 +245,6 @@ pub(super) unsafe fn forked_task(parent: &ffi::task) -> ffi::task {
             // reads this to decide where a signal goes.
             native_offload_entry: ffi::OffloadSlot::default(),
             waiting_cond: locks::mutex::Mutex::new(None),
-            landlock: locks::mutex::Mutex::new(locks::locked!(&parent.landlock).clone()),
         }
     }
 }

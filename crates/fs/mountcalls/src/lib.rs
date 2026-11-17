@@ -26,12 +26,7 @@ use taskview::ffi;
 
 use guest_errno::Errno;
 
-mod newmount;
 mod statmount;
-pub use newmount::{
-    sys_fsconfig, sys_fsmount, sys_fsopen, sys_fspick, sys_mount_setattr, sys_move_mount,
-    sys_open_tree, sys_open_tree_attr, sys_pivot_root,
-};
 pub use statmount::{sys_listmount, sys_statmount};
 
 /// A registered filesystem.

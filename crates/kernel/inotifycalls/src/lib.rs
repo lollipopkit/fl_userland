@@ -40,9 +40,7 @@ use strace::strace;
 // The shared Rust types and constants are re-exported by kernel-taskview.
 use taskview::ffi;
 
-mod fanotify;
 mod notify;
-pub use fanotify::{sys_fanotify_init, sys_fanotify_mark};
 #[cfg(test)]
 pub(crate) use notify::inotify_next_cookie;
 

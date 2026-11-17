@@ -5,7 +5,7 @@ use std::ffi::{CStr, c_int};
 use rustix::fs::{self as host_fs, AtFlags};
 
 use crate::errno::{Result, rx};
-use crate::{at_path, dev, ffi, host, meta, mountpath, root, stat};
+use crate::{at_path, dev, ffi, host, mountpath, root, stat};
 
 // ---------------------------------------------------------------------------
 // Metadata
@@ -13,11 +13,8 @@ use crate::{at_path, dev, ffi, host, meta, mountpath, root, stat};
 
 pub fn realfs_stat(mount: &ffi::mount, path: &CStr) -> Result<ffi::statbuf> {
     {
-        let root_fd = root(mount)?;
-        let host = rx(host_fs::statat(root_fd, at_path(path), AtFlags::SYMLINK_NOFOLLOW))?;
+        let host = rx(host_fs::statat(root(mount)?, at_path(path), AtFlags::SYMLINK_NOFOLLOW))?;
         let mut out = stat::convert(&host);
-        let guest_meta = meta::read_path(root_fd, path);
-        meta::apply_stat(&host, guest_meta, &mut out);
         // A host directory has no device nodes in it; the placeholder file
         // standing in for one is described as the device it stands for.
         if let Some(devnum) = dev::for_path(path.to_bytes()) {
@@ -29,12 +26,7 @@ pub fn realfs_stat(mount: &ffi::mount, path: &CStr) -> Result<ffi::statbuf> {
 }
 
 pub fn realfs_fstat(fd: &ffi::fd) -> Result<ffi::statbuf> {
-    let host_fd = host(fd)?;
-    let host = rx(host_fs::fstat(host_fd))?;
-    let mut out = stat::convert(&host);
-    let guest_meta = meta::read_fd(host_fd);
-    meta::apply_stat(&host, guest_meta, &mut out);
-    Ok(out)
+    Ok(stat::convert(&rx(host_fs::fstat(host(fd)?))?))
 }
 
 pub fn realfs_statfs(mount: &ffi::mount) -> Result<ffi::statfsbuf> {

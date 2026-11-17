@@ -263,7 +263,14 @@ const fn build() -> Table {
     at_res!(t, 38, sys_renameat, 4);
     at_res!(t, 39, sys_umount2, 2);
     at_res!(t, 40, sys_mount, 5);
-    at_res!(t, 41, sys_pivot_root, 2);
+    // pivot_root: not implemented. The mount table (crates/fs/mounttable) is
+    // one global list keyed by mount-point strings, with no mount namespace
+    // and no notion of which task's root sits on which mount, so moving the
+    // root mount under put_old means rewriting every point and every task's
+    // root and working directory. The reference answers the error paths
+    // (ENOENT, ENOTDIR, EINVAL for a non-mount, EFAULT) and succeeds for a
+    // real pivot; an ENOSYS is the honest answer until the move exists.
+    at!(t, 41, syscall_stub); // pivot_root
     // Retired in Linux 3.1 with knfsd's syscall interface: ENOSYS everywhere.
     at!(t, 42, not_configured); // nfsservctl
     at_res!(t, 43, sys_statfs_arm64, 2);
@@ -467,9 +474,15 @@ const fn build() -> Table {
     at_val!(t, 214, sys_brk, 1);
     at_res!(t, 215, sys_munmap, 2);
     at_res!(t, 216, sys_mremap, 5);
-    at_res!(t, 217, sys_add_key, 5);
-    at_res!(t, 218, sys_request_key, 4);
-    at_res!(t, 219, sys_keyctl, 5);
+    // The keyring calls: CONFIG_KEYS=n. A keyring is a kernel-held secret
+    // store with per-session, per-user and per-thread scopes, quotas and
+    // expiry, and what reads it (krb5, ecryptfs, iwd, systemd's credential
+    // code) takes ENOSYS as "no keyring here" and keeps its secrets itself.
+    // A store that accepted keys without the scoping would hand one
+    // process's secret to another.
+    at!(t, 217, not_configured); // add_key
+    at!(t, 218, not_configured); // request_key
+    at!(t, 219, not_configured); // keyctl
     at_res!(t, 220, sys_clone, 5);
     at_res!(t, 221, sys_execve, 3);
     at_res!(t, 222, sys_mmap64, 6);
@@ -511,8 +524,8 @@ const fn build() -> Table {
     at_res!(t, 243, sys_recvmmsg, 5);
     at_res!(t, 260, sys_wait4, 4);
     at_res!(t, 261, sys_prlimit64, 4);
-    at_res!(t, 262, sys_fanotify_init, 2);
-    at_res!(t, 263, sys_fanotify_mark, 5);
+    at!(t, 262, syscall_stub); // fanotify_init
+    at!(t, 263, syscall_stub); // fanotify_mark
     at_res!(t, 264, sys_name_to_handle_at, 5);
     at_res!(t, 265, sys_open_by_handle_at, 3);
     at_res!(t, 266, sys_clock_adjtime, 2);
@@ -547,9 +560,14 @@ const fn build() -> Table {
     at_res!(t, 285, sys_copy_file_range, 6);
     at_res!(t, 286, sys_preadv2, 6);
     at_res!(t, 287, sys_pwritev2, 6);
-    at_res!(t, 288, sys_pkey_mprotect, 4);
-    at_res!(t, 289, sys_pkey_alloc, 2);
-    at_res!(t, 290, sys_pkey_free, 1);
+    // Protection keys need FEAT_S1POE, which this kernel does not emulate and
+    // AT_HWCAP2 does not advertise. A kernel without CONFIG_ARCH_HAS_PKEYS has
+    // no pkey syscalls at all, and the arm64 reference answers ENOSYS to all
+    // three -- including `pkey_mprotect(..., -1)`, which on x86 is plain
+    // mprotect.
+    at!(t, 288, not_configured); // pkey_mprotect
+    at!(t, 289, not_configured); // pkey_alloc
+    at!(t, 290, not_configured); // pkey_free
     at_res!(t, 291, sys_statx, 5);
 
     // Linux 5.x+ syscalls. Most are stubbed and let glibc/musl/Node fall back
@@ -575,15 +593,28 @@ const fn build() -> Table {
     // (403-423 are the 32-bit time64 calls).
     at!(t, 294..=423, syscall_silent_stub);
     at_res!(t, 424, sys_pidfd_send_signal, 4);
-    at_res!(t, 425, sys_io_uring_setup, 2);
-    at_res!(t, 426, sys_io_uring_enter, 6);
-    at_res!(t, 427, sys_io_uring_register, 4);
-    at_res!(t, 428, sys_open_tree, 3);
-    at_res!(t, 429, sys_move_mount, 5);
-    at_res!(t, 430, sys_fsopen, 2);
-    at_res!(t, 431, sys_fsconfig, 5);
-    at_res!(t, 432, sys_fsmount, 3);
-    at_res!(t, 433, sys_fspick, 3);
+    // io_uring: `ENOSYS` from all three, which is a kernel built without
+    // CONFIG_IO_URING. The other way to be a 7.x kernel without io_uring is
+    // `kernel.io_uring_disabled=2`, measured on 2026-11-11 against a 7.2
+    // arm64 kernel with `tests/guest/src/bin/uring_probe.rs`: `EPERM` from
+    // io_uring_setup, while io_uring_enter and io_uring_register still check
+    // their descriptor (`EBADF`, and `EINVAL` for a blind register). Docker's
+    // default seccomp profile answers `EPERM` to all three.
+    //
+    // `ENOSYS` is chosen because it is the answer every consumer reads as
+    // "this kernel has none": libuv (Node) and liburing fall back on any
+    // error, tokio-uring reports it, and some (systemd, QEMU) read `EPERM` as
+    // a policy refusal and say so. A full implementation is out of scope for
+    // this pass; silent, because libuv asks at every loop start.
+    at!(t, 425, syscall_silent_stub); // io_uring_setup
+    at!(t, 426, syscall_silent_stub); // io_uring_enter
+    at!(t, 427, syscall_silent_stub); // io_uring_register
+    at!(t, 428, syscall_stub); // open_tree
+    at!(t, 429, syscall_stub); // move_mount
+    at!(t, 430, syscall_stub); // fsopen
+    at!(t, 431, syscall_stub); // fsconfig
+    at!(t, 432, syscall_stub); // fsmount
+    at!(t, 433, syscall_stub); // fspick
     at_res!(t, 434, sys_pidfd_open, 2); // pidfd_open
     at_res!(t, 435, sys_clone3, 2); // clone3 (bun/JSC uses it directly)
     at_res!(t, 436, sys_close_range, 3); // *** unblocks Anthropic claude-cli ***
@@ -599,11 +630,18 @@ const fn build() -> Table {
     at_res!(t, 439, sys_faccessat, 4); // faccessat2: the same call with a flags argument
     at_res!(t, 440, sys_process_madvise, 5);
     at_res!(t, 441, sys_epoll_pwait2, 6);
-    at_res!(t, 442, sys_mount_setattr, 5);
+    at!(t, 442, syscall_stub); // mount_setattr
     at_res!(t, 443, sys_quotactl_fd, 4);
-    at_res!(t, 444, sys_landlock_create_ruleset, 3);
-    at_res!(t, 445, sys_landlock_add_rule, 4);
-    at_res!(t, 446, sys_landlock_restrict_self, 2);
+    // Landlock: CONFIG_SECURITY_LANDLOCK=n, and not in lsm_list_modules. A
+    // ruleset is a sandbox, so a version that accepted rules without
+    // enforcing them on every path walk would tell a program it is confined
+    // when it is not -- the reason openat2 is ENOSYS above. Every Landlock
+    // user (Go's landlock package, Rust's `landlock` crate, sandboxing tools)
+    // probes with LANDLOCK_CREATE_RULESET_VERSION and runs unconfined, or
+    // refuses to run, on ENOSYS -- the choice is theirs, as it should be.
+    at!(t, 444, not_configured); // landlock_create_ruleset
+    at!(t, 445, not_configured); // landlock_add_rule
+    at!(t, 446, not_configured); // landlock_restrict_self
     // memfd_secret: ENOSYS, which is what a 7.x kernel booted with
     // `secretmem.enable=0` or built without CONFIG_SECRETMEM answers. The
     // reference kernel has it, and its contract is that the *kernel* cannot
@@ -633,7 +671,7 @@ const fn build() -> Table {
     at_res!(t, 464, sys_getxattrat, 6);
     at_res!(t, 465, sys_listxattrat, 5);
     at_res!(t, 466, sys_removexattrat, 4);
-    at_res!(t, 467, sys_open_tree_attr, 5);
+    at!(t, 467, syscall_stub); // open_tree_attr
     at_res!(t, 468, sys_file_getattr, 5);
     at_res!(t, 469, sys_file_setattr, 5);
     // listns (6.19): it lists namespace ids, which are what nsfs gives a

@@ -18,10 +18,7 @@ pub mod normalize;
 mod open;
 
 // The shared Rust types and constants are re-exported by kernel-taskview.
-pub use open::{
-    O_EMPTYPATH, O_PATH_FLAGS, OpenHow, generic_link_unnamed, generic_open, generic_openat,
-    generic_openat2, set_landlock_open_hook,
-};
+pub use open::{O_EMPTYPATH, O_PATH_FLAGS, OpenHow, generic_link_unnamed, generic_open, generic_openat, generic_openat2};
 mod lookup;
 pub use lookup::{
     generic_accessat, generic_fd_is_mount_root, generic_linkat, generic_statat, generic_statat_root,

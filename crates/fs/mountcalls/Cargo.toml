@@ -28,7 +28,6 @@ util-strace = { path = "../../util/strace" }
 # split mountinfo uses, and the extensible request struct.
 fs-mounttable = { path = "../mounttable" }
 fs-fdobj = { path = "../fdobj" }
-fs-adhoc = { path = "../adhoc" }
 fs-devices = { path = "../devices" }
 kernel-usercopy = { path = "../../kernel/usercopy" }
 

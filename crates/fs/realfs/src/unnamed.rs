@@ -51,7 +51,6 @@ pub fn realfs_tmpfile(mount: &ffi::mount, dir: &CStr, flags: c_int, mode: c_int)
             Err(rustix::io::Errno::EXIST) => continue,
             Err(e) => return Err(Errno::from_negative_or_eio(rx_err(e))),
             Ok(host) => {
-                crate::meta::stamp_new_fd(host.as_fd());
                 // A write-only description cannot be read to be copied when
                 // it is named, and once the name is gone nothing can open
                 // the file again: a reader is taken now.

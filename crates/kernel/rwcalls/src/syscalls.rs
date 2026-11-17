@@ -168,8 +168,8 @@ fn rewind(fd: &Fd, by: i64) -> Errno {
 /// Linux does and what `tests/guest/src/bin/faultread_probe.rs` checks — a
 /// `read(-1, badptr, n)` is `EBADF` and a `read(dirfd, badptr, n)` is `EISDIR`,
 /// neither of them `EFAULT`.
-fn read_fd_ref(fd: fs_fdobj::FdRef) -> Result<Fd, Errno> {
-    let fd = Fd::from_io_ref(fd)?;
+fn read_fd(fd_no: c_int) -> Result<Fd, Errno> {
+    let fd = Fd::get_io(fd_no)?;
     // S_ISDIR: reading a directory through `read` is EISDIR; `getdents64` is
     // how a guest lists one.
     if fd.type_ & 0o170000 == 0o40000 {
@@ -178,11 +178,9 @@ fn read_fd_ref(fd: fs_fdobj::FdRef) -> Result<Fd, Errno> {
     Ok(fd)
 }
 
-fn read_fd(fd_no: c_int) -> Result<Fd, Errno> {
-    read_fd_ref(Fd::get(fd_no)?.0)
-}
-
-fn read_with(fd: Fd, buf_addr: u64, size: u64) -> Result<i64, Errno> {
+pub fn read(fd_no: c_int, buf_addr: u64, size: u64) -> Result<i64, Errno> {
+    strace!("read({fd_no}, {buf_addr:#x}, {size:#x})");
+    let fd = read_fd(fd_no)?;
     let undo = rewindable(&fd);
     let want = if undo {
         rwabi::bounce_clamp(size)
@@ -204,11 +202,6 @@ fn read_with(fd: Fd, buf_addr: u64, size: u64) -> Result<i64, Errno> {
     Ok(res)
 }
 
-pub fn read(fd_no: c_int, buf_addr: u64, size: u64) -> Result<i64, Errno> {
-    strace!("read({fd_no}, {buf_addr:#x}, {size:#x})");
-    read_with(read_fd(fd_no)?, buf_addr, size)
-}
-
 /// The stream write, from a buffer this owns.
 fn write_buf(fd_no: c_int, buf: &[u8]) -> Result<i64, Errno> {
     // V8 chatter on its way to a fatal abort is swallowed; see
@@ -221,22 +214,16 @@ fn write_buf(fd_no: c_int, buf: &[u8]) -> Result<i64, Errno> {
     Errno::split(fd_write(&fd, buf))
 }
 
-#[derive(Clone, Copy)]
-enum WriteTarget<'a> {
-    Number(c_int),
-    Desc(&'a Fd),
-    Positional(&'a Fd, i64),
-}
-
 /// A write larger than one bounce buffer, looped.
 ///
 /// `done` is what has already gone out, so an error after the first chunk
 /// reports the bytes written rather than the error — which is what Linux does
 /// and what a caller resuming from the returned count needs.
 fn write_chunked(
-    target: WriteTarget<'_>,
+    fd_no: c_int,
     buf_addr: u64,
     size: u64,
+    positional: Option<(&Fd, i64)>,
 ) -> Result<i64, Errno> {
     let total = size.min(rwabi::MAX_RW_COUNT);
     // A write of nothing still reaches the file, as Linux's `vfs_write` does:
@@ -245,13 +232,12 @@ fn write_chunked(
     // empty name; a pipe answers 0. The loop below never ran for it, so this
     // answered 0 for any descriptor number at all.
     if total == 0 {
-        return match target {
-            WriteTarget::Positional(fd, off) => {
+        return match positional {
+            Some((fd, off)) => {
                 let _guard = fd.locked();
                 Errno::split(pwrite_at(fd, &[], off))
             }
-            WriteTarget::Desc(fd) => Errno::split(fd_write(fd, &[])),
-            WriteTarget::Number(fd_no) => write_buf(fd_no, &[]),
+            None => write_buf(fd_no, &[]),
         };
     }
     let cap = rwabi::bounce_clamp(total);
@@ -262,13 +248,12 @@ fn write_chunked(
         if GuestMem.read(buf_addr + done, &mut buf[..chunk]) != 0 {
             return partial(done, Errno::EFAULT);
         }
-        let wrote = match target {
-            WriteTarget::Positional(fd, off) => {
+        let wrote = match positional {
+            Some((fd, off)) => {
                 let _guard = fd.locked();
                 Errno::split(pwrite_at(fd, &buf[..chunk], off + done as i64))
             }
-            WriteTarget::Desc(fd) => Errno::split(fd_write(fd, &buf[..chunk])),
-            WriteTarget::Number(fd_no) => {
+            None => {
                 strace!(
                     "write({fd_no}, {:?}, {chunk})",
                     String::from_utf8_lossy(&buf[..chunk.min(100)])
@@ -296,10 +281,12 @@ fn partial(done: u64, e: Errno) -> Result<i64, Errno> {
 }
 
 pub fn write(fd_no: c_int, buf_addr: u64, size: u64) -> Result<i64, Errno> {
-    write_chunked(WriteTarget::Number(fd_no), buf_addr, size)
+    write_chunked(fd_no, buf_addr, size, None)
 }
 
-fn pread_with(fd: Fd, buf_addr: u64, size: u64, off: i64) -> Result<i64, Errno> {
+pub fn pread(fd_no: c_int, buf_addr: u64, size: u64, off: i64) -> Result<i64, Errno> {
+    strace!("pread({fd_no}, {buf_addr:#x}, {size:#x}, {off})");
+    let fd = Fd::get_io(fd_no)?;
     // A negative offset is EINVAL on Linux whatever the file is. It used to be
     // passed down, where realfs happened to reject it and tmpfs answered EPERM.
     if off < 0 {
@@ -321,27 +308,8 @@ fn pread_with(fd: Fd, buf_addr: u64, size: u64, off: i64) -> Result<i64, Errno> 
     Ok(res)
 }
 
-pub fn pread(fd_no: c_int, buf_addr: u64, size: u64, off: i64) -> Result<i64, Errno> {
-    strace!("pread({fd_no}, {buf_addr:#x}, {size:#x}, {off})");
-    pread_with(Fd::get_io(fd_no)?, buf_addr, size, off)
-}
-
 fn pwrite(fd_no: c_int, buf_addr: u64, size: u64, off: i64) -> Result<i64, Errno> {
     pwrite_placed(fd_no, buf_addr, size, off, rwabi::Append::AsOpened)
-}
-
-fn pwrite_placed_with(
-    fd: &Fd,
-    buf_addr: u64,
-    size: u64,
-    off: i64,
-    append: rwabi::Append,
-) -> Result<i64, Errno> {
-    if off < 0 {
-        return Err(Errno::EINVAL);
-    }
-    let at = placed(fd, off, append)?;
-    write_chunked(WriteTarget::Positional(fd, at), buf_addr, size)
 }
 
 /// `pwrite` with the placement a flags word decided, for `crates/kernel/aio`'s
@@ -355,7 +323,11 @@ pub fn pwrite_placed(
 ) -> Result<i64, Errno> {
     strace!("pwrite({fd_no}, {buf_addr:#x}, {size:#x}, {off})");
     let fd = Fd::get_io(fd_no)?;
-    pwrite_placed_with(&fd, buf_addr, size, off, append)
+    if off < 0 {
+        return Err(Errno::EINVAL);
+    }
+    let at = placed(&fd, off, append)?;
+    write_chunked(fd_no, buf_addr, size, Some((&fd, at)))
 }
 
 /// Where a positional write goes: `off`, or the end of the file when the call
@@ -440,7 +412,9 @@ fn writev_chunked(
     Ok(done as i64)
 }
 
-fn readv_with(fd: Fd, iovec_addr: u64, count: c_uint) -> Result<i64, Errno> {
+pub fn readv(fd_no: c_int, iovec_addr: u64, count: c_uint) -> Result<i64, Errno> {
+    strace!("readv({fd_no}, {iovec_addr:#x}, {count})");
+    let fd = read_fd(fd_no)?;
     let (vectors, io_size) = read_iovec(iovec_addr, count)?;
     let undo = rewindable(&fd);
     let want = if undo {
@@ -454,11 +428,6 @@ fn readv_with(fd: Fd, iovec_addr: u64, count: c_uint) -> Result<i64, Errno> {
         Err(_) => Err(rewind(&fd, res)),
         Ok(()) => Ok(res),
     }
-}
-
-pub fn readv(fd_no: c_int, iovec_addr: u64, count: c_uint) -> Result<i64, Errno> {
-    strace!("readv({fd_no}, {iovec_addr:#x}, {count})");
-    readv_with(read_fd(fd_no)?, iovec_addr, count)
 }
 
 pub fn writev(fd_no: c_int, iovec_addr: u64, count: c_uint) -> Result<i64, Errno> {
@@ -489,14 +458,19 @@ pub fn writev(fd_no: c_int, iovec_addr: u64, count: c_uint) -> Result<i64, Errno
 // file, depending on the garbage. Measured: `preadv(fd, iov, 1, 0)` with four
 // arguments returns 4 on a real arm64 kernel and returned EINVAL here.
 
-fn preadv_with(
-    fd: Fd,
+/// `pos_l` carries the whole offset and `pos_h` is ignored. Both are 64-bit
+/// for that reason: `pos_l` used to be a `dword_t`, which threw away the top
+/// half of a register the caller had filled.
+pub fn preadv(
+    fd_no: c_int,
     iovec_addr: u64,
     count: c_uint,
     pos_l: u64,
     _pos_h: u64,
 ) -> Result<i64, Errno> {
     let off = pos_l as i64;
+    strace!("preadv({fd_no}, {iovec_addr:#x}, {count}, {off})");
+    let fd = Fd::get_io(fd_no)?;
     let (vectors, io_size) = read_iovec(iovec_addr, count)?;
     // Whether the offset and the total name a range at all. The `off < 0` test
     // that used to be here was half of it: an offset that is positive and a
@@ -521,20 +495,6 @@ fn preadv_with(
     Ok(res)
 }
 
-/// `pos_l` carries the whole offset and `pos_h` is ignored. Both are 64-bit
-/// for that reason: `pos_l` used to be a `dword_t`, which threw away the top
-/// half of a register the caller had filled.
-pub fn preadv(
-    fd_no: c_int,
-    iovec_addr: u64,
-    count: c_uint,
-    pos_l: u64,
-    pos_h: u64,
-) -> Result<i64, Errno> {
-    strace!("preadv({fd_no}, {iovec_addr:#x}, {count}, {})", pos_l as i64);
-    preadv_with(Fd::get_io(fd_no)?, iovec_addr, count, pos_l, pos_h)
-}
-
 fn pwritev(
     fd_no: c_int,
     iovec_addr: u64,
@@ -543,31 +503,6 @@ fn pwritev(
     _pos_h: u64,
 ) -> Result<i64, Errno> {
     pwritev_placed(fd_no, iovec_addr, count, pos_l as i64, rwabi::Append::AsOpened)
-}
-
-fn pwritev_placed_with(
-    fd: &Fd,
-    iovec_addr: u64,
-    count: c_uint,
-    off: i64,
-    append: rwabi::Append,
-) -> Result<i64, Errno> {
-    let (vectors, io_size) = read_iovec(iovec_addr, count)?;
-    rwabi::verify_area(off, io_size as u64).map_err(Errno::from_negative_or_eio)?;
-    let cap = rwabi::bounce_clamp(io_size as u64);
-    // Chunked, with the offset advancing: a write must not be short, so a total
-    // above the bounce buffer is looped rather than truncated.
-    let mut at = placed(fd, off, append)?;
-    writev_chunked(&vectors, io_size, cap, |buf| {
-        let n = Errno::split({
-            let _guard = fd.locked();
-            pwrite_at(fd, buf, at)
-        })?;
-        if n > 0 {
-            at += n;
-        }
-        Ok(n)
-    })
 }
 
 /// `pwritev` with the placement a flags word decided: [`sys_pwritev2`]'s and
@@ -581,7 +516,22 @@ pub fn pwritev_placed(
 ) -> Result<i64, Errno> {
     strace!("pwritev({fd_no}, {iovec_addr:#x}, {count}, {off})");
     let fd = Fd::get_io(fd_no)?;
-    pwritev_placed_with(&fd, iovec_addr, count, off, append)
+    let (vectors, io_size) = read_iovec(iovec_addr, count)?;
+    rwabi::verify_area(off, io_size as u64).map_err(Errno::from_negative_or_eio)?;
+    let cap = rwabi::bounce_clamp(io_size as u64);
+    // Chunked, with the offset advancing: a write must not be short, so a total
+    // above the bounce buffer is looped rather than truncated.
+    let mut at = placed(&fd, off, append)?;
+    writev_chunked(&vectors, io_size, cap, |buf| {
+        let n = Errno::split({
+            let _guard = fd.locked();
+            pwrite_at(&fd, buf, at)
+        })?;
+        if n > 0 {
+            at += n;
+        }
+        Ok(n)
+    })
 }
 
 // `preadv2`/`pwritev2` — the same plus a per-call flags word. `pos == -1` means
@@ -760,82 +710,6 @@ pub fn sys_pwritev2(
     flags: c_uint,
 ) -> Result<i64, Errno> {
     counted(Side::Write, true, pwritev2(fd_no, iovec_addr, count, pos_l, pos_h, flags))
-}
-
-pub fn read_desc(fd: fs_fdobj::FdRef, buf_addr: u64, size: u64) -> Result<i64, Errno> {
-    counted(Side::Read, false, read_fd_ref(fd).and_then(|d| read_with(d, buf_addr, size)))
-}
-
-pub fn write_desc(fd: fs_fdobj::FdRef, buf_addr: u64, size: u64) -> Result<i64, Errno> {
-    counted(
-        Side::Write,
-        false,
-        Fd::from_io_ref(fd).and_then(|d| write_chunked(WriteTarget::Desc(&d), buf_addr, size)),
-    )
-}
-
-pub fn pread_desc(fd: fs_fdobj::FdRef, buf_addr: u64, size: u64, off: i64) -> Result<i64, Errno> {
-    counted(
-        Side::Read,
-        false,
-        Fd::from_io_ref(fd).and_then(|d| pread_with(d, buf_addr, size, off)),
-    )
-}
-
-pub fn pwrite_desc(fd: fs_fdobj::FdRef, buf_addr: u64, size: u64, off: i64) -> Result<i64, Errno> {
-    counted(
-        Side::Write,
-        false,
-        Fd::from_io_ref(fd)
-            .and_then(|d| pwrite_placed_with(&d, buf_addr, size, off, rwabi::Append::AsOpened)),
-    )
-}
-
-pub fn readv_desc(fd: fs_fdobj::FdRef, iovec_addr: u64, count: c_uint) -> Result<i64, Errno> {
-    counted(
-        Side::Read,
-        true,
-        read_fd_ref(fd).and_then(|d| readv_with(d, iovec_addr, count)),
-    )
-}
-
-pub fn writev_desc(fd: fs_fdobj::FdRef, iovec_addr: u64, count: c_uint) -> Result<i64, Errno> {
-    counted(Side::Write, true, || -> Result<i64, Errno> {
-        let fd = Fd::from_io_ref(fd)?;
-        let (vectors, io_size) = read_iovec(iovec_addr, count)?;
-        let cap = rwabi::bounce_clamp(io_size as u64);
-        writev_chunked(&vectors, io_size, cap, |buf| Errno::split(fd_write(&fd, buf)))
-    }())
-}
-
-pub fn preadv_desc(
-    fd: fs_fdobj::FdRef,
-    iovec_addr: u64,
-    count: c_uint,
-    pos_l: u64,
-    pos_h: u64,
-) -> Result<i64, Errno> {
-    counted(
-        Side::Read,
-        true,
-        Fd::from_io_ref(fd).and_then(|d| preadv_with(d, iovec_addr, count, pos_l, pos_h)),
-    )
-}
-
-pub fn pwritev_desc(
-    fd: fs_fdobj::FdRef,
-    iovec_addr: u64,
-    count: c_uint,
-    pos_l: u64,
-    _pos_h: u64,
-) -> Result<i64, Errno> {
-    counted(
-        Side::Write,
-        true,
-        Fd::from_io_ref(fd).and_then(|d| {
-            pwritev_placed_with(&d, iovec_addr, count, pos_l as i64, rwabi::Append::AsOpened)
-        }),
-    )
 }
 
 /// `sendfile` and `copy_file_range`: one of each, by what was moved, once the

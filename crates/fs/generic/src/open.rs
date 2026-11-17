@@ -1,17 +1,7 @@
 //! Generic open policy and mount handoff for `open(2)` and `openat(2)`.
 
-use std::sync::OnceLock;
 use super::*;
 use guest_errno::Errno;
-
-pub type LandlockOpenHook =
-    fn(path: &[u8], flags: c_int, is_dir: bool, creating: bool, exec: bool) -> Result<(), Errno>;
-
-static LANDLOCK_OPEN_HOOK: OnceLock<LandlockOpenHook> = OnceLock::new();
-
-pub fn set_landlock_open_hook(hook: LandlockOpenHook) {
-    let _ = LANDLOCK_OPEN_HOOK.set(hook);
-}
 
 // ---------------------------------------------------------------------------
 // Opening
@@ -113,7 +103,7 @@ fn open_inner(
                 return Err(Errno::from_negative_or_eio(err));
             }
             if buf[0] != b'/' || fd.unnamed.is_some() {
-                return reopen(fd, flags, how.exec);
+                return reopen(fd, flags);
             }
         }
         return open_inner(at, c".", flags, mode, how, true);
@@ -140,7 +130,7 @@ fn open_inner(
     let resolved = crate::normalize::resolve_scoped(at, name.to_bytes(), walk_flags, how.scope)
         .map_err(Errno::from_negative_or_eio)?;
     if let Some(file) = &resolved.magic {
-        return reopen(file, flags, how.exec);
+        return reopen(file, flags);
     }
     let mut path = PathBuf::new();
     path.set(&resolved.path).map_err(Errno::from_negative_or_eio)?;
@@ -167,48 +157,6 @@ fn open_inner(
     // the slash taken off it and this is the only thing that still knows.
     if creating && name.to_bytes().last() == Some(&b'/') {
         return Err(Errno::EISDIR);
-    }
-
-    if let Some(check) = LANDLOCK_OPEN_HOOK.get()
-        && flags & ffi::O_TMPFILE_ as c_int != ffi::O_TMPFILE_ as c_int
-        && taskview::with_current_task(|t| t.landlock_domains().is_some()).unwrap_or(true)
-    {
-        if creating {
-            check(&resolved.path, flags, false, true, how.exec)?;
-        } else if flags & ffi::O_PATH_ as c_int == 0 {
-            let mut probe = path.clone_buf();
-            match Mount::of(&mut probe).stat(&probe) {
-                Ok(st) => {
-                    let ty = st.mode & S_IFMT;
-                    if is(ty, S_IFLNK) {
-                        return Err(Errno::ELOOP);
-                    }
-                    if how.regular_only && !is(ty, S_IFREG) {
-                        return Err(Errno::EFTYPE);
-                    }
-                    if is(ty, S_IFSOCK) {
-                        return Err(Errno::ENXIO);
-                    }
-                    let wants_file = (ffi::O_RDWR_ | ffi::O_WRONLY_ | ffi::O_CREAT_) as c_int;
-                    if is(ty, S_IFDIR) && flags & wants_file != 0 {
-                        return Err(Errno::EISDIR);
-                    }
-                    if !is(ty, S_IFDIR) && flags & ffi::O_DIRECTORY_ as c_int != 0 {
-                        return Err(Errno::ENOTDIR);
-                    }
-                    path::access(&resolved.path, &st, open_accmode(flags, how.exec))
-                        .map_err(Errno::from_negative_or_eio)?;
-                    check(&resolved.path, flags, is(ty, S_IFDIR), false, how.exec)?;
-                }
-                Err(e) if flags & ffi::O_CREAT_ as c_int == 0 => {
-                    return Err(Errno::from_negative_or_eio(e));
-                }
-                Err(_) => {
-                    // `O_CREAT` without `O_EXCL` over a dangling symlink creates the target.
-                    check(&resolved.path, flags, false, true, how.exec)?;
-                }
-            }
-        }
     }
 
     // `OPENAT2_REGULAR`, asked of what is there before the mount opens it, so
@@ -318,8 +266,19 @@ fn open_inner(
     // checking it means `open(path, O_CREAT|O_WRONLY, 0400)` fails after the
     // file is already there.
     if !creating && !path_only {
-        if let Err(e) = path::access(full.as_cstr().to_bytes(), &stat, open_accmode(flags, how.exec))
-        {
+        const AC_R: c_int = 4;
+        const AC_W: c_int = 2;
+        const AC_X: c_int = 1;
+        let accmode = if how.exec {
+            AC_X
+        } else if flags & ffi::O_RDWR_ as c_int != 0 {
+            AC_R | AC_W
+        } else if flags & ffi::O_WRONLY_ as c_int != 0 {
+            AC_W
+        } else {
+            AC_R
+        };
+        if let Err(e) = path::access(full.as_cstr().to_bytes(), &stat, accmode) {
             return Err(Errno::from_negative_or_eio(e));
         }
     }
@@ -434,9 +393,6 @@ fn tmpfile(dir: PathBuf, flags: c_int, mode: c_int) -> Result<fs_fdobj::Owned, E
     const AC_W: c_int = 2;
     const AC_X: c_int = 1;
     path::access(full.as_cstr().to_bytes(), &dir_stat, AC_W | AC_X).map_err(Errno::from_negative_or_eio)?;
-    if let Some(check) = LANDLOCK_OPEN_HOOK.get() {
-        check(full.as_cstr().to_bytes(), flags, false, true, false)?;
-    }
     let open_flags = flags & !(ffi::O_TMPFILE_ | ffi::O_EXCL_) as c_int;
     let fd = mount.fs().tmpfile(mount.get(), path.as_cstr(), open_flags, mode)?;
     let mut fd = fs_fdobj::NewFd::from(fd);
@@ -518,56 +474,22 @@ pub unsafe extern "C" fn generic_open(
     }
 }
 
-fn open_accmode(flags: c_int, exec: bool) -> c_int {
-    const AC_R: c_int = 4;
-    const AC_W: c_int = 2;
-    const AC_X: c_int = 1;
-    if exec {
-        AC_X
-    } else if flags & ffi::O_RDWR_ as c_int != 0 {
-        AC_R | AC_W
-    } else if flags & ffi::O_WRONLY_ as c_int != 0 {
-        AC_W
-    } else {
-        AC_R
-    }
-}
-
 /// Opening a link onto an open file with no name -- `/proc/<pid>/fd/<n>` on a
 /// pipe, which is `/dev/stdin` -- opens that file again, as Linux's
 /// `proc_fd_link` does: a new description, with the access this call asks
 /// for. A pipe can be; a socket or an anonymous inode is ENXIO, the driver's
 /// default. Checked against the file's own mode, as any open is.
-fn reopen(file: &ffi::fd, flags: c_int, exec: bool) -> Result<fs_fdobj::Owned, Errno> {
+fn reopen(file: &ffi::fd, flags: c_int) -> Result<fs_fdobj::Owned, Errno> {
     if flags & ffi::O_DIRECTORY_ as c_int != 0 {
         return Err(Errno::ENOTDIR);
     }
     let st = fs_fdobj::fd_fstat(file).map_err(Errno::from_negative_or_eio)?;
-    fs_perm::access_check(&st, open_accmode(flags, exec)).map_err(Errno::from_negative_or_eio)?;
-    if let Some(check) = LANDLOCK_OPEN_HOOK.get()
-        && flags & ffi::O_PATH_ as c_int == 0
-        && taskview::with_current_task(|t| t.landlock_domains().is_some()).unwrap_or(true)
-    {
-        if let Some(unnamed) = &file.unnamed {
-            let dir_bytes = unnamed.dir.as_bytes();
-            if dir_bytes.starts_with(b"/") {
-                check(dir_bytes, flags, false, false, exec)?;
-            }
-        } else {
-            let mut buf = [0u8; MAX_PATH + 1];
-            let err = crate::generic_getpath(file, &mut buf);
-            if err >= 0 && buf[0] == b'/' {
-                let len = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
-                check(
-                    &buf[..len],
-                    flags,
-                    is(st.mode & S_IFMT, S_IFDIR),
-                    false,
-                    exec,
-                )?;
-            }
-        }
-    }
+    let accmode = match flags as u32 & ffi::O_ACCMODE_ {
+        a if a == ffi::O_WRONLY_ => 2,
+        a if a == ffi::O_RDWR_ => 6,
+        _ => 4,
+    };
+    fs_perm::access_check(&st, accmode).map_err(Errno::from_negative_or_eio)?;
     let ops = file.ops.ok_or(Errno::ENXIO)?;
     let new = ops.reopen(file, flags).map_err(Errno::from_negative_or_eio)?;
     new.set_flags(fs_fdobj::status::at_open(flags as u32));

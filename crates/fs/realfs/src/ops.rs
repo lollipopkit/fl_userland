@@ -130,11 +130,7 @@ pub fn realfs_symlink(mount: &ffi::mount,
 ) -> c_int {
     // The target is stored verbatim, not resolved, so it is not a path to
     // fix up: it means whatever it means when the guest follows it.
-    status(root(mount).and_then(|root| {
-        rx(fs::symlinkat(target, root, at_path(link)))?;
-        meta::stamp_new_path(root, link);
-        Ok(())
-    }))
+    status(root(mount).and_then(|root| rx(fs::symlinkat(target, root, at_path(link)))))
 }
 
 pub fn realfs_mknod(mount: &ffi::mount,
@@ -147,26 +143,40 @@ pub fn realfs_mknod(mount: &ffi::mount,
         Err(e) => return e,
     };
     let perms = u32::from(mode) & !(libc::S_IFMT as u32);
-    let rc = match u32::from(mode) & libc::S_IFMT as u32 {
-        x if x == libc::S_IFREG as u32 => status(
-            rx(fs::openat(
-                root,
-                at_path(path),
-                OFlags::CREATE | OFlags::EXCL | OFlags::RDONLY,
-                mode_of(perms),
-            ))
-            .map(drop),
-        ),
-        x if x == libc::S_IFIFO as u32 => {
-            status(make_fifo(root, at_path(path), perms as libc::mode_t, mkfifoat()))
+    {
+        match u32::from(mode) & libc::S_IFMT as u32 {
+            // The descriptor is closed as it drops. `close` can report an
+            // error, and that one is not worth one: the file exists.
+            x if x == libc::S_IFREG as u32 => status(
+                rx(fs::openat(
+                    root,
+                    at_path(path),
+                    OFlags::CREATE | OFlags::EXCL | OFlags::RDONLY,
+                    mode_of(perms),
+                ))
+                .map(drop),
+            ),
+            x if x == libc::S_IFIFO as u32 => {
+                // `mkfifoat`, which Darwin has. This used to change the
+                // process's working directory and change it back, under a
+                // global lock, on the stated grounds that there is no
+                // `mkfifoat` -- and the working directory is process-wide, so
+                // a guest calling `mkfifo(3)` moved it for every thread for
+                // the duration and serialised every other caller behind the
+                // lock that made that safe.
+                //
+                // `crates/tools/fakefsify` had the same comment and the same
+                // call, and there it was a bug rather than a cost: it did the
+                // chdir *without* a lock, so two concurrent imports created
+                // each other's FIFOs.
+                status(make_fifo(root, at_path(path), perms as libc::mode_t, mkfifoat()))
+            }
+            x if x == libc::S_IFSOCK as u32 => make_socket_node(mount, path, perms),
+            // A host directory cannot hold a device node — making one needs
+            // root on a Mac and is impossible on iOS.
+            _ => errno::EPERM,
         }
-        x if x == libc::S_IFSOCK as u32 => make_socket_node(mount, path, perms),
-        _ => errno::EPERM,
-    };
-    if rc == 0 {
-        meta::stamp_new_path(root, path);
     }
-    rc
 }
 
 /// Darwin's `mkfifoat`, if this system has one.
@@ -311,23 +321,14 @@ fn make_socket_node(mount: &ffi::mount, path: &CStr, perms: u32) -> c_int {
     // already had its own umask taken off by the caller.
     status(chmod_result(perms, |m| {
         rx(fs::chmodat(root, at_path(path), m, AtFlags::empty()))
-    }).map(drop))
+    }))
 }
 
 pub fn realfs_mkdir(mount: &ffi::mount,
     path: &CStr,
     mode: u16,
 ) -> c_int {
-    status(root(mount).and_then(|root| {
-        let mode_u32 = u32::from(mode);
-        let stripped = chmod_result(mode_u32, |m| rx(fs::mkdirat(root, at_path(path), m)))?;
-        meta::stamp_new_path_with_special(
-            root,
-            path,
-            stripped.then_some(mode_u32 & meta::SPECIAL_MASK),
-        );
-        Ok(())
-    }))
+    status(root(mount).and_then(|root| rx(fs::mkdirat(root, at_path(path), mode_of(mode.into())))))
 }
 
 // ---------------------------------------------------------------------------
@@ -407,19 +408,29 @@ pub(crate) fn realfs_truncate(mount: &ffi::mount,
     })())
 }
 
-/// On iOS, the app sandbox refuses `S_ISUID`/`S_ISGID` in `chmod` with
-/// `EPERM`, and iOS 27 refuses `S_ISVTX` as well; retry with those bits cleared
-/// so the `rwx` permissions still take effect on the host. Returns `true` if
-/// special bits had to be stripped.
-fn chmod_result(mode: u32, mut f: impl FnMut(Mode) -> Result<()>) -> Result<bool> {
-    const SPECIAL: u32 = meta::SPECIAL_MASK;
+/// A chown whose EPERM means "this host does not let us", not "the guest may
+/// not".
+///
+/// The guest's idea of who owns a file is not the host's — a fakefs keeps it
+/// in a database precisely because iOS gives an app no real ownership to set —
+/// so a passthrough mount cannot enforce it and reporting failure would break
+/// every archive extraction that restores ownership. Any other error is real.
+fn chown_result(res: Result<()>) -> c_int {
+    match res {
+        Ok(_) => 0,
+        Err(errno::EPERM) => 0,
+        Err(e) => e,
+    }
+}
+
+/// On iOS, the app sandbox refuses `S_ISUID`/`S_ISGID` (`0o6000`) in `chmod`
+/// with `EPERM`; retry with those bits cleared so the `rwx` permissions still
+/// take effect on the host.
+fn chmod_result(mode: u32, mut f: impl FnMut(Mode) -> Result<()>) -> Result<()> {
+    const SETID: u32 = 0o6000;
     match f(mode_of(mode)) {
-        Ok(()) => Ok(false),
-        Err(errno::EPERM) if mode & SPECIAL != 0 => {
-            f(mode_of(mode & !SPECIAL))?;
-            Ok(true)
-        }
-        Err(e) => Err(e),
+        Err(errno::EPERM) if mode & SETID != 0 => f(mode_of(mode & !SETID)),
+        other => other,
     }
 }
 
@@ -431,48 +442,49 @@ pub fn realfs_setattr(mount: &ffi::mount,
         Ok(root) => root,
         Err(e) => return e,
     };
+    // **`AT_SYMLINK_NOFOLLOW`, always.** The VFS has already applied the
+    // caller's follow semantics: `generic_setattrat` walks the path with or
+    // without following, so what arrives here names the object the guest
+    // meant. Following again at the host is a second resolution nobody
+    // asked for, and for a `chown -h` of a symlink it resolves to the
+    // *target* — which for a dangling one does not exist, so the host
+    // answered `ENOENT` for a call Linux serves with 0.
+    //
+    // That is not an edge case. `apk` extracts each file to `.apk.<hash>`,
+    // sets its ownership with `AT_SYMLINK_NOFOLLOW`, and renames it into
+    // place; a package's symlinks point at names that are not there yet, so
+    // **every package containing one failed to install** on a realfs mount.
+    // `apk add gcc` was twelve of these errors and an aborted transaction.
+    //
+    // It is a no-op for everything that is not a symlink, which is why one
+    // flag serves both directions.
     const NOFOLLOW: AtFlags = AtFlags::SYMLINK_NOFOLLOW;
     match attr {
-        ffi::Attr::Uid(uid) => {
-            match rx(fs::chownat(root, at_path(path), Some(Uid::from_raw(uid)), None, NOFOLLOW)) {
-                Ok(()) | Err(errno::EPERM) => {
-                    let mut m = meta::read_path(root, path).unwrap_or_default();
-                    m.uid = uid;
-                    status(meta::write_path(root, path, m))
-                }
-                Err(e) => e,
-            }
-        }
-        ffi::Attr::Gid(gid) => {
-            match rx(fs::chownat(root, at_path(path), None, Some(Gid::from_raw(gid)), NOFOLLOW)) {
-                Ok(()) | Err(errno::EPERM) => {
-                    let mut m = meta::read_path(root, path).unwrap_or_default();
-                    m.gid = gid;
-                    status(meta::write_path(root, path, m))
-                }
-                Err(e) => e,
-            }
-        }
-        ffi::Attr::Mode(mode) => {
-            let mode_u32 = u32::from(mode);
-            status(chmod_result(mode_u32, |m| {
-                rx(fs::chmodat(root, at_path(path), m, AtFlags::empty()))
-            }).and_then(|stripped| {
-                if stripped {
-                    let mut m = meta::read_path(root, path).unwrap_or_default();
-                    m.special_bits = mode_u32 & meta::SPECIAL_MASK;
-                    meta::write_path(root, path, m)
-                } else if let Some(mut m) = meta::read_path(root, path)
-                    && m.special_bits != meta::UNSET
-                {
-                    m.special_bits = meta::UNSET;
-                    meta::write_path(root, path, m)
-                } else {
-                    Ok(())
-                }
-            }))
-        }
+        ffi::Attr::Uid(uid) => chown_result(rx(fs::chownat(
+            root,
+            at_path(path),
+            Some(Uid::from_raw(uid)),
+            None,
+            NOFOLLOW,
+        ))),
+        // -1, not the gid, in the owner argument. The C passed the gid
+        // there and -1 as the group, so a chgrp changed the owner instead
+        // of the group — and then swallowed the EPERM that came back,
+        // reporting success for an operation that did nothing at all.
+        ffi::Attr::Gid(gid) => chown_result(rx(fs::chownat(
+            root,
+            at_path(path),
+            None,
+            Some(Gid::from_raw(gid)),
+            NOFOLLOW,
+        ))),
+        ffi::Attr::Mode(mode) => status(chmod_result(mode.into(), |m| {
+            rx(fs::chmodat(root, at_path(path), m, AtFlags::empty()))
+        })),
         ffi::Attr::Size(size) => realfs_truncate(mount, path, size),
+        // No default: the C's was a TODO(), which is die(), so an
+        // attribute added to the enum and not to this switch killed the
+        // emulator. An `enum` makes that a compile error instead.
     }
 }
 
@@ -482,39 +494,18 @@ pub fn realfs_fsetattr(fd: &ffi::fd, attr: ffi::Attr) -> c_int {
         Err(e) => return e,
     };
     match attr {
-        ffi::Attr::Uid(uid) => match rx(fs::fchown(host, Some(Uid::from_raw(uid)), None)) {
-            Ok(()) | Err(errno::EPERM) => {
-                let mut m = meta::read_fd(host).unwrap_or_default();
-                m.uid = uid;
-                status(meta::write_fd(host, m))
-            }
-            Err(e) => e,
-        },
-        ffi::Attr::Gid(gid) => match rx(fs::fchown(host, None, Some(Gid::from_raw(gid)))) {
-            Ok(()) | Err(errno::EPERM) => {
-                let mut m = meta::read_fd(host).unwrap_or_default();
-                m.gid = gid;
-                status(meta::write_fd(host, m))
-            }
-            Err(e) => e,
-        },
-        ffi::Attr::Mode(mode) => {
-            let mode_u32 = u32::from(mode);
-            status(chmod_result(mode_u32, |m| rx(fs::fchmod(host, m))).and_then(|stripped| {
-                if stripped {
-                    let mut m = meta::read_fd(host).unwrap_or_default();
-                    m.special_bits = mode_u32 & meta::SPECIAL_MASK;
-                    meta::write_fd(host, m)
-                } else if let Some(mut m) = meta::read_fd(host)
-                    && m.special_bits != meta::UNSET
-                {
-                    m.special_bits = meta::UNSET;
-                    meta::write_fd(host, m)
-                } else {
-                    Ok(())
-                }
-            }))
-        }
+        ffi::Attr::Uid(uid) => chown_result(rx(fs::fchown(
+            host,
+            Some(Uid::from_raw(uid)),
+            None,
+        ))),
+        // See realfs_setattr: the group goes in the group argument.
+        ffi::Attr::Gid(gid) => chown_result(rx(fs::fchown(
+            host,
+            None,
+            Some(Gid::from_raw(gid)),
+        ))),
+        ffi::Attr::Mode(mode) => status(chmod_result(mode.into(), |m| rx(fs::fchmod(host, m)))),
         ffi::Attr::Size(size) => status(
             u64::try_from(size)
                 .map_err(|_| errno::EINVAL)

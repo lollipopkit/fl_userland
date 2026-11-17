@@ -483,7 +483,6 @@ name = "fs-mountcalls"
 version = "0.1.0"
 dependencies = [
  "devpts",
- "fs-adhoc",
  "fs-devices",
  "fs-fdobj",
  "fs-generic",
@@ -1000,7 +999,6 @@ dependencies = [
 name = "kernel-aio"
 version = "0.1.0"
 dependencies = [
- "fs-adhoc",
  "fs-fdobj",
  "fs-poll",
  "fs-pollset",
@@ -1452,7 +1450,6 @@ dependencies = [
  "inotify",
  "kernel-mmapcalls",
  "kernel-taskview",
- "kernel-usercopy",
  "libc",
  "path",
  "util-errno",
@@ -1484,9 +1481,6 @@ dependencies = [
 name = "kernel-misccalls"
 version = "0.1.0"
 dependencies = [
- "fs-adhoc",
- "fs-fdobj",
- "fs-generic",
  "kernel-creds",
  "kernel-futexcalls",
  "kernel-mmapcalls",

@@ -347,39 +347,13 @@ fn t_process_madvise(h: &mut Harness) {
     check_fails!(h, pm(cfd, &civ, libc::MADV_COLD, 0), libc::ESRCH, "a reaped child");
 }
 
-fn t_pkey(h: &mut Harness) {
-    h.group("pkey");
-    let pkey = unsafe { libc::syscall(289, 0, 0) };
-    h.check(pkey > 0, format_args!("pkey_alloc returned {pkey}"));
-    let p = unsafe {
-        libc::mmap(
-            std::ptr::null_mut(),
-            4096,
-            libc::PROT_READ | libc::PROT_WRITE,
-            libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
-            -1,
-            0,
-        )
-    };
-    h.check(p != libc::MAP_FAILED, format_args!("mmap for pkey_mprotect"));
-    if p != libc::MAP_FAILED {
-        let r = unsafe { libc::syscall(288, p as usize, 4096usize, libc::PROT_READ, pkey) };
-        h.check(r == 0, format_args!("pkey_mprotect returned {r}"));
-        unsafe { libc::munmap(p, 4096) };
-    }
-    if pkey > 0 {
-        let f = unsafe { libc::syscall(290, pkey) };
-        h.check(f == 0, format_args!("pkey_free returned {f}"));
-        check_fails!(h, unsafe { libc::syscall(290, pkey) }, libc::EINVAL, "double pkey_free");
-    }
-}
-
 fn t_not_configured(h: &mut Harness) {
-    // The reference kernel has no NUMA and no shadow stacks, and says so with
-    // ENOSYS for every one of these.
+    // The reference kernel has no NUMA, no protection keys and no shadow
+    // stacks, and says so with ENOSYS for every one of these.
     h.group("not-configured");
     for (n, name) in [(235, "mbind"), (236, "get_mempolicy"), (237, "set_mempolicy"), (238, "migrate_pages"),
-        (239, "move_pages"), (450, "set_mempolicy_home_node"), (453, "map_shadow_stack")] {
+        (239, "move_pages"), (450, "set_mempolicy_home_node"), (288, "pkey_mprotect"), (289, "pkey_alloc"),
+        (290, "pkey_free"), (453, "map_shadow_stack")] {
         check_fails!(h, unsafe { libc::syscall(n, 0, 0, 0, 0, 0, 0) }, libc::ENOSYS, "{name}");
     }
 }
@@ -392,7 +366,6 @@ fn main() {
     t_fork_dispositions(&mut h);
     t_dontunmap(&mut h);
     t_process_madvise(&mut h);
-    t_pkey(&mut h);
     t_not_configured(&mut h);
     std::process::exit(h.finish());
 }
