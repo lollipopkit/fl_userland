@@ -30,7 +30,24 @@ pub(crate) fn escaped(bytes: &[u8]) -> String {
     s
 }
 
-pub(crate) fn proc_mounts_show(_e: &mut ffi::proc_entry, buf: &mut ffi::proc_data) -> c_int {
+/// The mount table `/proc/<pid>/mounts` lists: the task's namespace's. The
+/// ones at the top of `/proc` are the reader's, as `self/mounts` is.
+///
+/// The namespaces are cloned under `pids_lock` and the guard is dropped
+/// before the table is read: the task can exit meanwhile, and then this
+/// reader holds the last reference, so it -- and any filesystem teardown it
+/// leads to -- must drop without the lock (`map` consumes `found` first).
+fn with_table<T>(e: &mut ffi::proc_entry, f: impl FnOnce(&[&ffi::mount]) -> T) -> T {
+    let theirs = (e.pid != 0)
+        .then(|| crate::pidsnap::Found::get(e).map(|found| found.task().task().nsproxy()))
+        .flatten();
+    match theirs {
+        Some(ns) => fs_mounttable::with_mounts_in(&fs_mounttable::mounts_of(&ns.mnt), f),
+        None => fs_mounttable::with_mounts(f),
+    }
+}
+
+pub(crate) fn proc_mounts_show(e: &mut ffi::proc_entry, buf: &mut ffi::proc_data) -> c_int {
     let mut s = String::new();
     // The table is crates/fs/mounttable and it owns its own lock, held across
     // the whole walk -- so the listing is one snapshot and, more importantly,
@@ -41,7 +58,7 @@ pub(crate) fn proc_mounts_show(_e: &mut ffi::proc_entry, buf: &mut ffi::proc_dat
     // read inside and *used* outside: `mount_race` aborted on a null
     // dereference within seconds. Holding it across the walk is what the C list
     // walk did and is the reason that one was safe.
-    fs_mounttable::with_mounts(|mounts| {
+    with_table(e, |mounts| {
         for mount in mounts {
             let point = mount.point.to_bytes();
             let point: &[u8] = if point.is_empty() { b"/" } else { point };
@@ -104,14 +121,14 @@ pub(crate) fn proc_mounts_show(_e: &mut ffi::proc_entry, buf: &mut ffi::proc_dat
 /// this one's, which is the same rule `crates/fs/mounttable` uses to decide
 /// which mount owns a path. The root is its own parent, as Linux's is.
 pub(crate) fn proc_mountinfo_show(
-    _e: &mut ffi::proc_entry,
+    e: &mut ffi::proc_entry,
     buf: &mut ffi::proc_data,
 ) -> c_int {
     // One acquisition for the whole walk; see proc_mounts_show for why. What
     // is read out of each mount is copied into a `Mount` here, so the
     // formatting below is a pure function of plain values and can be tested
     // without a mount table.
-    let rows: Vec<MountRow> = fs_mounttable::with_mounts(|mounts| {
+    let rows: Vec<MountRow> = with_table(e, |mounts| {
         mounts
             .iter()
             .map(|mount| {

@@ -266,10 +266,11 @@ pub trait FsOps: Send + Sync + 'static {
         0
     }
 
-    /// Take it down again. The default has nothing to release.
-    fn umount(&self, _mount: &mut mount) -> c_int {
-        0
-    }
+    /// Take it down again, when the last copy of the mount has gone: what
+    /// [`Superblock`]'s `Drop` runs. The default has nothing to release.
+    ///
+    /// [`Superblock`]: crate::Superblock
+    fn umount(&self, _sb: &mut crate::Superblock) {}
 
     /// What this filesystem knows about its own space.
     ///
@@ -592,7 +593,9 @@ pub trait FsOps: Send + Sync + 'static {
     ///
     /// A notification, so the default is to do nothing: only a filesystem that
     /// keeps something per inode has anything to release.
-    fn inode_orphaned(&self, _mount: &mount, _inode: ino_t) {}
+    /// Given the superblock rather than a mount: an inode belongs to the
+    /// filesystem instance, which every copy of a mount shares.
+    fn inode_orphaned(&self, _sb: &crate::Superblock, _inode: ino_t) {}
 }
 
 /// Answer a path into a caller's buffer, NUL-terminated: `0`, or
@@ -670,12 +673,12 @@ mod tests {
             out: &mut [],
         };
         assert_eq!(fs.fxattr(&fd::default(), call), EOPNOTSUPP as isize);
-        // Mounting and unmounting a filesystem with no state succeed. These
-        // two are the only `&mut mount` in the trait: they are the only
-        // methods that write the mount, and each runs while nothing else can
-        // reach it.
+        // Mounting a filesystem with no state succeeds, and taking it down
+        // has nothing to do. These two are the only `&mut` in the trait: the
+        // only methods that write, each where nothing else can reach what it
+        // writes.
         assert_eq!(fs.mount(p), 0);
-        assert_eq!(fs.umount(p), 0);
+        fs.umount(&mut crate::Superblock::default());
         // And `statfs` fills in nothing, which `crates/kernel/fdattr` then
         // completes from `magic`.
         assert!(fs.statfs(p).is_ok_and(|b| b.bsize.is_none()));

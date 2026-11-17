@@ -8,7 +8,7 @@
 //! # Namespaces
 //!
 //! `crates/kernel/nsproxy` holds which namespace of each kind a task is in.
-//! Only the UTS and IPC kinds can be made new; a request for a new one of any other
+//! Only the UTS, IPC and mount kinds can be made new; a request for a new one of any other
 //! kind is answered as a kernel built without it does: `EINVAL` -- after
 //! `EPERM` for an unprivileged caller, because Linux checks `CAP_SYS_ADMIN`
 //! before it would find the namespace code missing. Joining a namespace of
@@ -168,8 +168,15 @@ const NEWTIME: u64 = 0x80;
 /// list. `CLONE_VM`, `CLONE_SIGHAND` and `CLONE_THREAD` cannot be undone and
 /// are accepted only where there is nothing to undo, which is Linux's rule: a
 /// single-threaded process. `CLONE_NEWUTS` gives the calling thread a copy
-/// of its UTS namespace and `CLONE_NEWIPC` an empty IPC namespace, which
-/// implies `CLONE_SYSVSEM`; see the module comment for the other kinds.
+/// of its UTS namespace, `CLONE_NEWIPC` an empty IPC namespace, which implies
+/// `CLONE_SYSVSEM`, and `CLONE_NEWNS` a copy of its mount table, which
+/// implies `CLONE_FS`; see the module comment for the other kinds.
+///
+/// After `CLONE_NEWNS` the working directory and root are still descriptors
+/// opened through the old namespace's copies of their mounts. Every path is
+/// looked up in the new table, so this shows only as those copies counting
+/// as in use: an `umount` of one in the old namespace is `EBUSY` where Linux,
+/// which moves both onto the new copies, would allow it.
 ///
 /// Every refusal is decided before anything changes, as Linux's
 /// `bad_unshare_cleanup` arranges, so a call that fails has done nothing.
@@ -256,6 +263,7 @@ pub fn sys_unshare(flags: u64) -> Result<(), Errno> {
     }
     if flags & Kind::BUILT != 0 {
         taskview::with_current_task(|t| t.set_nsproxy(t.nsproxy().unshare(flags))).ok_or(Errno::ESRCH)?;
+        fs_mounttable::sweep_parked();
     }
     Ok(())
 }
@@ -294,6 +302,24 @@ pub fn sys_setns(fd: c_int, nstype: c_int) -> Result<(), Errno> {
     if join.iter().any(|ns| ns.kind() == Kind::User) {
         return Err(Errno::EINVAL);
     }
+    // `mntns_install`: `CAP_SYS_CHROOT` too, and a root and working
+    // directory nobody else shares, since both are about to be moved.
+    let mnt = join.iter().any(|ns| ns.kind() == Kind::Mnt);
+    if mnt {
+        if !taskview::capable(taskview::caps::CAP_SYS_CHROOT) {
+            return Err(Errno::EPERM);
+        }
+        let pids = Pids::take();
+        let me = pids.me().ok_or(Errno::ESRCH)?;
+        // SAFETY: every taker of the slot holds `pids_lock`, which is held.
+        let fs = unsafe { me.task().fs.clone_arc() };
+        // Two counts are the slot's and this one: anything more is a sharer.
+        if fs.as_ref().is_some_and(|fs| std::sync::Arc::strong_count(fs) > 2) {
+            return Err(Errno::EINVAL);
+        }
+        drop(pids);
+        drop(fs);
+    }
     // As `unshare`: the undo list's sets are the namespace being left
     // (Linux's `commit_nsset`), and a thread group's list is shared by all of
     // it, as in `unshare`'s `CLONE_SYSVSEM`.
@@ -306,14 +332,42 @@ pub fn sys_setns(fd: c_int, nstype: c_int) -> Result<(), Errno> {
             sysvsem::group_exiting(taskview::current_tgid());
         }
     }
-    taskview::with_current_task(|t| {
-        let mut proxy = t.nsproxy();
+    let left = taskview::with_current_task(|t| {
+        let left = t.nsproxy();
+        let mut proxy = std::sync::Arc::clone(&left);
         for ns in &join {
             proxy = proxy.with(ns);
         }
         t.set_nsproxy(proxy);
+        left
     })
-    .ok_or(Errno::ESRCH)
+    .ok_or(Errno::ESRCH)?;
+    if mnt {
+        // The namespace's root, as both: opened after the switch, so through
+        // its table, and with no root of the task's in the way.
+        let old_root = taskview::with_current_fs(|fs| {
+            let old = fs.root();
+            fs.reset_root();
+            old
+        })
+        .flatten();
+        match fs_generic::generic_openat(ffi::At::Pwd, c"/", ffi::O_RDONLY_ as c_int, 0) {
+            Ok(root) => taskview::with_current_fs(|fs| fs.chdir(root)),
+            Err(e) => {
+                // Every refusal above is decided before anything changes, and
+                // this one cannot be: undo the switch, so a failed `setns`
+                // has done nothing -- not a task in the new namespace with
+                // the old working directory and no root.
+                taskview::with_current_task(|t| t.set_nsproxy(left));
+                if let Some(root) = old_root {
+                    taskview::with_current_fs(|fs| fs.chroot(root));
+                }
+                return Err(e);
+            }
+        };
+        fs_mounttable::sweep_parked();
+    }
+    Ok(())
 }
 
 #[cfg(test)]

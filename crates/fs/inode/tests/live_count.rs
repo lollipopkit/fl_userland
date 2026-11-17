@@ -2,7 +2,7 @@
 //!
 //! **A leak is this work's failure mode and nothing else in the tree sees
 //! one.** A strong count one too high keeps an `inode_data`, its lock set and
-//! a mount reference for ever, and every assertion in `cargo test`,
+//! a superblock reference for ever, and every assertion in `cargo test`,
 //! `guest_tests.sh` and `tools/checks.sh` still passes — the object is
 //! unreachable and nothing looks for it. `fs_inode::inode_live_count` is what
 //! sees it, and this is its only reader outside `/proc/iul/objects`.
@@ -27,10 +27,10 @@ use fs_inode::{Ref, ffi, inode_live_count, unix_socket_id};
 use std::sync::Arc;
 
 /// A mount with no filesystem: `fs: None`, so a released inode skips
-/// `inode_orphaned` and this test needs no `fs_ops` table. Its `refcount` is
-/// what the inode's `MountRef` moves, and it is checked at the end — a leaked
-/// inode leaks a mount reference with it, which is the second half of the
-/// failure this file exists for.
+/// `inode_orphaned` and this test needs no `fs_ops` table. Its superblock's
+/// count is what an inode moves, and it is checked at the end — a leaked
+/// inode leaks a superblock reference with it, which is the second half of
+/// the failure this file exists for.
 ///
 /// Owned by the test as a `Box` and lent out, where it was `Box::into_raw` and
 /// a matching `from_raw` until 2026-09-15: `unix_socket_id` takes a `&mount`
@@ -93,8 +93,11 @@ fn an_inode_lives_from_the_first_reference_to_the_last() {
     drop(again);
     assert_eq!(inode_live_count(), 0);
 
-    // Every inode took a reference to the mount and every one gave it back.
-    let held = m.refcount.load(std::sync::atomic::Ordering::Relaxed);
-    assert_eq!(held, 0, "a freed inode leaked its mount reference");
+    // Every inode took a reference to the superblock and every one gave it
+    // back: the mount's own is the only one left. (A reference to the mount
+    // until 2026-11-17, when inodes moved to the superblock every copy of the
+    // mount shares.)
+    assert_eq!(std::sync::Arc::strong_count(&m.sb), 1, "a freed inode leaked its superblock reference");
+    assert_eq!(m.refcount.load(std::sync::atomic::Ordering::Relaxed), 0, "an inode holds the mount busy");
     drop(owned);
 }

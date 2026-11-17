@@ -103,7 +103,7 @@ impl FakefsMount {
     /// the null check at each call site used to be.
     pub fn db(&self) -> Option<&fakedb::Db> {
         // SAFETY: as `root`: the reference held keeps the mount live.
-        unsafe { &*self.0.as_ptr() }.state.fakefs()
+        unsafe { &*self.0.as_ptr() }.state().fakefs()
     }
 }
 
@@ -135,7 +135,7 @@ pub fn fakefs_rs_mount_db(mount: &ffi::mount) -> Option<&fakedb::Db> {
     {
         return None;
     }
-    mount.state.fakefs()
+    mount.state().fakefs()
 }
 
 /// # Safety
@@ -195,7 +195,7 @@ pub fn fakefs_rs_mount(mount: &mut ffi::mount) -> c_int {
     // The mount owns it from here; every other use of the database in this
     // tree is a borrow. It was parked as a raw pointer in a union until
     // 2026-09-29 and reconstituted by `fakefs_rs_umount`.
-    mount.state = ffi::mount_state::Fakefs(db);
+    mount.sb_mut().state = ffi::mount_state::Fakefs(db);
 
     registry().get_or_insert_with(HashSet::new).insert(mount.id());
     // The table's own lock is inside it.
@@ -203,18 +203,16 @@ pub fn fakefs_rs_mount(mount: &mut ffi::mount) -> c_int {
     0
 }
 
-/// # Safety
-///
-/// `mount` is live.
-pub fn fakefs_rs_umount(mount: &mut ffi::mount) -> c_int {
-    // The bind-mount state goes before the mount does. fs_mount::destroy frees the
-    // struct straight after this returns, and nothing here used to clear the
+/// The last copy of a fakefs mount has gone: `ffi::Superblock`'s drop.
+pub fn fakefs_rs_umount(sb: &mut ffi::Superblock) {
+    // The bind-mount state goes before the mount does. The superblock is
+    // freed straight after this returns, and nothing here used to clear the
     // global or deactivate the table -- so a later fakefs_bind_unmount called
     // unlinkat through a dangling pointer, and translation kept handing out
     // routes to a closed root.
     {
         let mut set = registry();
-        if set.as_mut().is_some_and(|s| s.remove(&mount.id())) {
+        if set.as_mut().is_some_and(|s| s.remove(&sb.id())) {
             // The table's own lock is inside it.
             //
             // Every bind mount goes, not only this mount's: the table is one
@@ -229,14 +227,12 @@ pub fn fakefs_rs_umount(mount: &mut ffi::mount) -> c_int {
     }
     // The database closes here, after the bind-mount state above rather than
     // whenever the mount itself is freed.
-    mount.state = ffi::mount_state::None;
-    // realfs has no umount op to defer to.
-    0
+    sb.state = ffi::mount_state::None;
 }
 
 /// An inode with no path left; the database may drop its row.
-pub fn fakefs_rs_inode_orphaned(mount: &ffi::mount, inode: u64) {
-    if let Some(db) = mount.state.fakefs() {
+pub fn fakefs_rs_inode_orphaned(sb: &ffi::Superblock, inode: u64) {
+    if let Some(db) = sb.state.fakefs() {
         db.inode_orphaned(inode);
     }
 }

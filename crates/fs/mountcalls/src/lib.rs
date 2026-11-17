@@ -138,6 +138,43 @@ const MS_SUPPORTED: u32 =
 /// kernel logging, which this has no equivalent of.
 const MS_FLAGS: u32 = ffi::MS_READONLY_ | ffi::MS_NOSUID_ | ffi::MS_NODEV_ | ffi::MS_NOEXEC_;
 
+const MS_REC: u32 = 0x4000;
+const MS_UNBINDABLE: u32 = 1 << 17;
+const MS_PRIVATE: u32 = 1 << 18;
+const MS_SLAVE: u32 = 1 << 19;
+const MS_SHARED: u32 = 1 << 20;
+const PROPAGATION: u32 = MS_UNBINDABLE | MS_PRIVATE | MS_SLAVE | MS_SHARED;
+
+/// `mount(2)` with a propagation type: Linux's `do_change_type`, which reads
+/// neither the source nor the type. One type, with `MS_REC` and `MS_SILENT`
+/// the only company it may have, on a path where something is mounted.
+///
+/// Every mount here is private: none receives or sends mounts to a peer. So
+/// `MS_PRIVATE` is what already is, and `MS_SLAVE` and `MS_UNBINDABLE`
+/// differ from it only by a peer to receive from and by `MS_BIND`, neither of
+/// which there is. `MS_SHARED` would need peer groups, which are not built:
+/// `EINVAL`, as from a kernel that refuses it, rather than a success after
+/// which a mount does not propagate.
+fn change_type(point_addr: u64, flags: u32) -> Result<(), Errno> {
+    let kind = flags & PROPAGATION;
+    if kind.count_ones() != 1 || flags & !(PROPAGATION | MS_REC | ffi::MS_SILENT_) != 0 {
+        return Err(Errno::EINVAL);
+    }
+    let point_raw = read_path(point_addr)?;
+    strace!("mount(.., {:?}, .., {flags:#x}, ..)", String::from_utf8_lossy(as_str(&point_raw)));
+    // The path has to exist (`ENOENT`) before it can be a mount point.
+    let mut st = ffi::statbuf::default();
+    let err = fs_generic::generic_statat(ffi::At::Pwd, cstr(&point_raw), &mut st, true);
+    if err < 0 {
+        return Err(Errno::from_negative_or_eio(err));
+    }
+    let point = resolved(&point_raw, ffi::N_SYMLINK_FOLLOW)?;
+    if !fs_mounttable::is_mount_point(cstr(&point)) || kind == MS_SHARED {
+        return Err(Errno::EINVAL);
+    }
+    Ok(())
+}
+
 /// Reads a NUL-terminated guest string into a buffer of `MAX_PATH`.
 fn read_path(addr: u64) -> Result<Vec<u8>, Errno> {
     let mut raw = vec![0u8; ffi::MAX_PATH as usize];
@@ -163,6 +200,9 @@ pub fn sys_mount(
     // comment for what an unprivileged mount could do.
     if !taskview::capable(taskview::caps::CAP_SYS_ADMIN) {
         return Err(Errno::EPERM);
+    }
+    if flags & PROPAGATION != 0 {
+        return change_type(point_addr, flags);
     }
     let source = read_path(source_addr)?;
     let point_raw = read_path(point_addr)?;

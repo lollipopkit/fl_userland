@@ -115,6 +115,12 @@ impl FsInfo {
         drop(old);
     }
 
+    /// No root of its own: the machine's.
+    pub fn reset_root(&self) {
+        let old = self.lock().root.take();
+        drop(old);
+    }
+
     /// The current mask.
     pub fn umask(&self) -> c_uint {
         self.lock().umask

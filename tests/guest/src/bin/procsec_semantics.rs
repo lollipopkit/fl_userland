@@ -177,7 +177,8 @@ fn t_unshare(h: &mut Harness) {
         if r == 0 { 1 } else if e != libc::EINVAL { 2 } else { 0 }
     });
     check!(h, status == 0, "CLONE_VM with a second thread is EINVAL: step {status}");
-    check!(h, in_child(|| unsafe { libc::unshare(libc::CLONE_NEWNS) }.abs()) != 0, "a namespace is refused");
+    // A kind not built here: see `crates/kernel/nsproxy`.
+    check!(h, in_child(|| unsafe { libc::unshare(libc::CLONE_NEWNET) }.abs()) != 0, "a network namespace is refused");
     check_fails!(h, unsafe { libc::unshare(libc::CLONE_PARENT) }, libc::EINVAL, "CLONE_PARENT");
 }
 

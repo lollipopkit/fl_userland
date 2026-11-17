@@ -122,16 +122,15 @@ fn with_root(mount: &ffi::mount, op: impl FnOnce(&Arc<Dirent>) -> Result<()>) ->
 fn tmpfs_mount(mount: &mut ffi::mount) -> c_int {
     let (uid, gid) = current_ids();
     let root = Dirent::new_root(Inode::new(S_IFDIR | 0o777, uid, gid, 0));
-    mount.state = ffi::mount_state::Data(Box::new(root));
+    mount.sb_mut().state = ffi::mount_state::Data(Box::new(root));
     0
 }
 
-fn tmpfs_umount(mount: &mut ffi::mount) -> c_int {
+fn tmpfs_umount(sb: &mut ffi::Superblock) {
     // Actually frees the tree. In C both directions of the parent/child link
     // were strong references, so nothing was released and this could only be
     // a TODO.
-    mount.state = ffi::mount_state::None;
-    0
+    sb.state = ffi::mount_state::None;
 }
 
 /// The capacity tmpfs reports: half of host memory, which is what Linux's
@@ -226,8 +225,8 @@ impl ffi::FsOps for Tmpfs {
     fn mount(&self, mount: &mut ffi::mount) -> c_int {
         tmpfs_mount(mount)
     }
-    fn umount(&self, mount: &mut ffi::mount) -> c_int {
-        tmpfs_umount(mount)
+    fn umount(&self, sb: &mut ffi::Superblock) {
+        tmpfs_umount(sb)
     }
     fn statfs(&self, mount: &ffi::mount) -> std::result::Result<ffi::statfsbuf, c_int> {
         Ok(tmpfs_statfs(mount))

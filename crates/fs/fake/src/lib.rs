@@ -146,7 +146,7 @@ pub(crate) fn is_under_readonly_bind_mount(path: &CStr) -> bool {
 /// dispatched on a fakefs mount, so anything else is a bug here, and a panic
 /// is the answer to it rather than a read of the wrong type.
 fn mount_db(mount: &ffi::mount) -> &fakedb::Db {
-    mount.state.fakefs().expect("a fakefs operation on a mount that is not a fakefs")
+    mount.state().fakefs().expect("a fakefs operation on a mount that is not a fakefs")
 }
 
 /// The database of the fakefs a descriptor was opened on.
@@ -473,8 +473,8 @@ impl ffi::FsOps for Fakefs {
     fn mount(&self, mount: &mut ffi::mount) -> c_int {
         fakefs_rs_mount(mount)
     }
-    fn umount(&self, mount: &mut ffi::mount) -> c_int {
-        fakefs_rs_umount(mount)
+    fn umount(&self, sb: &mut ffi::Superblock) {
+        fakefs_rs_umount(sb)
     }
     fn statfs(&self, mount: &ffi::mount) -> Result<ffi::statfsbuf, c_int> {
         realfs::realfs_statfs(mount)
@@ -604,8 +604,8 @@ impl ffi::FsOps for Fakefs {
         realfs::xattr::realfs_fxattr(fd, call)
     }
 
-    fn inode_orphaned(&self, mount: &ffi::mount, inode: ffi::ino_t) {
-        fakefs_rs_inode_orphaned(mount, inode)
+    fn inode_orphaned(&self, sb: &ffi::Superblock, inode: ffi::ino_t) {
+        fakefs_rs_inode_orphaned(sb, inode)
     }
 }
 

@@ -13,9 +13,10 @@
 
 pub use util_identity::Identity;
 
-/// Which mount. See [`Identity`].
+/// Which filesystem instance: a [`crate::Superblock`], which every copy of a
+/// mount shares. See [`Identity`].
 ///
 /// The task and thread-group aliases are `crates/kernel/taskview`'s, because
 /// `struct task` and `struct tgroup` are — they moved up out of this crate on
 /// 2026-09-09 and only `mount` is still defined here.
-pub type MountId = Identity<crate::mount>;
+pub type MountId = Identity<crate::Superblock>;

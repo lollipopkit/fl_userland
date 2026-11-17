@@ -1,0 +1,47 @@
+the link's form                                          -> mnt
+tmpfs at inherited, here                                 -> ok
+unshare(CLONE_NEWNS)                                     -> ok
+  the link changed                                       -> true
+  mount --make-rprivate /                                -> ok
+  the inherited mount is there                           -> true
+  the mount id of / differs from the parent's            -> true
+  tmpfs at inner                                         -> ok
+  inner is mounted here                                  -> true
+  umount the inherited one                               -> ok
+  and it is gone here                                    -> true
+here: inner is not mounted                               -> true
+here: the file made under inner is not here              -> true
+here: inherited is still mounted                         -> true
+here: the child's / has another mount id                 -> true
+here: and the same device                                -> true
+tmpfs at later, here                                     -> ok
+  a mount the parent made afterwards                     -> not seen
+setns(their mnt, CLONE_NEWNS)                            -> ok
+  their mount is seen                                    -> true
+  the working directory after                            -> /
+setns(our mnt, 0)                                        -> ok
+  their mount is not seen                                -> true
+setns(own mnt) with a thread sharing fs                  -> EINVAL
+setns(pidfd, CLONE_NEWNS)                                -> ok
+  their mount is seen                                    -> true
+clone(CLONE_NEWNS): the inherited mount                  -> true
+clone(CLONE_NEWNS): tmpfs at cloned                      -> ok
+clone(CLONE_NEWNS)                                       -> ok
+  cloned is not mounted on this side                     -> true
+clone(CLONE_NEWNS|CLONE_FS)                              -> EINVAL
+a thread's unshare(CLONE_NEWNS)                          -> ok
+  its mount, there                                       -> true
+  the other thread does not see it                       -> true
+mount(none, inherited, MS_PRIVATE)                       -> ok
+mount(none, inherited, MS_SLAVE)                         -> ok
+mount(none, inherited, MS_UNBINDABLE)                    -> ok
+mount(none, inherited, MS_REC | MS_SLAVE)                -> ok
+mount(none, inherited, MS_PRIVATE | MS_SLAVE)            -> EINVAL
+mount(none, inherited, MS_PRIVATE | MS_RDONLY)           -> EINVAL
+mount(none, inherited, MS_SHARED)                        -> ok
+mount(none, a directory no mount is at, MS_PRIVATE)      -> EINVAL
+mount(none, a missing path, MS_PRIVATE)                  -> ENOENT
+mount(NULL, /, NULL, MS_REC | MS_PRIVATE, NULL)          -> ok
+mountinfo of inherited has no propagation tag            -> true
+unshare(CLONE_NEWNS) as uid 1000                         -> EPERM
+setns(own mnt) as uid 1000                               -> EPERM

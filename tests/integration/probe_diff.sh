@@ -443,10 +443,10 @@ known_ok() {
         # lookup for; EOPNOTSUPP is a kernel without epoll's half of kcmp.
         # See crates/kernel/forkcalls' share module.
         "EPOLL_TFD, "*) echo kcmp-no-epoll-tfd ;;
-        # procsec_probe: of the namespace kinds only UTS and IPC are built
-        # (crates/kernel/nsproxy); a new one of any other kind is EINVAL, as
-        # from a kernel with that kind configured out.
-        "unshare(CLONE_NEWNS)"*|"unshare(CLONE_NEWNET)"*|"unshare(CLONE_NEWPID)"*|"unshare(CLONE_NEWCGROUP)"*|"unshare(CLONE_NEWTIME)"*) echo unshare-namespaces-not-configured ;;
+        # procsec_probe: of the namespace kinds only UTS, IPC and mount are
+        # built (crates/kernel/nsproxy); a new one of any other kind is
+        # EINVAL, as from a kernel with that kind configured out.
+        "unshare(CLONE_NEWNET)"*|"unshare(CLONE_NEWPID)"*|"unshare(CLONE_NEWCGROUP)"*|"unshare(CLONE_NEWTIME)"*) echo unshare-namespaces-not-configured ;;
         # procsec_probe: the calls this kernel answers as built without the
         # feature -- ENOSYS, each with its reason in
         # crates/kernel/syscalltable's table.
@@ -790,6 +790,15 @@ known_ok() {
         # unshare-namespaces-not-configured). The pairs the probe names that
         # Linux itself refuses are EINVAL on both.
         "CLONE_NEWCGROUP "*) echo clone-namespaces-not-configured ;;
+        # mntns_probe: /proc/<pid>/root of a task in another mount namespace.
+        # A path is looked up in the reader's mount table here, so the walk
+        # through the link finds the reader's copy of the root mount, where
+        # Linux finds the task's. Same filesystem and device; another id.
+        "here: the child's / has another mount id"*) echo procpid-root-is-the-readers-namespace ;;
+        # mntns_probe: MS_SHARED needs peer groups, which are not built: every
+        # mount is private, and a shared one is refused rather than accepted
+        # and then not propagated (crates/fs/mountcalls' change_type).
+        "mount(none, inherited, MS_SHARED)"*) echo mount-no-shared-peer-groups ;;
         # shm: nattch after a fork. Linux counts attaches per process, so a
         # child that inherits one makes it two; here the child shares the
         # parent's mapping record and it stays one until both have detached.
@@ -875,7 +884,7 @@ known_ok() {
 # allowlist nobody checks is how a check becomes vacuous. That has happened here
 # before: a rule written as "every line longer than 73 characters has a space at
 # 72" ran over an empty set and passed with the column deliberately wrong.
-ALL_KNOWN="kcmp-no-epoll-tfd unshare-namespaces-not-configured clone-namespaces-not-configured listns-not-configured landlock-not-configured bpf-not-configured perf-not-configured userfaultfd-not-configured keys-not-configured ngroups-max-is-32 procsys-only-what-this-kernel-decides memfd-secret-not-configured pidfd-info-no-cgroups pidfd-no-namespaces xattr-trusted-needs-cap-sys-admin xattr-security-needs-cap-sys-admin xattr-trusted-not-set-in-the-container xattr-name-limit-is-the-hosts xattr-value-limit-is-the-filesystems prio-lowering-needs-cap-sys-nice prio-no-realtime-policy prio-rr-interval-is-machine-state prio-rt-class-needs-cap-sys-admin statx-subvol statx-no-attributes linkat-empty-path ctr-no-mte-granule dczid-zva-prohibited mmap-placement mmap-overcommit tmpfile-realfs-names-by-copy msg-oob msg-oob-in-every-bit rwf-nowait-is-a-mount-property ftruncate-max-file-size pipe-page-granularity auxv-no-rseq auxv-no-rseq-keys tiocgptpeer membarrier-no-rseq membarrier-no-rseq-register membarrier-no-registrations mknod-block-needs-host-root select-nfds-clamped-to-table decode-no-fhm decode-no-fhm2 decode-by-element-extensions table-needs-cap-sys-admin table-vhangup-needs-cap-sys-tty-config table-syslog-epperm-in-a-container table-getgroups-counts-the-processs-own table-personality-no-randomize uring-not-implemented rseq-not-implemented rlimit-raise-needs-cap-sys-resource faultread-kept-where-linux-drops faultread-blocking-answers-at-once decode-no-pauth decode-no-cssc decode-no-mte open-accmode-3 statmount-container-root-is-pivoted clock-settime-is-seccomp-in-the-container clock-res-is-the-hosts timer-create-no-cpu-clocks epoll-exclusive-wakes-every-set mqueue-not-mountable aio-rwf-nowait-is-a-mount-property aio-ioprio-rt-needs-cap-sys-nice aio-poll-result-is-not-the-wake-key acct-not-configured modules-not-configured pivot-root-not-implemented procpid-stack-pagemap-not-here caps-mknod-needs-host-root caps-realfs-owner-is-the-hosts caps-realfs-group-is-the-hosts caps-realfs-chmod-owner-is-the-hosts killpriv-realfs-host-clears-on-write killpriv-realfs-group-is-the-hosts"
+ALL_KNOWN="kcmp-no-epoll-tfd unshare-namespaces-not-configured clone-namespaces-not-configured procpid-root-is-the-readers-namespace mount-no-shared-peer-groups listns-not-configured landlock-not-configured bpf-not-configured perf-not-configured userfaultfd-not-configured keys-not-configured ngroups-max-is-32 procsys-only-what-this-kernel-decides memfd-secret-not-configured pidfd-info-no-cgroups pidfd-no-namespaces xattr-trusted-needs-cap-sys-admin xattr-security-needs-cap-sys-admin xattr-trusted-not-set-in-the-container xattr-name-limit-is-the-hosts xattr-value-limit-is-the-filesystems prio-lowering-needs-cap-sys-nice prio-no-realtime-policy prio-rr-interval-is-machine-state prio-rt-class-needs-cap-sys-admin statx-subvol statx-no-attributes linkat-empty-path ctr-no-mte-granule dczid-zva-prohibited mmap-placement mmap-overcommit tmpfile-realfs-names-by-copy msg-oob msg-oob-in-every-bit rwf-nowait-is-a-mount-property ftruncate-max-file-size pipe-page-granularity auxv-no-rseq auxv-no-rseq-keys tiocgptpeer membarrier-no-rseq membarrier-no-rseq-register membarrier-no-registrations mknod-block-needs-host-root select-nfds-clamped-to-table decode-no-fhm decode-no-fhm2 decode-by-element-extensions table-needs-cap-sys-admin table-vhangup-needs-cap-sys-tty-config table-syslog-epperm-in-a-container table-getgroups-counts-the-processs-own table-personality-no-randomize uring-not-implemented rseq-not-implemented rlimit-raise-needs-cap-sys-resource faultread-kept-where-linux-drops faultread-blocking-answers-at-once decode-no-pauth decode-no-cssc decode-no-mte open-accmode-3 statmount-container-root-is-pivoted clock-settime-is-seccomp-in-the-container clock-res-is-the-hosts timer-create-no-cpu-clocks epoll-exclusive-wakes-every-set mqueue-not-mountable aio-rwf-nowait-is-a-mount-property aio-ioprio-rt-needs-cap-sys-nice aio-poll-result-is-not-the-wake-key acct-not-configured modules-not-configured pivot-root-not-implemented procpid-stack-pagemap-not-here caps-mknod-needs-host-root caps-realfs-owner-is-the-hosts caps-realfs-group-is-the-hosts caps-realfs-chmod-owner-is-the-hosts killpriv-realfs-host-clears-on-write killpriv-realfs-group-is-the-hosts"
 
 # A KNOWN entry whose case has stopped happening and whose cause is **not
 # established**. `tag|since|what is unexplained`.
@@ -1027,7 +1036,7 @@ docker_opts() {
         procsec_probe) printf -- '--security-opt seccomp=unconfined --cap-add SYS_NICE --cap-add SYS_ADMIN' ;;
         # The profile refuses a clone naming a namespace before the kernel
         # sees it, and every namespace is CAP_SYS_ADMIN's.
-        clone_probe|utsns_probe|ipcns_probe) printf -- '--security-opt seccomp=unconfined --cap-add SYS_ADMIN' ;;
+        clone_probe|utsns_probe|ipcns_probe|mntns_probe) printf -- '--security-opt seccomp=unconfined --cap-add SYS_ADMIN' ;;
         # Every number with zero arguments: the profile answers EPERM or
         # ENOSYS for a third of the newer ones whatever they are given -- it
         # was why 435 clone3 had a KNOWN entry -- so the sweep asks the kernel.

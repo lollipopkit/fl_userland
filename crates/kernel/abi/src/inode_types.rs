@@ -22,7 +22,7 @@
 //!
 //! Not `#[repr(C)]`: no header, assembly or embedder names this layout.
 
-use crate::{ino_t, mount};
+use crate::ino_t;
 use std::any::Any;
 use util_guestlock::GuestLock;
 
@@ -47,9 +47,13 @@ pub const INODE_LOCK_RELEASED: u32 = 0;
 
 pub struct inode_data {
     pub number: ino_t,
-    /// The mount this inode belongs to, **with a reference held**: it is a
-    /// `MountRef::into_raw` and `fs_inode`'s release gives it back with `from_raw`.
-    pub mount: *mut mount,
+    /// The filesystem instance this inode belongs to. The superblock and not
+    /// a mount: every copy of a mount in another mount namespace shares it,
+    /// so an inode is one object whichever namespace opened it, and holding
+    /// it keeps no namespace's copy of the mount busy -- an `umount` of an
+    /// idle copy succeeds while another namespace has the file open, as on
+    /// Linux. `None` only for a test's inode, which never reached the table.
+    pub sb: Option<std::sync::Arc<crate::Superblock>>,
     /// How many descriptors hold this inode open for writing, or -1 while it
     /// is being executed. **Atomic** because an open and an exec race on it
     /// with no lock in common; `crates/fs/inode` owns the four transitions.
@@ -75,18 +79,17 @@ pub struct inode_data {
     pub state: GuestLock<InodeState>,
 }
 
-// SAFETY: an inode is shared across threads by construction -- every
-// filesystem's inodes go through `crates/fs/inode`'s one table, and two
-// threads opening the same file get the same object. `number` and `mount` are
-// written once, at construction; `writers`, `write_hint` and `nosec` are atomics;
-// `state` is a lock. The one field that is not `Send + Sync` on its own is
-// `mount`, a raw pointer with a reference held, which is only read.
-unsafe impl Send for inode_data {}
-// SAFETY: as `Send`.
-unsafe impl Sync for inode_data {}
+// No `unsafe impl Send`/`Sync`: since `mount` -- a raw pointer -- became `sb`,
+// an `Arc`, every field is `Send + Sync` on its own, and an inode is shared
+// across threads (two threads opening one file get one object) on the
+// compiler's word rather than a comment's.
+const _: fn() = || {
+    fn shared<T: Send + Sync>() {}
+    shared::<inode_data>();
+};
 
 /// What the last reference to an inode does on its way out: unlink it from
-/// `crates/fs/inode`'s table, tell the filesystem, give the mount back. A hook
+/// `crates/fs/inode`'s table and tell the filesystem. A hook
 /// because both of those crates sit above this one; installed by
 /// `crates/fs/inode` when it makes its first inode, so an `inode_data` that
 /// never reached the table -- a test's -- drops with nothing to undo.
@@ -111,10 +114,10 @@ impl Drop for inode_data {
 }
 
 impl inode_data {
-    pub fn new(number: ino_t, mount: *mut mount) -> inode_data {
+    pub fn new(number: ino_t, sb: Option<std::sync::Arc<crate::Superblock>>) -> inode_data {
         inode_data {
             number,
-            mount,
+            sb,
             writers: Default::default(),
             write_hint: Default::default(),
             nosec: Default::default(),

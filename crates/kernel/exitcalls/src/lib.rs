@@ -504,6 +504,17 @@ fn release_guest_memory() {
         taskview::with_current_task(|t| (t.files.take(), t.fs.take()))
     };
     drop(dying);
+
+    // The namespaces too, for the same reason as the descriptors: dropping
+    // the last reference to a mount namespace drops its mounts, and a mount
+    // whose superblock has no other copy takes its filesystem down -- a
+    // fakefs closes its database. That must not happen under `pids_lock`,
+    // and the task's own reference would otherwise be dropped by
+    // `task_destroy`, which holds it (`lock-order.py` cannot see a drop).
+    // The initial namespaces are always alive, so swapping to them drops
+    // nothing that matters later; the descriptors and working directory that
+    // pointed into the old namespace are already gone above.
+    taskview::with_current_task(|t| t.set_nsproxy(taskview::nsproxy::NsProxy::initial()));
 }
 
 // ---------------------------------------------------------------------------

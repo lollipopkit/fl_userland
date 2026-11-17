@@ -35,7 +35,7 @@ use std::sync::Arc;
 /// own Rust.
 use taskview::ffi;
 
-use fs_mounttable::{mounts_insert, mounts_take_first, mounts_take_point};
+use fs_mounttable::{mounts_insert, mounts_take_point};
 
 mod errno {
     pub use guest_errno::c_int_::EINVAL;
@@ -52,26 +52,31 @@ pub fn mount(
     info: &CStr,
     flags: c_int,
 ) -> Result<(), c_int> {
+    let id = fs_mounttable::next_mount_id();
     let mut mount = Arc::new(ffi::mount {
         point: point.to_owned(),
         source: source.to_owned(),
         info: info.to_owned(),
         flags,
         fs: Some(fs),
-        id: fs_mounttable::next_mount_id(),
+        id,
+        sb: Arc::new(ffi::Superblock::new(id)),
         ..Default::default()
     });
     // `&mut` in place rather than before the `Arc` is made: a filesystem may
-    // key state on the mount's address (fakefs's registry does, through
-    // `mount.id()`), so the mount must not move after this runs.
-    let err = fs.mount(Arc::get_mut(&mut mount).expect("a fresh Arc is unique"));
+    // key state on the mount's address, so the mount must not move after
+    // this runs.
+    let m = Arc::get_mut(&mut mount).expect("a fresh Arc is unique");
+    let err = fs.mount(m);
     if err < 0 {
-        // The filesystem's own mount failed, so nothing has this yet. `info`
-        // was leaked by the C on this path; the strings are the mount's now
-        // and go with it.
+        // The filesystem's own mount failed, so nothing has this yet, and
+        // its superblock has no filesystem to take down.
         return Err(err);
     }
+    // From here the superblock's drop is the filesystem's `umount`.
+    m.sb_mut().fs = Some(fs);
     mounts_insert(mount);
+    fs_mounttable::sweep_parked();
     Ok(())
 }
 
@@ -105,30 +110,40 @@ pub unsafe extern "C" fn do_mount(
     mount(fs, source, point, info, flags).err().unwrap_or(0)
 }
 
-/// Tear a mount down, once the table has handed it over.
-fn destroy(mut mount: Arc<ffi::mount>) {
+/// Drop a mount the table has handed over. The filesystem's own `umount`
+/// runs if this was the last copy of it: [`ffi::Superblock`]'s drop.
+fn destroy(mount: Arc<ffi::mount>) {
     // The table held the only `Arc` and its refcount was zero when it came
     // off, so nothing else can reach it.
-    let m = Arc::get_mut(&mut mount).expect("the mount table held the only Arc");
-    if let Some(fs) = m.fs {
-        fs.umount(m);
-    }
+    debug_assert_eq!(Arc::strong_count(&mount), 1, "the mount table held the only Arc");
+    drop(mount);
 }
 
 /// Unmount whatever is mounted at `point`: `EINVAL` for a point that carries
 /// nothing, `EBUSY` while anything still holds the mount.
 pub fn umount(point: &CStr) -> Result<(), c_int> {
     destroy(mounts_take_point(point)?);
+    fs_mounttable::sweep_parked();
     Ok(())
 }
 
-/// Unmount everything, for halting. Stops at the first mount still in use and
-/// answers its point: removing the rest of the table past it would spin.
+/// Unmount everything in every mount namespace, for halting. A table whose
+/// first mount is still in use is left -- removing the rest of it past that
+/// mount would spin -- and the first such mount's point is the answer once
+/// every other table is done.
 pub fn umount_all() -> Result<(), CString> {
-    while let Some(taken) = mounts_take_first() {
-        destroy(taken?);
+    let mut busy_tables = Vec::new();
+    let mut first_busy = None;
+    while let Some(taken) = fs_mounttable::mounts_take_first_anywhere(&mut busy_tables) {
+        match taken {
+            Ok(mount) => destroy(mount),
+            Err(point) => {
+                first_busy.get_or_insert(point);
+            }
+        }
     }
-    Ok(())
+    fs_mounttable::sweep_parked();
+    first_busy.map_or(Ok(()), Err)
 }
 
 /// [`umount`], for an embedder detaching a filesystem it mounted.
@@ -186,14 +201,17 @@ mod tests {
         // pointer, one of them fat, need a tag -- twenty-four bytes where the
         // union was eight. Paid once per mount. 80 until the three strings
         // became `CString`s later that day, a boxed slice each: sixteen bytes
-        // where the `char *` was eight.
-        assert_eq!(std::mem::size_of::<ffi::mount>(), 104);
+        // where the `char *` was eight. 88 since 2026-11-14, when the root
+        // descriptor and `mount_state` moved into the shared `Superblock` and
+        // an `Arc` of it took their place.
+        assert_eq!(std::mem::size_of::<ffi::mount>(), 88);
         assert_eq!(std::mem::offset_of!(ffi::mount, point), 0);
         // 32 until the strings were owned.
         assert_eq!(std::mem::offset_of!(ffi::mount, fs), 56);
-        // 40 until `fs` became fat, 48 until the strings were owned.
-        assert_eq!(std::mem::offset_of!(ffi::mount, refcount), 72);
-        // `state` has no offset asserted; the size above is what says it grew.
+        // 40 until `fs` became fat, 48 until the strings were owned, 72
+        // until `sb` went ahead of it.
+        assert_eq!(std::mem::offset_of!(ffi::mount, refcount), 80);
+        // `sb` has no offset asserted; the size above is what says it moved.
     }
 }
 

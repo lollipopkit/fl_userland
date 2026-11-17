@@ -202,10 +202,101 @@ fn taking_the_first_stops_at_one_in_use() {
     insert("");
     let dev = insert("/dev");
     let held = unsafe { MountRef::retain(dev) };
-    assert_eq!(mounts_take_first().map(|r| r.err()), Some(Some(c"/dev".to_owned())));
+    let mine = current_mounts();
+    assert_eq!(take_first(&mine).map(|r| r.err()), Some(Some(c"/dev".to_owned())));
     assert_eq!(mounts_len(), 2, "nothing was taken");
     drop(held);
-    assert!(mounts_take_first().is_some_and(|r| r.is_ok()));
-    assert!(mounts_take_first().is_some_and(|r| r.is_ok()));
-    assert!(mounts_take_first().is_none());
+    assert!(take_first(&mine).is_some_and(|r| r.is_ok()));
+    assert!(take_first(&mine).is_some_and(|r| r.is_ok()));
+    assert!(take_first(&mine).is_none());
+}
+
+/// Halting reaches every namespace's table, not only the halting thread's:
+/// a mount only another namespace has is taken too, and a busy table is
+/// passed over rather than ending the walk.
+#[test]
+fn halting_takes_every_namespaces_mounts() {
+    let _g = fresh();
+    let dev = insert("/dev");
+    let held = unsafe { MountRef::retain(dev) };
+    let theirs = taskview::nsproxy::Inherit::inherit(&*current_mounts());
+    theirs.with(|t| {
+        let only_theirs = Arc::new(ffi::mount { point: c"/only-theirs".to_owned(), ..Default::default() });
+        t.mounts.insert(0, only_theirs);
+    });
+    let mut busy_tables = Vec::new();
+    let mut taken = Vec::new();
+    let mut busy_points = Vec::new();
+    while let Some(r) = mounts_take_first_anywhere(&mut busy_tables) {
+        match r {
+            Ok(m) => taken.push(m.point.clone()),
+            Err(p) => busy_points.push(p),
+        }
+    }
+    assert_eq!(busy_points, [c"/dev".to_owned()], "ours is busy and passed over");
+    assert!(taken.contains(&c"/only-theirs".to_owned()), "a mount only the other namespace has: {taken:?}");
+    assert!(theirs.with(|t| t.mounts.is_empty()), "the other namespace's table is emptied");
+    drop(held);
+    current_mounts().with(|t| t.mounts.clear());
+}
+
+/// A new namespace's copy of a mount is the same filesystem with its own
+/// id and nobody inside it.
+#[test]
+fn a_copy_shares_the_filesystem_and_not_the_id() {
+    let _g = fresh();
+    let p = insert("/copied");
+    let held = mount_find(c"/copied/x");
+    let copy = taskview::nsproxy::Inherit::inherit(&*current_mounts());
+    let theirs = copy.with(|t| Arc::clone(t.mounts.iter().find(|m| point_of(m) == b"/copied").unwrap()));
+    // SAFETY: in the table, and this test's.
+    let ours = unsafe { &*p };
+    assert!(Arc::ptr_eq(&ours.sb, &theirs.sb), "one superblock");
+    assert_eq!(ours.id(), theirs.id(), "one filesystem identity");
+    assert_ne!(ours.id, theirs.id, "two mount ids");
+    assert_eq!(theirs.refcount.load(SeqCst), 0, "the holder is in ours");
+    drop(held);
+}
+
+/// A table dropped with a mount still in use parks it until nothing is.
+#[test]
+fn a_busy_mount_of_a_dropped_table_is_parked_until_idle() {
+    let _g = fresh();
+    insert("/parked");
+    let copy = taskview::nsproxy::Inherit::inherit(&*current_mounts());
+    let theirs = copy.with(|t| Arc::clone(t.mounts.iter().find(|m| point_of(m) == b"/parked").unwrap()));
+    // SAFETY: held by the `Arc` above, which outlives the reference.
+    let held = unsafe { MountRef::retain(Arc::as_ptr(&theirs).cast_mut()) };
+    drop(copy);
+    let weak = Arc::downgrade(&theirs);
+    drop(theirs);
+    sweep_parked();
+    assert!(weak.upgrade().is_some(), "still in use: parked");
+    drop(held);
+    sweep_parked();
+    assert!(weak.upgrade().is_none(), "idle: freed");
+}
+
+/// A detached mount's files report `0:id` as their device, as a mounted
+/// one's do: `st_dev` comes from the superblock since mounts share one, and
+/// a detached mount's was left at its `Default`, so every pipe, socket and
+/// memfd reported device 0 (`fdinfo_probe`'s epoll `sdev:`).
+#[test]
+fn a_detached_mount_reports_its_own_device() {
+    struct NoFs;
+    impl ffi::FsOps for NoFs {
+        fn name(&self) -> Option<&'static std::ffi::CStr> {
+            None
+        }
+        fn magic(&self) -> u32 {
+            0
+        }
+    }
+    static NO_FS: NoFs = NoFs;
+    let id = next_mount_id();
+    let m = DetachedMount::leak(&NO_FS, id);
+    // SAFETY: leaked, so never freed.
+    let m = unsafe { &*m.as_ptr() };
+    assert_eq!(m.sb.dev, id);
+    assert_ne!(m.dev(), 0);
 }

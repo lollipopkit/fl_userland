@@ -586,7 +586,7 @@ pub fn realfs_mount(mount: &mut ffi::mount) -> c_int {
     mount.source = real;
     match rx(fs::open(mount.source.as_c_str(), OFlags::DIRECTORY | OFlags::CLOEXEC, Mode::empty())) {
         Ok(fd) => {
-            mount.root_fd = Some(fd);
+            mount.sb_mut().root_fd = Some(fd);
             0
         }
         Err(e) => e,

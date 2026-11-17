@@ -116,7 +116,8 @@ mod clone {
         | IO
         | CLEAR_SIGHAND
         | NEWUTS
-        | NEWIPC;
+        | NEWIPC
+        | NEWNS;
 
     /// What `clone3` accepts: everything the legacy call has, minus the two
     /// ranges `clone3` took back for itself, plus `CLEAR_SIGHAND` -- and
@@ -235,6 +236,11 @@ fn do_clone(
     // A new IPC namespace with the parent's undo list, whose sets are the old
     // namespace's.
     if flags & (clone::NEWIPC | clone::SYSVSEM) == clone::NEWIPC | clone::SYSVSEM {
+        return EINVAL;
+    }
+    // A new mount namespace for a child sharing the parent's root and
+    // working directory, which are the parent's namespace's.
+    if flags & (clone::NEWNS | clone::FS) == clone::NEWNS | clone::FS {
         return EINVAL;
     }
     if flags & clone::PIDFD != 0 {

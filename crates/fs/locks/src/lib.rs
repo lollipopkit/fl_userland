@@ -414,7 +414,7 @@ mod tests {
     /// under test: an `inode_data` can be built without a filesystem now.
     #[test]
     fn the_first_lock_set_installs_what_frees_it() {
-        let inode = ffi::inode_data::new(1, std::ptr::null_mut());
+        let inode = ffi::inode_data::new(1, None);
         InodeGuard::new(&inode).locks();
         assert!(fs_fdobj::fd_locks_hook_installed());
     }
@@ -429,7 +429,7 @@ mod tests {
         use fs_fdobj::{HeldLock, LockClass};
         let mut a = ffi::fd::default();
         let mut b = ffi::fd::default();
-        let inode = std::sync::Arc::new(ffi::inode_data::new(1, std::ptr::null_mut()));
+        let inode = std::sync::Arc::new(ffi::inode_data::new(1, None));
         a.inode = Some(inode.clone());
         b.inode = Some(inode.clone());
         let (table, other) = (0x1000usize, 0x2000usize);
@@ -466,7 +466,7 @@ mod tests {
     /// The set goes as soon as it is empty, and stays while it holds a lock.
     #[test]
     fn an_empty_lock_set_is_dropped_with_the_guard() {
-        let inode = ffi::inode_data::new(1, std::ptr::null_mut());
+        let inode = ffi::inode_data::new(1, None);
         InodeGuard::new(&inode).locks();
         assert!(inode.state.lock().locks.is_none(), "an empty set outlived its guard");
 

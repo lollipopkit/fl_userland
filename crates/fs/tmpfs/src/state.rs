@@ -65,5 +65,5 @@ pub(crate) fn fd_state(fd: &ffi::fd) -> Option<&FdState> {
 /// The mount's root directory; `None` for a mount that is not a tmpfs, which
 /// the type check says rather than a contract.
 pub(crate) fn mount_root(mount: &ffi::mount) -> Option<&Arc<Dirent>> {
-    mount.state.data::<Arc<Dirent>>()
+    mount.state().data::<Arc<Dirent>>()
 }

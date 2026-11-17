@@ -581,6 +581,8 @@ run "O_TMPFILE: fakefs" "$IUL" -f "$FAKEFS" /tmp/tmpfile /tmp/tmpfile-fake
 run "O_TMPFILE: tmpfs" "$IUL" -f "$FAKEFS" /tmp/tmpfile tmpfs
 run "UTS namespaces" "$IUL" -r "$ROOTFS" /tmp/utsns
 run "IPC namespaces" "$IUL" -r "$ROOTFS" /tmp/ipcns
+run "mount namespaces: realfs" "$IUL" -r "$ROOTFS" /tmp/mntns
+run "mount namespaces: fakefs" "$IUL" -f "$FAKEFS" /tmp/mntns
 
 # Which id a newly created object is stamped with. Linux uses the fsuid, which
 # tracks the effective uid; a pipe used the real one.

@@ -79,6 +79,9 @@ pub struct mount {
     /// allocation and the assignment in `do_mount`, which is what `Default`
     /// gives.
     pub fs: Option<&'static dyn crate::FsOps>,
+    /// What this mount shares with its copies in other mount namespaces: the
+    /// filesystem's state and its device. See [`Superblock`].
+    pub sb: std::sync::Arc<Superblock>,
     /// How many descriptors and walks are holding this mount.
     ///
     /// See the module comment for why it is not under `mounts_lock`.
@@ -87,16 +90,62 @@ pub struct mount {
     /// check seeing 1 and answering `EBUSY`, which is what a release blocking
     /// on the lock did before — conservative in the same direction.
     pub refcount: AtomicU32,
+}
+
+/// One filesystem instance, which every copy of a mount shares: Linux's
+/// `super_block`. A mount namespace made by `unshare(CLONE_NEWNS)` copies its
+/// parent's mounts -- each copy has its own id, point, flags and reference
+/// count, and can be unmounted on its own -- and the copies are one
+/// filesystem: one `meta.db`, one tmpfs tree, one device number.
+///
+/// The filesystem is taken down when the last copy goes: [`FsOps::umount`]
+/// runs from this type's `Drop`.
+///
+/// [`FsOps::umount`]: crate::FsOps::umount
+#[derive(Default)]
+pub struct Superblock {
+    /// The filesystem, for the teardown. `None` for a mount no filesystem
+    /// brought up: a detached one, a test's.
+    pub fs: Option<&'static dyn crate::FsOps>,
+    /// The minor of the device every file reports (see [`mount::dev`]): the
+    /// id of the mount that made this.
+    pub dev: u32,
     /// The host directory a realfs or fakefs mount is rooted at, for the `*at`
     /// calls that do the work. Read with [`mount::root`].
     ///
     /// An `OwnedFd` since 2026-09-29, and it was an `int` nothing closed:
     /// realfs has no `umount` and fakefs's freed only its database, so every
     /// unmount of either left one host descriptor open for the life of the
-    /// process. The mount is a `Box`, so dropping it closes this.
+    /// process. Dropping the superblock closes this.
     pub root_fd: Option<std::os::fd::OwnedFd>,
-    /// What the filesystem keeps per mount. See [`mount_state`].
+    /// What the filesystem keeps per instance. See [`mount_state`].
     pub state: mount_state,
+}
+
+impl Drop for Superblock {
+    fn drop(&mut self) {
+        if let Some(fs) = self.fs {
+            fs.umount(self);
+        }
+    }
+}
+
+impl Superblock {
+    /// A superblock for a filesystem not yet brought up: no teardown until
+    /// its `fs` is set.
+    pub fn new(dev: u32) -> Superblock {
+        Superblock { fs: None, dev, root_fd: None, state: mount_state::None }
+    }
+
+    /// This filesystem instance's identity, for a table keyed on which
+    /// filesystem a thing is on: the inode table, fakefs's registry. Every
+    /// copy of a mount answers the same.
+    ///
+    /// See [`crate::Identity`], which is what this is: an address used as a
+    /// key and never as an access.
+    pub fn id(&self) -> crate::MountId {
+        crate::MountId::of(self)
+    }
 }
 
 impl mount {
@@ -110,8 +159,12 @@ impl mount {
     /// mount boundary by comparing devices (`find -xdev`, `du -x`, `cp -x`)
     /// saw none (`tests/guest` mount_dev). In the guest's `dev_t`
     /// encoding: the minor's low byte, then its high bits from bit 20.
+    ///
+    /// The superblock's, so a copy of the mount in another namespace reports
+    /// the same device and a different mount id, as on Linux.
     pub fn dev(&self) -> u64 {
-        u64::from((self.id & 0xff) | ((self.id & 0xfff00) << 12))
+        let id = self.sb.dev;
+        u64::from((id & 0xff) | ((id & 0xfff00) << 12))
     }
 
     /// Stamp what no filesystem knows about itself onto a stat answer from
@@ -144,15 +197,39 @@ impl mount {
     /// run.
     pub fn root(&self) -> Option<std::os::fd::BorrowedFd<'_>> {
         use std::os::fd::AsFd as _;
-        self.root_fd.as_ref().map(std::os::fd::OwnedFd::as_fd)
+        self.sb.root_fd.as_ref().map(std::os::fd::OwnedFd::as_fd)
     }
 
-    /// This mount's identity, for a table keyed on which mount a thing is on.
-    ///
-    /// See [`crate::Identity`], which is what this is: an address used as a
-    /// key and never as an access.
+    /// What the filesystem keeps, shared by every copy of this mount.
+    pub fn state(&self) -> &mount_state {
+        &self.sb.state
+    }
+
+    /// The superblock, to fill in: for `FsOps::mount`, which runs on a mount
+    /// nothing else has seen.
+    pub fn sb_mut(&mut self) -> &mut Superblock {
+        std::sync::Arc::get_mut(&mut self.sb).expect("a mount being made is the only copy of its superblock")
+    }
+
+    /// The filesystem this mount is a copy of: see [`Superblock::id`].
     pub fn id(&self) -> crate::MountId {
-        crate::MountId::of(self)
+        self.sb.id()
+    }
+
+    /// Another copy of this mount, for a new mount namespace: the same
+    /// filesystem at the same point with the same flags, nobody inside it,
+    /// and mount id `id`.
+    pub fn copy(&self, id: u32) -> mount {
+        mount {
+            point: self.point.clone(),
+            source: self.source.clone(),
+            info: self.info.clone(),
+            flags: self.flags,
+            id,
+            fs: self.fs,
+            sb: std::sync::Arc::clone(&self.sb),
+            refcount: AtomicU32::new(0),
+        }
     }
 }
 

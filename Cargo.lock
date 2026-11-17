@@ -452,7 +452,6 @@ dependencies = [
 name = "fs-inode"
 version = "0.1.0"
 dependencies = [
- "fs-mounttable",
  "fs-unixname",
  "kernel-taskview",
  "util-errno",
@@ -1285,6 +1284,8 @@ version = "0.1.0"
 dependencies = [
  "fdtable",
  "fs-fdobj",
+ "fs-generic",
+ "fs-mounttable",
  "kernel-creds",
  "kernel-fdcalls",
  "kernel-fsinfo",

@@ -161,7 +161,7 @@ fn with<T>(f: impl FnOnce(&mut Table) -> T) -> T {
 }
 
 fn key(mount: &ffi::mount, ino: u64) -> Key {
-    (mount.id(), ino)
+    (mount.sb.id(), ino)
 }
 
 /// How many inodes are held right now, for `/proc/iul/objects`.
@@ -198,7 +198,11 @@ static LIVE: AtomicUsize = AtomicUsize::new(0);
 
 /// Make an entry, with one reference taken.
 ///
-/// The mount is retained here and released in [`release`].
+/// The inode holds the mount's **superblock**, not the mount: a mount
+/// namespace's copies of one mount share it, and an inode held through one
+/// copy must not make another namespace's copy busy. Until 2026-11-17 it held
+/// a `MountRef` on whichever copy opened it first, so an `umount` in one
+/// namespace answered `EBUSY` for a file open only in another.
 ///
 /// Infallible, where the version before the `Arc` answered a null pointer that
 /// three callers tested: `Arc::new` cannot fail — Rust aborts on allocation
@@ -207,11 +211,7 @@ fn make(mount: &ffi::mount, ino: u64) -> Ref {
     // The first inode is the earliest moment the hook can have anything to
     // do; see `inode_data`'s `Drop`.
     ffi::set_inode_release_hook(release);
-    // Handed to the field, and given back by [`release`]'s `from_raw`.
-    // SAFETY: `retain` wants a pointer and only touches `refcount`, which is
-    // an `AtomicU32`; the reference is what says it is live.
-    let mount = unsafe { fs_mounttable::MountRef::retain(mount.as_ptr()) }.into_raw();
-    let inode = Arc::new(ffi::inode_data::new(ino as _, mount));
+    let inode = Arc::new(ffi::inode_data::new(ino as _, Some(Arc::clone(&mount.sb))));
     LIVE.fetch_add(1, Ordering::Relaxed);
     inode
 }
@@ -224,13 +224,13 @@ fn release(me: &mut ffi::inode_data) {
     // failed while this was on its way out has already put a fresh inode under
     // the same key, and removing that one is the interning bug `Arc` does not
     // prevent: the next lookup would build a third object for a file two
-    // descriptors already share. The mount as an identity, which is all a key
-    // is. `make` retained one, so the null arm is an `inode_data` that never
-    // went through `make` -- a test's -- and there is nothing to undo.
-    let Some(id) = ffi::MountId::from_ptr(me.mount) else {
+    // descriptors already share. The superblock as an identity, which is all
+    // a key is. `make` stored one, so the `None` arm is an `inode_data` that
+    // never went through `make` -- a test's -- and there is nothing to undo.
+    let Some(sb) = me.sb.take() else {
         return;
     };
-    let k = (id, me.number);
+    let k = (sb.id(), me.number);
     let address: *const ffi::inode_data = me;
     with(|t| {
         if t.0.get(&k).is_some_and(|w| std::ptr::eq(w.as_ptr(), address)) {
@@ -245,11 +245,11 @@ fn release(me: &mut ffi::inode_data) {
     // the condition variable and the mutex go with `state` after this returns
     // -- the C leaked the first two.
     //
-    // SAFETY: `make` stored a `MountRef::into_raw` here, and this is the one
-    // place it is taken back.
-    let mount = unsafe { fs_mounttable::MountRef::from_raw(me.mount) };
-    if let Some(fs) = mount.fs {
-        fs.inode_orphaned(&mount, me.number);
+    // `sb` drops after this: if it is the last reference -- every copy of the
+    // mount gone, and this inode the last thing holding the filesystem --
+    // the filesystem is taken down here, after it has heard of the inode.
+    if let Some(fs) = sb.fs {
+        fs.inode_orphaned(&sb, me.number);
     }
 }
 
@@ -405,8 +405,8 @@ pub fn inode_check_orphaned(mount: &ffi::mount, ino: u64) {
         if t.0.get(&key(mount, ino)).is_some_and(|w| w.strong_count() != 0) {
             return;
         }
-        if let Some(fs) = mount.fs {
-            fs.inode_orphaned(&*mount, ino as _);
+        if let Some(fs) = mount.sb.fs {
+            fs.inode_orphaned(&mount.sb, ino as _);
         }
     });
 }
@@ -498,8 +498,8 @@ mod tests {
         // because a `MountId` is never dereferenced, which is what lets this
         // test say what it is about — the pair — rather than build two
         // filesystems to say it.
-        let a = ffi::MountId::from_ptr(0x1000 as *mut ffi::mount).unwrap();
-        let b = ffi::MountId::from_ptr(0x2000 as *mut ffi::mount).unwrap();
+        let a = ffi::MountId::from_ptr(0x1000 as *mut ffi::Superblock).unwrap();
+        let b = ffi::MountId::from_ptr(0x2000 as *mut ffi::Superblock).unwrap();
         assert_ne!((a, 5), (b, 5));
         assert_ne!((a, 5), (a, 6));
         assert_eq!((a, 5), (a, 5));
@@ -541,8 +541,7 @@ mod tests {
     #[test]
     fn a_dying_inode_does_not_unlink_the_entry_that_replaced_it() {
         // Zeroed, which is `fs: None` -- so the teardown skips
-        // `inode_orphaned` and this needs no filesystem. The mount's own
-        // refcount is what `MountRef` moves, and it balances here.
+        // `inode_orphaned` and this needs no filesystem.
         let owned = Box::<ffi::mount>::default();
         let mount: &ffi::mount = &owned;
         let ino = 0xfeed_1234;
@@ -569,5 +568,27 @@ mod tests {
             "the owner of the entry left it behind"
         );
         drop(owned);
+    }
+
+    /// Two copies of one mount -- one per mount namespace -- intern one inode
+    /// for one file, and holding it keeps neither copy busy.
+    ///
+    /// Until 2026-11-17 an inode held a `MountRef` on whichever copy opened
+    /// the file first, so another namespace's `umount` of its own, idle copy
+    /// answered `EBUSY` while a file was open there, and the inode's mount
+    /// was another namespace's. Linux's inode belongs to the superblock.
+    #[test]
+    fn an_inode_belongs_to_the_superblock_every_copy_shares() {
+        let ours = Box::<ffi::mount>::default();
+        let theirs = Box::new(ours.copy(2));
+        let ino = 0xfeed_5678;
+
+        let a = with(|t| get_locked(t, &ours, ino));
+        let b = with(|t| get_locked(t, &theirs, ino));
+        assert!(Arc::ptr_eq(&a, &b), "one file, two inodes");
+        assert_eq!(ours.refcount.load(Ordering::SeqCst), 0, "the inode keeps a copy busy");
+        assert_eq!(theirs.refcount.load(Ordering::SeqCst), 0, "the inode keeps a copy busy");
+        drop((a, b));
+        assert_eq!(Arc::strong_count(&ours.sb), 2, "the superblock reference came back");
     }
 }

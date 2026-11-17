@@ -60,14 +60,83 @@ use guest_errno::c_int_::{EBUSY, EINVAL};
 /// contents, and every [`MountRef`] and descriptor holds another. The `Arc`'s
 /// strong count is always one -- nothing else clones it -- which is what lets
 /// the umount take `&mut` with `Arc::get_mut`.
+#[derive(Default)]
 struct Table {
     mounts: Vec<Arc<ffi::mount>>,
 }
 
-static TABLE: Mutex<Table> = Mutex::new(Table { mounts: Vec::new() });
+/// One mount namespace's table: a part of its `nsproxy::Space`, copied into
+/// a namespace made from it ([`taskview::nsproxy::Inherit`]).
+pub struct Mounts(Mutex<Table>);
+
+/// Every table there is, weakly, so that halting can unmount every
+/// namespace's mounts and not only the halting thread's
+/// ([`mounts_take_first_anywhere`]). Pruned of dead entries as tables are
+/// made.
+static TABLES: Mutex<Vec<std::sync::Weak<Mounts>>> = Mutex::new(Vec::new());
+
+impl Mounts {
+    fn registered(table: Table) -> Arc<Mounts> {
+        let m = Arc::new(Mounts(Mutex::new(table)));
+        let mut all = TABLES.lock().unwrap_or_else(|p| p.into_inner());
+        all.retain(|w| w.strong_count() != 0);
+        all.push(Arc::downgrade(&m));
+        m
+    }
+
+    fn with<T>(&self, f: impl FnOnce(&mut Table) -> T) -> T {
+        f(&mut self.0.lock().unwrap_or_else(|p| p.into_inner()))
+    }
+}
+
+pub fn mounts_of(mnt: &taskview::nsproxy::Space) -> Arc<Mounts> {
+    mnt.inherited::<Mounts>()
+}
+
+pub fn with_mounts_in<T>(mounts: &Mounts, f: impl FnOnce(&[&ffi::mount]) -> T) -> T {
+    mounts.with(|t| {
+        let ms: Vec<&ffi::mount> = t.mounts.iter().map(Arc::as_ref).collect();
+        f(&ms)
+    })
+}
+
+static PARKED: Mutex<Vec<Arc<ffi::mount>>> = Mutex::new(Vec::new());
+
+impl Drop for Table {
+    fn drop(&mut self) {
+        let busy_mounts: Vec<_> = self.mounts.drain(..).filter(|m| busy(m)).collect();
+        if !busy_mounts.is_empty() {
+            PARKED.lock().unwrap_or_else(|p| p.into_inner()).extend(busy_mounts);
+        }
+    }
+}
+
+impl taskview::nsproxy::Inherit for Mounts {
+    fn fresh() -> Arc<Mounts> {
+        Mounts::registered(Table::default())
+    }
+
+    /// Every mount copied: its own id and an idle count, the superblock
+    /// shared ([`ffi::mount::copy`]).
+    fn inherit(&self) -> Arc<Mounts> {
+        let copied = self.with(|t| t.mounts.iter().map(|m| Arc::new(m.copy(next_mount_id()))).collect());
+        Mounts::registered(Table { mounts: copied })
+    }
+}
+
+pub fn sweep_parked() {
+    PARKED
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .retain(|m| busy(m));
+}
+
+fn current_mounts() -> Arc<Mounts> {
+    taskview::with_current_nsproxy(|ns| ns.mnt.inherited::<Mounts>())
+}
 
 fn with<T>(f: impl FnOnce(&mut Table) -> T) -> T {
-    f(&mut TABLE.lock().unwrap_or_else(|p| p.into_inner()))
+    current_mounts().with(f)
 }
 
 fn point_of(mount: &ffi::mount) -> &[u8] {
@@ -199,6 +268,8 @@ impl DetachedMount {
         DetachedMount(Box::leak(Box::new(ffi::mount {
             fs: Some(fs),
             id,
+            // The device its files report is the superblock's.
+            sb: Arc::new(ffi::Superblock::new(id)),
             ..Default::default()
         })))
     }
@@ -305,15 +376,53 @@ pub fn mounts_take_point(point: &CStr) -> Result<Arc<ffi::mount>, c_int> {
 }
 
 /// The first mount in table order, taken out -- or, for one still in use, its
-/// point. `None` once the table is empty. For halting, which removes every
-/// mount; it was `mounts_at(i)`, which answered a pointer "only valid until the
-/// next umount".
-pub fn mounts_take_first() -> Option<Result<Arc<ffi::mount>, CString>> {
-    with(|t| {
+/// point. `None` once the table is empty. It was `mounts_at(i)`, which
+/// answered a pointer "only valid until the next umount".
+fn take_first(table: &Mounts) -> Option<Result<Arc<ffi::mount>, CString>> {
+    table.with(|t| {
         let first = t.mounts.first()?;
         let point = first.point.clone();
         Some(take_at(t, 0).map_err(|_| point))
     })
+}
+
+/// For halting, which removes every mount of **every** mount namespace: a
+/// namespace's own mounts are in no other table, and a fakefs among them
+/// would otherwise exit with its database open. The calling thread's table
+/// first, as it always was; then the others; then the parked mounts of
+/// tables already gone, now that whatever was busy in them has exited.
+///
+/// Each answer is as [`take_first`]'s for one table: a mount taken out, or
+/// the point of one still in use, which ends that table. `None` once nothing
+/// is left to take.
+pub fn mounts_take_first_anywhere(skip: &mut Vec<usize>) -> Option<Result<Arc<ffi::mount>, CString>> {
+    let mine = current_mounts();
+    let mut tables = vec![Arc::clone(&mine)];
+    tables.extend(
+        TABLES
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .iter()
+            .filter_map(std::sync::Weak::upgrade)
+            .filter(|t| !Arc::ptr_eq(t, &mine)),
+    );
+    for table in &tables {
+        let key = Arc::as_ptr(table) as usize;
+        if skip.contains(&key) {
+            continue;
+        }
+        match take_first(table) {
+            Some(Ok(m)) => return Some(Ok(m)),
+            Some(Err(point)) => {
+                skip.push(key);
+                return Some(Err(point));
+            }
+            None => {}
+        }
+    }
+    let mut parked = PARKED.lock().unwrap_or_else(|p| p.into_inner());
+    let at = parked.iter().position(|m| !busy(m))?;
+    Some(Ok(parked.swap_remove(at)))
 }
 
 /// Is anything mounted at or under `path`?
@@ -323,6 +432,14 @@ pub fn mounts_take_first() -> Option<Result<Arc<ffi::mount>, CString>> {
 pub fn contains_mount_point(path: &CStr) -> bool {
     let path = path.to_bytes();
     with(|t| t.mounts.iter().any(|m| owns(path, point_of(m))))
+}
+
+/// Is something mounted exactly at `path`? `/` is the root's point, which
+/// is the empty string.
+pub fn is_mount_point(path: &CStr) -> bool {
+    let path = path.to_bytes();
+    let path = if path == b"/" { &b""[..] } else { path };
+    with(|t| t.mounts.iter().any(|m| point_of(m) == path))
 }
 
 /// How many mounts there are.
