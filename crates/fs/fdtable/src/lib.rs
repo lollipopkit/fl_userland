@@ -554,9 +554,9 @@ impl<D: Descriptor> Table<D> {
                 return 0;
             }
             let end = (last as usize).min(state.entries.len() - 1);
-            for index in first as usize..=end {
-                if state.entries[index].fd.is_some() {
-                    state.entries[index].cloexec = true;
+            for entry in &mut state.entries[first as usize..=end] {
+                if entry.fd.is_some() {
+                    entry.cloexec = true;
                 }
             }
             return 0;

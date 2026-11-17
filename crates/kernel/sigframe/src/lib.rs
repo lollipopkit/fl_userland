@@ -273,8 +273,8 @@ pub fn decode(frame: &[u8]) -> Option<Frame> {
         fault_address: get_u64(frame, sc + SC_FAULT_ADDRESS),
         ..Default::default()
     };
-    for i in 0..31 {
-        regs.regs[i] = get_u64(frame, sc + SC_REGS + i * 8);
+    for (i, reg) in regs.regs.iter_mut().enumerate() {
+        *reg = get_u64(frame, sc + SC_REGS + i * 8);
     }
     regs.sp = get_u64(frame, sc + SC_SP);
     regs.pc = get_u64(frame, sc + SC_PC);
@@ -294,11 +294,11 @@ pub fn decode(frame: &[u8]) -> Option<Frame> {
             // `body` starts after the {magic, size} header, so fpsr is at 0.
             regs.fpsr = get_u32(body, 0);
             regs.fpcr = get_u32(body, 4);
-            for i in 0..32 {
+            for (i, vreg) in regs.vregs.iter_mut().enumerate() {
                 let at = FPSIMD_VREGS - RECORD_HEADER + i * 16;
                 let mut b = [0u8; 16];
                 b.copy_from_slice(&body[at..at + 16]);
-                regs.vregs[i] = u128::from_le_bytes(b);
+                *vreg = u128::from_le_bytes(b);
             }
             have_fpsimd = true;
         }

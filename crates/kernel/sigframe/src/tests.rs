@@ -36,8 +36,8 @@ fn the_offsets_are_the_ones_linux_fixes() {
 
 fn sample() -> Regs {
     let mut r = Regs::default();
-    for i in 0..31 {
-        r.regs[i] = 0x1000 + i as u64;
+    for (i, reg) in r.regs.iter_mut().enumerate() {
+        *reg = 0x1000 + i as u64;
     }
     r.sp = 0xffff_0000;
     r.pc = 0xdead_beef;
@@ -45,8 +45,8 @@ fn sample() -> Regs {
     r.fault_address = 0xbad_add4;
     r.fpsr = 0x1234;
     r.fpcr = 0x5678;
-    for i in 0..32 {
-        r.vregs[i] = (i as u128) << 96 | 0xabcd;
+    for (i, vreg) in r.vregs.iter_mut().enumerate() {
+        *vreg = (i as u128) << 96 | 0xabcd;
     }
     r
 }
