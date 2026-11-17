@@ -189,8 +189,9 @@ pub unsafe extern "C" fn tty_input(
     unsafe { fs_tty::abi::tty_input(tty, bytes, blocking) }
 }
 
-/// Hang up the terminal [`pty_open_fake`] made, waking any blocked
-/// [`tty_input`] before [`tty_release`] gives the reference back.
+/// Hang up the terminal [`pty_open_fake`] made: wakes any blocked
+/// [`tty_input`], hangs up the descriptions open on it and removes its
+/// `/dev/pts` node. [`tty_release`] only gives the reference back.
 ///
 /// # Safety
 /// `tty` is null, or came from [`pty_open_fake`] and has not been released.

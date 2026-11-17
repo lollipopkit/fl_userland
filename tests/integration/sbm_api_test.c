@@ -353,25 +353,31 @@ static int start(const char *command) {
     return 0;
 }
 
-// Ends the session the way ServerBox's sbm_iul_close does, in its order: the
-// pty reference pty_open_fake handed over goes back, the session is hung up,
-// and its group gives up the terminal *now* -- not at reaping, which never
-// comes, because the parent is an init that never waits. Without the last
-// step the pty stays allocated for the life of the process and /dev/pts can
-// never be unmounted; see a_closed_session_lets_dev_pts_go.
+// Ends the session the way an embedder should, in this order: the terminal is
+// hung up (tty_hangup, which also wakes a tty_input blocked on a full queue),
+// the pty reference pty_open_fake handed over goes back, the session's jobs
+// are hung up, and its group gives up the terminal *now* -- not at reaping,
+// which never comes, because the parent is an init that never waits. Without
+// the last step the pty stays allocated for the life of the process and
+// /dev/pts can never be unmounted; see a_closed_session_lets_dev_pts_go.
+//
+// tty_release used to hang the terminal up itself; it only gives the
+// reference back now, as its comment in iul.h always said.
 //
 // Harmless on a session that has already exited: the group is gone, so the
-// hangup answers _ESRCH, and the terminal is given up from the zombie.
+// signal answers _ESRCH, and the terminal is given up from the zombie.
 static void close_session(void) {
     pthread_mutex_lock(&session_lock);
     struct tty *tty = session.tty;
     pid_t_ pid = session.pid;
     session.tty = NULL;
     pthread_mutex_unlock(&session_lock);
-    if (tty != NULL)
+    if (tty != NULL) {
+        tty_hangup(tty);
         tty_release(tty);
+    }
     if (pid > 0) {
-        iul_kill_process_group(pid, SIGHUP_);
+        iul_kill_session(pid, SIGHUP_);
         iul_leave_terminal(pid);
     }
 }

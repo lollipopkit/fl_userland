@@ -202,8 +202,10 @@ void tty_set_winsize(const struct tty *tty, struct winsize_ winsize);
 /* Keystrokes: bytes the session reads on fd 0. The count taken, or `_EAGAIN`
  * when the queue is full and `blocking` is false. */
 ssize_t tty_input(const struct tty *tty, const void *buf, size_t len, bool blocking);
-/* Hang up the terminal `pty_open_fake` made, waking any blocked `tty_input`
- * before `tty_release` gives the reference back. */
+/* Hang up the terminal `pty_open_fake` made: wakes any blocked `tty_input`,
+ * hangs up the session's descriptions on it, and removes its `/dev/pts` node.
+ * `tty_release` only gives the reference back; call this first to end the
+ * session's terminal. */
 void tty_hangup(const struct tty *tty);
 /* Give back the reference `pty_open_fake` handed over. */
 void tty_release(struct tty *tty);
