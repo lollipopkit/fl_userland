@@ -6,35 +6,6 @@ use super::*;
 // Where the task is
 // ---------------------------------------------------------------------------
 
-/// The working directory, reported relative to the task's own root.
-///
-/// `generic_getpath` answers in the *machine's* terms, and a task rooted at a
-/// subtree would otherwise be told its working directory is a path it cannot
-/// name — `/jail` for what is its own `/`. That is what Linux does for a
-/// chrooted process.
-///
-/// Two things this must not do. `generic_getpath` answers `"/"` for a task
-/// rooted at the machine's own — it repairs an empty result to that — so
-/// stripping unconditionally would take the leading slash off every path a
-/// normal task reports and turn `/tmp` into `tmp`. And the prefix has to end on
-/// a component boundary, or a cwd of `/jail-old` under a root of `/jail` would
-/// be reported as `-old`.
-///
-/// A cwd outside the root is left as it is: it cannot be spelled from inside,
-/// but a machine-absolute path is at least true, and there is no reachable way
-/// to produce one — `fs_chdir` only stores what this task resolved.
-fn relative_to_root(pwd: &[u8], root: &[u8]) -> Vec<u8> {
-    if root.len() > 1 && pwd.starts_with(root) && matches!(pwd.get(root.len()), None | Some(b'/')) {
-        let rest = &pwd[root.len()..];
-        return if rest.is_empty() {
-            b"/".to_vec()
-        } else {
-            rest.to_vec()
-        };
-    }
-    pwd.to_vec()
-}
-
 pub fn sys_getcwd(buf_addr: u64, size: u64) -> Result<i64, Errno> {
     strace!("getcwd({buf_addr:#x}, {size:#x})");
     // Both with a reference taken, and the lock released before generic_getpath
@@ -70,7 +41,7 @@ pub fn sys_getcwd(buf_addr: u64, size: u64) -> Result<i64, Errno> {
     drop((wd, root_fd));
     done(err)?;
 
-    let out = relative_to_root(ffi::path_bytes(&pwd), ffi::path_bytes(&root));
+    let out = fsinfo::relative_to_root(ffi::path_bytes(&pwd), ffi::path_bytes(&root));
     // The terminator counts, as it does on Linux: getcwd answers the length of
     // the string *including* the NUL, and ERANGE when the buffer cannot hold
     // that much.
@@ -152,30 +123,3 @@ pub fn sys_umask(mask: c_uint) -> u32 {
     with_context(|fs| fs.set_umask(mask))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::relative_to_root;
-
-    #[test]
-    fn root_path_becomes_guest_root() {
-        assert_eq!(relative_to_root(b"/jail", b"/jail"), b"/");
-    }
-
-    #[test]
-    fn descendant_loses_only_the_root_prefix() {
-        assert_eq!(relative_to_root(b"/jail/tmp", b"/jail"), b"/tmp");
-    }
-
-    #[test]
-    fn component_prefix_is_not_stripped() {
-        assert_eq!(
-            relative_to_root(b"/jail-old/tmp", b"/jail"),
-            b"/jail-old/tmp"
-        );
-    }
-
-    #[test]
-    fn outside_root_is_preserved() {
-        assert_eq!(relative_to_root(b"/other", b"/jail"), b"/other");
-    }
-}

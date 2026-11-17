@@ -188,6 +188,38 @@ pub unsafe extern "C" fn fs_chroot(h: *mut c_void, fd: *mut c_void) {
     unsafe { &*h.cast::<FsInfo>() }.chroot(fd);
 }
 
+/// A machine-absolute path -- what `generic_getpath` answers -- as the task
+/// rooted at `root` names it: the working directory for `getcwd`, and the
+/// links `/proc/<pid>/{cwd,root,exe,fd/*,map_files/*}` for a reader that is
+/// chrooted.
+///
+/// `generic_getpath` answers in the *machine's* terms, and a task rooted at a
+/// subtree would otherwise be told its working directory is a path it cannot
+/// name — `/jail` for what is its own `/`. That is what Linux does for a
+/// chrooted process.
+///
+/// Two things this must not do. `generic_getpath` answers `"/"` for a task
+/// rooted at the machine's own — it repairs an empty result to that — so
+/// stripping unconditionally would take the leading slash off every path a
+/// normal task reports and turn `/tmp` into `tmp`. And the prefix has to end on
+/// a component boundary, or a cwd of `/jail-old` under a root of `/jail` would
+/// be reported as `-old`.
+///
+/// A cwd outside the root is left as it is: it cannot be spelled from inside,
+/// but a machine-absolute path is at least true, and there is no reachable way
+/// to produce one — `fs_chdir` only stores what this task resolved.
+pub fn relative_to_root(pwd: &[u8], root: &[u8]) -> Vec<u8> {
+    if root.len() > 1 && pwd.starts_with(root) && matches!(pwd.get(root.len()), None | Some(b'/')) {
+        let rest = &pwd[root.len()..];
+        return if rest.is_empty() {
+            b"/".to_vec()
+        } else {
+            rest.to_vec()
+        };
+    }
+    pwd.to_vec()
+}
+
 // ---------------------------------------------------------------------------
 // umask
 // ---------------------------------------------------------------------------

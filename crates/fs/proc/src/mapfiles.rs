@@ -21,7 +21,7 @@ use crate::ffi;
 use crate::pidentry::ptrace_guard;
 use crate::root::blank;
 
-use guest_errno::c_int_::{ENOENT, EPERM};
+use guest_errno::c_int_::EPERM;
 
 fn name_of(start: u64, end: u64) -> String {
     format!("{start:x}-{end:x}")
@@ -40,10 +40,7 @@ fn mapped(entry: &mut ffi::proc_entry) -> Option<fs_fdobj::Owned> {
 }
 
 fn map_readlink(entry: &mut ffi::proc_entry, buf: &mut [u8]) -> c_int {
-    match mapped(entry) {
-        Some(fd) => fs_generic::generic_getpath(&fd, buf),
-        None => ENOENT,
-    }
+    crate::pidentry::path_of(mapped(entry), buf)
 }
 
 /// `proc_map_files_get_link`. A file with a path is followed by it, as

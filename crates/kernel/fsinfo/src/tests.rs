@@ -154,3 +154,32 @@ fn the_umask_keeps_only_the_permission_bits() {
     assert_eq!(fs.umask(), 0o777);
     assert_eq!(fs.apply_umask(0o666), 0);
 }
+
+// `relative_to_root`, moved here from `crates/kernel/pathcalls` on 2026-11-17
+// when `/proc/<pid>` links needed the same rule.
+mod relative_to_root {
+    use crate::relative_to_root;
+
+    #[test]
+    fn root_path_becomes_guest_root() {
+        assert_eq!(relative_to_root(b"/jail", b"/jail"), b"/");
+    }
+
+    #[test]
+    fn descendant_loses_only_the_root_prefix() {
+        assert_eq!(relative_to_root(b"/jail/tmp", b"/jail"), b"/tmp");
+    }
+
+    #[test]
+    fn component_prefix_is_not_stripped() {
+        assert_eq!(
+            relative_to_root(b"/jail-old/tmp", b"/jail"),
+            b"/jail-old/tmp"
+        );
+    }
+
+    #[test]
+    fn outside_root_is_preserved() {
+        assert_eq!(relative_to_root(b"/other", b"/jail"), b"/other");
+    }
+}

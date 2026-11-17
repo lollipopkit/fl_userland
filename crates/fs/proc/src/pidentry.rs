@@ -91,27 +91,15 @@ fn fd_readdir(entry: &mut ffi::proc_entry, index: &mut c_ulong) -> Option<ffi::p
     })
 }
 
-/// `generic_getpath` on a descriptor.
+/// `generic_getpath` on a descriptor, as the **reader** names it: relative
+/// to the reader's root when it is chrooted, as Linux's `d_path` against the
+/// reader's root answers (and `getcwd` here already did).
 ///
 /// **"Releasing it either way" used to be this function's whole doc comment**
 /// and is the type's job now: an [`Owned`] releases when it goes out of scope,
-/// on the error path and the success path alike, and the three callers below
-/// each hand one over rather than a pointer plus an obligation. Object model
-/// step 9.7.
-/// Strip the caller's chroot root prefix from a machine-absolute path.
-fn relative_to_root(path: &[u8], root: &[u8]) -> Vec<u8> {
-    if root.len() > 1 && path.starts_with(root) && matches!(path.get(root.len()), None | Some(b'/')) {
-        let rest = &path[root.len()..];
-        return if rest.is_empty() {
-            b"/".to_vec()
-        } else {
-            rest.to_vec()
-        };
-    }
-    path.to_vec()
-}
-
-fn path_of(fd: Option<fs_fdobj::Owned>, buf: &mut [u8]) -> c_int {
+/// on the error path and the success path alike, and the callers hand one
+/// over rather than a pointer plus an obligation. Object model step 9.7.
+pub(crate) fn path_of(fd: Option<fs_fdobj::Owned>, buf: &mut [u8]) -> c_int {
     let Some(fd) = fd else {
         return ENOENT;
     };
@@ -130,7 +118,7 @@ fn path_of(fd: Option<fs_fdobj::Owned>, buf: &mut [u8]) -> c_int {
     if root_err < 0 {
         return err;
     }
-    let rel = relative_to_root(ffi::path_bytes(buf), ffi::path_bytes(&root_buf));
+    let rel = fsinfo::relative_to_root(ffi::path_bytes(buf), ffi::path_bytes(&root_buf));
     ffi::fill_path(buf, &rel)
 }
 
