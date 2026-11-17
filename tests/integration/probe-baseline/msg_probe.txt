@@ -93,6 +93,12 @@ sendmsg(flags=every bit)                             -> 5
 recvmsg(a 64-byte datagram into 8 bytes)             -> 8
   msg_flags has MSG_TRUNC                            -> 1
   msg_flags has anything else                        -> 0
+recvmsg(64 bytes into 8, MSG_TRUNC)                  -> 64
+  msg_flags has MSG_TRUNC                            -> 1
+recv(64 bytes into 8, MSG_TRUNC)                     -> 64
+recv(64 bytes into NULL/0, MSG_TRUNC)                -> 64
+recv(MSG_TRUNC|MSG_PEEK)                             -> 64
+  then recv without MSG_TRUNC                        -> 8
 recvmsg(a stream, name/control null)                 -> 5
   msg_namelen after                                  -> 99
   msg_controllen after                               -> 0

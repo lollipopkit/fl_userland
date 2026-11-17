@@ -300,7 +300,13 @@ pub(crate) fn send_msg(
 
 /// What a `recvmsg` got.
 pub(crate) struct Received {
+    /// What landed in the buffers.
     pub(crate) bytes: usize,
+    /// The message's whole length, when the caller asked for it with
+    /// `datagram_len`: Linux's answer to `MSG_TRUNC` on a message socket,
+    /// which Darwin does not give ([`pending_datagram_len`]). `bytes`
+    /// otherwise.
+    pub(crate) full_len: usize,
     /// The host's `msg_flags`, untranslated.
     pub(crate) flags: c_int,
     /// The sender, as the host wrote it; see [`AddrBuf::is_some`].
@@ -311,6 +317,26 @@ pub(crate) struct Received {
     /// Every other control message, in the host's terms; see
     /// `crate::ancillary`.
     pub(crate) control: Vec<HostCmsg>,
+}
+
+/// The size of the datagram at the head of the receive queue: Darwin's
+/// `SO_NREAD`, which for a message socket is the first message's length --
+/// not the queue's total, which `FIONREAD` answers. 0 for an empty queue and
+/// for a zero-length datagram alike.
+///
+/// For `MSG_TRUNC` on a message socket, where Linux answers the datagram's
+/// full length and Darwin answers what fitted (measured: a 1000-byte datagram
+/// into 10 bytes is 10 here, 1000 there). Read **under the caller's peek or
+/// receive of that same message** -- see [`recv_msg`]'s `trunc` -- because the
+/// head can change between this and the receive on a socket another thread
+/// also reads; then the answer is the length of whichever message was taken,
+/// as long as nothing else took it first.
+pub(crate) fn pending_datagram_len(fd: BorrowedFd<'_>) -> HostResult<usize> {
+    let mut n: c_int = 0;
+    let mut len = size_of::<c_int>() as libc::socklen_t;
+    // SAFETY: `n` is a local `c_int` and `len` says so.
+    check(unsafe { libc::getsockopt(fd.as_raw_fd(), libc::SOL_SOCKET, libc::SO_NREAD, (&raw mut n).cast(), &mut len) } as isize)?;
+    Ok(n.max(0) as usize)
 }
 
 /// Whether something is waiting to be received, without waiting for it.
@@ -359,7 +385,14 @@ pub(crate) fn recv_msg(
     want_name: bool,
     want_control: bool,
     flags: c_int,
+    datagram_len: bool,
 ) -> HostResult<Received> {
+    // Asked immediately before the receive. The message measured is the one
+    // about to be taken unless another reader of this socket takes it in
+    // between, which a guest sharing one datagram socket between threads
+    // has asked for; the answer is then the next message's length, never
+    // less than what was copied (`max` below).
+    let pending = if datagram_len { Some(pending_datagram_len(fd)?) } else { None };
     let mut empty = [0u8; 1];
     let mut iov: Vec<libc::iovec> = bufs
         .iter_mut()
@@ -422,6 +455,7 @@ pub(crate) fn recv_msg(
     });
     Ok(Received {
         bytes,
+        full_len: pending.map_or(bytes, |p| p.max(bytes)),
         flags: msg_flags,
         name,
         rights,

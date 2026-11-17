@@ -151,29 +151,37 @@ pub fn sys_recvfrom(
 
     // Clamped for the same reason as sendto, and a short recv is normal.
     let want = rwabi::bounce_clamp(len);
-    let probe_trunc =
-        (real_flags & libc::MSG_TRUNC != 0) && sock.ty() != guest::SOCK_STREAM && want < 65536;
-    let buf_cap = if probe_trunc { 65536 } else { want };
     let mut buffer = Vec::new();
-    if buffer.try_reserve(buf_cap.max(1)).is_err() {
+    if buffer.try_reserve(want.max(1)).is_err() {
         return Err(Errno::ENOMEM);
     }
-    buffer.resize(buf_cap, 0u8);
+    buffer.resize(want, 0u8);
 
     let real = sock.real()?;
     // What the host said the sender was, from the first read that asked. The
     // address is only asked for when the guest gave somewhere to put it.
     let want_addr = sockaddr_addr != 0 && sockaddr_len_addr != 0;
     let mut from: Option<host::AddrBuf> = None;
+    // `MSG_TRUNC` on a message socket answers the datagram's whole length,
+    // which Linux does and Darwin does not (it answers what fitted): the
+    // length is asked of the host just before the receive that takes it.
+    // On a stream the flag means "discard", which the host does the same.
+    let datagram_len = real_flags & libc::MSG_TRUNC != 0 && sock.ty() != guest::SOCK_STREAM;
+    let mut full_len: Option<usize> = None;
     let mut receive = |buf: &mut [u8], flags: c_int, first: bool| {
-        if want_addr && first {
+        let pending = if datagram_len && first { Some(host::pending_datagram_len(real)?) } else { None };
+        let n = if want_addr && first {
             host::recv_from(real, buf, flags).map(|(n, addr)| {
                 from = Some(addr);
                 n
             })
         } else {
             host::recv(real, buf, flags)
+        }?;
+        if let Some(p) = pending {
+            full_len = Some(p.max(n));
         }
+        Ok(n)
     };
 
     // Whether this call should wait:
@@ -239,11 +247,12 @@ pub fn sys_recvfrom(
         receive(&mut buffer, real_flags, true).map_err(rx_err)? as isize
     };
 
+    let answer = full_len.map_or(res, |n| n as isize);
+
     // `res` bytes were received, `want` were asked for. Copying `want` back
     // overwrote whatever the guest had after a short read with the tail of an
     // uninitialised buffer.
-    let copy_len = (res as usize).min(want);
-    if copy_len > 0 && GuestMem.write(buffer_addr, &buffer[..copy_len]) != 0 {
+    if GuestMem.write(buffer_addr, &buffer[..res as usize]) != 0 {
         return Err(Errno::EFAULT);
     }
 
@@ -266,7 +275,7 @@ pub fn sys_recvfrom(
                 nl.len() as u32,
                 buffer_len,
             )?;
-            return Ok(res as i64);
+            return Ok(answer as i64);
         }
         // And only if the host filled one in at all. It does not on a connected
         // socket, and the accumulating loop above only asks on its first pass --
@@ -280,7 +289,7 @@ pub fn sys_recvfrom(
         }
         put_u32(sockaddr_len_addr, out_len)?;
     }
-    Ok(res as i64)
+    Ok(answer as i64)
 }
 
 /// The guest's `O_NONBLOCK`, from `fs/fd.h`. 0o4000 on aarch64.

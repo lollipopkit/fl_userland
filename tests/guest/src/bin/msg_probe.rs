@@ -424,6 +424,25 @@ fn main() {
             report("recvmsg(a 64-byte datagram into 8 bytes)", n);
             value("  msg_flags has MSG_TRUNC", ((h.flags & libc::MSG_TRUNC) != 0) as i64);
             value("  msg_flags has anything else", (h.flags & !libc::MSG_TRUNC) as i64);
+            // And with MSG_TRUNC asked for: the datagram's whole length.
+            // Darwin answers what fitted, which is what this kernel answered
+            // until 2026-11-17.
+            unsafe { libc::write(b, big.as_ptr() as *const libc::c_void, 64) };
+            let mut h = one_iov(&riov);
+            let n = unsafe { recvmsg(a, &mut h, libc::MSG_DONTWAIT | libc::MSG_TRUNC) };
+            report("recvmsg(64 bytes into 8, MSG_TRUNC)", n);
+            value("  msg_flags has MSG_TRUNC", ((h.flags & libc::MSG_TRUNC) != 0) as i64);
+            unsafe { libc::write(b, big.as_ptr() as *const libc::c_void, 64) };
+            let n = unsafe { libc::recv(a, got.as_mut_ptr().cast(), 8, libc::MSG_DONTWAIT | libc::MSG_TRUNC) };
+            report("recv(64 bytes into 8, MSG_TRUNC)", n as i64);
+            unsafe { libc::write(b, big.as_ptr() as *const libc::c_void, 64) };
+            let n = unsafe { libc::recv(a, std::ptr::null_mut(), 0, libc::MSG_DONTWAIT | libc::MSG_TRUNC) };
+            report("recv(64 bytes into NULL/0, MSG_TRUNC)", n as i64);
+            unsafe { libc::write(b, big.as_ptr() as *const libc::c_void, 64) };
+            let n = unsafe { libc::recv(a, got.as_mut_ptr().cast(), 8, libc::MSG_DONTWAIT | libc::MSG_TRUNC | libc::MSG_PEEK) };
+            report("recv(MSG_TRUNC|MSG_PEEK)", n as i64);
+            let n = unsafe { libc::recv(a, got.as_mut_ptr().cast(), 8, libc::MSG_DONTWAIT) };
+            report("  then recv without MSG_TRUNC", n as i64);
             close2(a, b);
         } else {
             println!("recvmsg(a 64-byte datagram into 8 bytes)         -> no SOCK_DGRAM pair");
